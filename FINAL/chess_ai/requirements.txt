@@ -1,0 +1,11 @@
+flask==3.0.0
+flask-socketio==5.3.5
+flask-cors==4.0.0
+python-socketio==5.10.0
+python-chess==1.999
+python-dotenv==1.0.0
+gunicorn==21.2.0
+eventlet==0.33.3
+numpy==1.24.3
+torch==2.1.0
+redis==5.0.1

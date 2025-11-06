@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Chess AI Visualizer - AlphaZero Project</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 500px 1fr;
+            gap: 30px;
+        }
+
+        #board {
+            margin: 0 auto;
+        }
+
+        .controls {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .controls h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-warning {
+            background: #ed8936;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #dd6b20;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .speed-control {
+            margin: 15px 0;
+        }
+
+        .speed-control input[type="range"] {
+            width: 100%;
+        }
+
+        .stats-panel,
+        .history-panel,
+        .mcts-panel {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stats-panel h3,
+        .history-panel h3,
+        .mcts-panel h3 {
+            margin-top: 0;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .stat-label {
+            font-weight: bold;
+            color: #4a5568;
+        }
+
+        .stat-value {
+            color: #2d3748;
+        }
+
+        .move-history {
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .move-item {
+            padding: 4px;
+            margin: 2px 0;
+            background: #edf2f7;
+            border-radius: 3px;
+        }
+
+        #status {
+            padding: 10px;
+            background: #bee3f8;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+            color: #2c5282;
+            margin-top: 10px;
+        }
+
+        .mcts-viz {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            color: #718096;
+            min-height: 200px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Chess AI Visualizer - AlphaZero Project</h1>
+
+        <div class="main-grid">
+            <div class="board-section">
+                <div id="board" style="width: 500px"></div>
+                <div id="status">Ready to play</div>
+            </div>
+
+            <div class="right-panel">
+                <div class="controls">
+                    <h3>Game Controls</h3>
+                    <button class="btn-primary" onclick="startNewGame()">New Game</button>
+                    <button class="btn-success" onclick="makeRandomMove()">Random Move</button>
+                    <button class="btn-warning" onclick="startAutoPlay()">▶ Auto Play</button>
+                    <button class="btn-danger" onclick="stopAutoPlay()">⏹ Stop</button>
+
+                    <div class="speed-control">
+                        <label for="speedSlider">Auto-play Speed: <span id="speedValue">500</span> ms</label>
+                        <input type="range" id="speedSlider" min="100" max="2000" value="500" step="100">
+                    </div>
+                </div>
+
+                <div class="stats-panel">
+                    <h3>Game Statistics</h3>
+                    <div class="stat-item">
+                        <span class="stat-label">Game ID:</span>
+                        <span class="stat-value" id="gameId">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Total Moves:</span>
+                        <span class="stat-value" id="totalMoves">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Current Turn:</span>
+                        <span class="stat-value" id="currentTurn">White</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Legal Moves:</span>
+                        <span class="stat-value" id="legalMovesCount">20</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Game Status:</span>
+                        <span class="stat-value" id="gameStatus">In Progress</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Result:</span>
+                        <span class="stat-value" id="gameResult">-</span>
+                    </div>
+                </div>
+
+                <div class="history-panel">
+                    <h3>Move History</h3>
+                    <div class="move-history" id="moveHistory">
+                        <em>No moves yet</em>
+                    </div>
+                </div>
+
+                <div class="mcts-panel">
+                    <h3>MCTS Visualization</h3>
+                    <div class="mcts-viz" id="mctsViz">
+                        <em>MCTS features coming in Week 2</em>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        let board = null;
+        let currentGameId = null;
+        let legalMoves = [];
+        let socket = null;
+        let isAutoPlaying = false;
+
+        function updateBoard(data) {
+            board.position(data.fen, true);
+            legalMoves = data.legal_moves || [];
+
+            // Update stats
+            $('#gameId').text(data.game_id || currentGameId);
+            $('#totalMoves').text(data.move_count || 0);
+            $('#legalMovesCount').text(legalMoves.length);
+            $('#currentTurn').text(legalMoves.length > 0 ? (data.move_count % 2 === 0 ? 'White' : 'Black') : '-');
+
+            if (data.is_over) {
+                $('#gameStatus').text('Game Over');
+                $('#gameResult').text(data.result || 'Draw');
+                $('#status').text(`Game Over: ${data.result || 'Draw'}`).css('background', '#fed7d7');
+                stopAutoPlay();
+            } else {
+                $('#gameStatus').text('In Progress');
+                $('#gameResult').text('-');
+                $('#status').text('Game in progress').css('background', '#c6f6d5');
+            }
+
+            // Update move history
+            updateMoveHistory();
+        }
+
+        function updateMoveHistory() {
+            fetch(`/game_stats/${currentGameId}`)
+                .then(r => r.json())
+                .then(data => {
+                    const history = $('#moveHistory');
+                    if (data.move_history && data.move_history.length > 0) {
+                        let html = '';
+                        data.move_history.forEach((move, idx) => {
+                            const moveNum = Math.floor(idx / 2) + 1;
+                            if (idx % 2 === 0) {
+                                html += `<div class="move-item">${moveNum}. ${move}`;
+                            } else {
+                                html += ` ${move}</div>`;
+                            }
+                        });
+                        history.html(html);
+                        history.scrollTop(history[0].scrollHeight);
+                    } else {
+                        history.html('<em>No moves yet</em>');
+                    }
+                });
+        }
+
+        function startNewGame() {
+            fetch('/new_game', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    currentGameId = d.game_id;
+                    updateBoard(d);
+                    $('#status').text('New game started!').css('background', '#bee3f8');
+                });
+        }
+
+        function makeRandomMove() {
+            if (!currentGameId) return;
+            fetch(`/random_move/${currentGameId}`, { method: 'POST' })
+                .then(r => r.json())
+                .then(d => updateBoard(d));
+        }
+
+        function startAutoPlay() {
+            if (!currentGameId || isAutoPlaying) return;
+            isAutoPlaying = true;
+            autoPlayLoop();
+        }
+
+        async function autoPlayLoop() {
+            while (isAutoPlaying) {
+                let response = await fetch(`/random_move/${currentGameId}`, { method: 'POST' });
+                let data = await response.json();
+                updateBoard(data);
+                if (data.is_over) {
+                    isAutoPlaying = false;
+                    $('#status').text(`Game Over: ${data.result || 'Draw'}`);
+                    break;
+                }
+                let delay = parseInt($('#speedSlider').val());
+                await new Promise(r => setTimeout(r, delay));
+            }
+        }
+
+        function stopAutoPlay() {
+            isAutoPlaying = false;
+            $('#status').text('Auto-play stopped');
+        }
+
+
+        $('#speedSlider').on('input', function () {
+            $('#speedValue').text($(this).val());
+        });
+
+        $(document).ready(function () {
+            const config = {
+                draggable: false,
+                position: 'start',
+                pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+            };
+            board = Chessboard('board', config);
+
+            // Initialize SocketIO
+            socket = io();
+
+            socket.on('connect', function () {
+                console.log('Connected to server');
+            });
+
+            socket.on('game_state', function (data) {
+                if (data.game_id) currentGameId = data.game_id;
+                updateBoard(data);
+            });
+
+            socket.on('message', function (data) {
+                console.log('Server message:', data.text);
+            });
+
+            socket.on('error', function (data) {
+                console.error('Server error:', data.error);
+            });
+
+            startNewGame();
+        });
+    </script>
+</body>
+
+</html>
