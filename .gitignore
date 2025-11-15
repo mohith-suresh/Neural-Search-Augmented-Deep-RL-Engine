@@ -207,3 +207,17 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 FINAL/chess_ai/Miniconda3-latest-Linux-x86_64.sh
+
+
+create_dataset_parallel.py
+
+# main file for cloud multi threaded processing
+create_dataset_flexible.py 
+create_dataset_batched.py
+create_dataset_optimized.py
+
+outputs
+best_chess_model.pth 
+chess_model_final.pth
+
+lichess_data 

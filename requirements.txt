@@ -1,0 +1,27 @@
+# Week 1 - Complete package requirements
+
+# Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Chess
+python-chess>=1.999
+
+# Data Processing
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Utilities
+tqdm>=4.65.0
+psutil>=5.9.0
+
+# Kaggle
+kaggle>=1.5.13
+
+# Visualization (optional)
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Image processing
+Pillow>=9.5.0
