@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Chess AI Visualizer - AlphaZero Project</title>
+    <title>Chess AI</title>
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
     <style>
         * {
@@ -29,7 +29,52 @@
         h1 {
             text-align: center;
             color: #333;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+        }
+
+        .mode-selection {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .mode-selection h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+
+        .mode-btn {
+            padding: 15px 30px;
+            margin: 10px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            background: white;
+            color: #667eea;
+            transition: all 0.3s;
+        }
+
+        .mode-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .ai-side-selection {
+            display: none;
+            margin-top: 15px;
+        }
+
+        .ai-side-selection.visible {
+            display: block;
         }
 
         .main-grid {
@@ -38,28 +83,81 @@
             gap: 30px;
         }
 
+        .board-section {
+            position: relative;
+        }
+
         #board {
             margin: 0 auto;
         }
 
+        .player-info {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+
+        .player-info.active {
+            background: #bee3f8;
+        }
+
+        .timer {
+            font-family: monospace;
+            font-size: 18px;
+        }
+
+        .ai-thinking {
+            display: none !important;
+        }
+
+
+        .ai-thinking.visible {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
         .controls {
             background: #f8f9fa;
-            padding: 20px;
+            padding: 15px;
             border-radius: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .controls h3 {
             margin-top: 0;
             color: #667eea;
+            font-size: 16px;
         }
 
         button {
-            padding: 10px 20px;
-            margin: 5px;
+            padding: 8px 16px;
+            margin: 4px;
             border: none;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s;
@@ -101,37 +199,42 @@
             background: #e53e3e;
         }
 
-        .speed-control {
-            margin: 15px 0;
+        .toggle-container {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
         }
 
-        .speed-control input[type="range"] {
-            width: 100%;
+        .toggle-container label {
+            margin-right: 10px;
+            font-weight: bold;
         }
 
         .stats-panel,
         .history-panel,
-        .mcts-panel {
+        .analysis-panel {
             background: #f8f9fa;
-            padding: 20px;
+            padding: 15px;
             border-radius: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .stats-panel h3,
         .history-panel h3,
-        .mcts-panel h3 {
+        .analysis-panel h3 {
             margin-top: 0;
             color: #667eea;
+            font-size: 16px;
             border-bottom: 2px solid #667eea;
-            padding-bottom: 10px;
+            padding-bottom: 8px;
         }
 
         .stat-item {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            padding: 6px 0;
             border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
         }
 
         .stat-label {
@@ -144,72 +247,107 @@
         }
 
         .move-history {
-            max-height: 300px;
+            max-height: 150px;
             overflow-y: auto;
             background: white;
-            padding: 10px;
+            padding: 8px;
             border-radius: 5px;
             font-family: monospace;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .move-item {
-            padding: 4px;
+            padding: 3px;
             margin: 2px 0;
             background: #edf2f7;
             border-radius: 3px;
         }
 
         #status {
-            padding: 10px;
+            padding: 8px;
             background: #bee3f8;
             border-radius: 5px;
             text-align: center;
             font-weight: bold;
             color: #2c5282;
             margin-top: 10px;
+            font-size: 13px;
         }
 
-        .mcts-viz {
+        .analysis-content {
             background: white;
-            padding: 15px;
+            padding: 10px;
             border-radius: 5px;
             text-align: center;
             color: #718096;
-            min-height: 200px;
+            font-size: 12px;
+            min-height: 80px;
+        }
+
+        .right-panel {
+            max-height: 600px;
+            overflow-y: auto;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>Chess AI Visualizer - AlphaZero Project</h1>
+        <h1>Chess AI</h1>
 
-        <div class="main-grid">
+        <div class="mode-selection" id="modeSelection">
+            <h3>Select Game Mode</h3>
+            <button class="mode-btn" onclick="selectMode('pvp')">Human vs Human</button>
+            <button class="mode-btn" onclick="selectMode('pve')">Human vs AI</button>
+
+            <div class="ai-side-selection" id="aiSideSelection">
+                <h4>Select Your Color:</h4>
+                <button class="mode-btn" onclick="startGame('white')">Play as White</button>
+                <button class="mode-btn" onclick="startGame('black')">Play as Black</button>
+            </div>
+        </div>
+
+        <div class="main-grid" id="gameArea" style="display: none;">
             <div class="board-section">
-                <div id="board" style="width: 500px"></div>
-                <div id="status">Ready to play</div>
+                <div class="player-info" id="blackPlayerInfo">
+                    <span id="blackPlayerName">Black</span>
+                    <span class="timer" id="blackTimer">10:00</span>
+                </div>
+
+                <div style="position: relative;">
+                    <div id="board" style="width: 500px"></div>
+                    <div class="ai-thinking" id="aiThinking">
+                        <div>AI is thinking...</div>
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+
+                <div class="player-info" id="whitePlayerInfo">
+                    <span id="whitePlayerName">White</span>
+                    <span class="timer" id="whiteTimer">10:00</span>
+                </div>
+
+                <div id="status">Select game mode to start</div>
             </div>
 
             <div class="right-panel">
                 <div class="controls">
                     <h3>Game Controls</h3>
-                    <button class="btn-primary" onclick="startNewGame()">New Game</button>
-                    <button class="btn-success" onclick="makeRandomMove()">Random Move</button>
-                    <button class="btn-warning" onclick="startAutoPlay()">▶ Auto Play</button>
-                    <button class="btn-danger" onclick="stopAutoPlay()">⏹ Stop</button>
+                    <button class="btn-primary" onclick="newGame()">New Game</button>
+                    <button class="btn-warning" onclick="undoMove()">Undo</button>
+                    <button class="btn-danger" onclick="resign()">Resign</button>
 
-                    <div class="speed-control">
-                        <label for="speedSlider">Auto-play Speed: <span id="speedValue">500</span> ms</label>
-                        <input type="range" id="speedSlider" min="100" max="2000" value="500" step="100">
+                    <div class="toggle-container">
+                        <label for="highlightToggle">Highlight Moves:</label>
+                        <input type="checkbox" id="highlightToggle" checked onchange="toggleHighlights()">
                     </div>
                 </div>
 
                 <div class="stats-panel">
                     <h3>Game Statistics</h3>
                     <div class="stat-item">
-                        <span class="stat-label">Game ID:</span>
-                        <span class="stat-value" id="gameId">-</span>
+                        <span class="stat-label">Mode:</span>
+                        <span class="stat-value" id="gameMode">-</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Total Moves:</span>
@@ -220,16 +358,8 @@
                         <span class="stat-value" id="currentTurn">White</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">Legal Moves:</span>
-                        <span class="stat-value" id="legalMovesCount">20</span>
-                    </div>
-                    <div class="stat-item">
                         <span class="stat-label">Game Status:</span>
                         <span class="stat-value" id="gameStatus">In Progress</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Result:</span>
-                        <span class="stat-value" id="gameResult">-</span>
                     </div>
                 </div>
 
@@ -240,10 +370,10 @@
                     </div>
                 </div>
 
-                <div class="mcts-panel">
-                    <h3>MCTS Visualization</h3>
-                    <div class="mcts-viz" id="mctsViz">
-                        <em>MCTS features coming in Week 2</em>
+                <div class="analysis-panel">
+                    <h3>Post-Game Analysis</h3>
+                    <div class="analysis-content" id="analysisContent">
+                        <em>Analysis available after game ends<br>AlphaZero engine integration coming soon</em>
                     </div>
                 </div>
             </div>
@@ -253,35 +383,324 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
     <script>
         let board = null;
-        let currentGameId = null;
-        let legalMoves = [];
         let socket = null;
-        let isAutoPlaying = false;
+        let currentGameId = null;
+        let gameMode = null;
+        let aiSide = null;
+        let playerSide = null;
+        let highlightEnabled = true;
+        let selectedSquare = null;
+        let legalMoves = [];
 
-        function updateBoard(data) {
-            board.position(data.fen, true);
-            legalMoves = data.legal_moves || [];
+        let whiteTime = 600;
+        let blackTime = 600;
+        let timerInterval = null;
+        let currentTurn = 'white';
 
-            // Update stats
-            $('#gameId').text(data.game_id || currentGameId);
-            $('#totalMoves').text(data.move_count || 0);
-            $('#legalMovesCount').text(legalMoves.length);
-            $('#currentTurn').text(legalMoves.length > 0 ? (data.move_count % 2 === 0 ? 'White' : 'Black') : '-');
+        socket = io();
 
-            if (data.is_over) {
-                $('#gameStatus').text('Game Over');
-                $('#gameResult').text(data.result || 'Draw');
-                $('#status').text(`Game Over: ${data.result || 'Draw'}`).css('background', '#fed7d7');
-                stopAutoPlay();
-            } else {
-                $('#gameStatus').text('In Progress');
-                $('#gameResult').text('-');
-                $('#status').text('Game in progress').css('background', '#c6f6d5');
+        socket.on('connect', () => console.log('Connected'));
+
+        socket.on('game_created', (data) => {
+            currentGameId = data.game_id;
+            gameMode = data.mode;
+            aiSide = data.ai_side;
+            playerSide = (aiSide === 'white') ? 'black' : 'white';
+
+            whiteTime = 600;
+            blackTime = 600;
+            currentTurn = 'white';
+            updateTimerDisplay();
+            startTimer();
+
+            updateGameState(data);
+            updatePlayerLabels();
+            $('#status').text('Game started!').css('background', '#c6f6d5');
+        });
+
+        socket.on('move_made', (data) => {
+            updateGameState(data);
+
+            if (data.in_check) {
+                $('#status').text('Check!').css('background', '#fefcbf');
             }
 
-            // Update move history
+            currentTurn = data.move_count % 2 === 0 ? 'white' : 'black';
+        });
+
+        socket.on('ai_thinking', () => {
+            // Do nothing - let timer continue
+        });
+
+        socket.on('ai_move', (data) => {
+            updateGameState(data);
+
+            currentTurn = data.move_count % 2 === 0 ? 'white' : 'black';
+
+            if (data.in_check) {
+                $('#status').text('Check!').css('background', '#fefcbf');
+            }
+        });
+
+        socket.on('move_undone', (data) => {
+            updateGameState(data);
+            currentTurn = data.move_count % 2 === 0 ? 'white' : 'black';
+            $('#status').text('Move undone').css('background', '#fefcbf');
+        });
+
+        socket.on('game_over', (data) => {
+            stopTimer();
+            updateGameState(data);
+
+            const message = data.message || `Game Over: ${data.result}`;
+            $('#status').html(`<strong>${message}</strong>`).css('background', '#fed7d7');
+
+            $('#analysisContent').html(`
+                <strong>Game Finished!</strong><br>
+                <strong>${data.game_ending_reason ? data.game_ending_reason.replace('_', ' ').toUpperCase() : 'GAME OVER'}</strong><br>
+                ${data.winner ? `Winner: ${data.winner}` : 'Draw'}<br>
+                Result: ${data.result}<br>
+                <button class="btn-primary" onclick="requestAnalysis()" style="margin-top: 10px;">Request Analysis</button>
+            `);
+
+            showGameEndModal(data);
+            saveGame();
+        });
+
+        socket.on('illegal_move', (data) => {
+            $('#status').text(`Illegal move: ${data.move}`).css('background', '#fed7d7');
+            setTimeout(() => {
+                $('#status').text('Your turn').css('background', '#bee3f8');
+            }, 2000);
+        });
+
+        socket.on('analysis_result', (data) => {
+            $('#analysisContent').html(`<em>${data.message}</em>`);
+        });
+
+        function startTimer() {
+            if (timerInterval) return;
+
+            timerInterval = setInterval(() => {
+                if (currentTurn === 'white') {
+                    whiteTime--;
+                    if (whiteTime <= 0) {
+                        whiteTime = 0;
+                        stopTimer();
+                        timeOut('white');
+                    }
+                } else {
+                    blackTime--;
+                    if (blackTime <= 0) {
+                        blackTime = 0;
+                        stopTimer();
+                        timeOut('black');
+                    }
+                }
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function updateTimerDisplay() {
+            $('#whiteTimer').text(formatTime(whiteTime));
+            $('#blackTimer').text(formatTime(blackTime));
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function timeOut(player) {
+            socket.emit('resign', {
+                game_id: currentGameId,
+                player: player
+            });
+        }
+
+        function showGameEndModal(data) {
+            const modalHtml = `
+                <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center;" id="gameEndModal">
+                    <div style="background: white; padding: 40px; border-radius: 15px; text-align: center; max-width: 400px;">
+                        <h2 style="color: #667eea; margin-top: 0;">Game Over!</h2>
+                        <h3 style="margin: 10px 0;">${data.message || data.result}</h3>
+                        <p style="color: #666; margin: 15px 0;">
+                            ${data.game_ending_reason ? data.game_ending_reason.replace('_', ' ').toUpperCase() : ''}
+                        </p>
+                        <button class="btn-primary" onclick="closeModal()" style="margin: 10px; padding: 12px 24px;">Close</button>
+                        <button class="btn-success" onclick="newGame()" style="margin: 10px; padding: 12px 24px;">New Game</button>
+                    </div>
+                </div>
+            `;
+            $('body').append(modalHtml);
+        }
+
+        function closeModal() {
+            $('#gameEndModal').remove();
+        }
+
+        function selectMode(mode) {
+            gameMode = mode;
+            if (mode === 'pve') {
+                $('#aiSideSelection').addClass('visible');
+            } else {
+                startGame(null);
+            }
+        }
+
+        function startGame(playerColor) {
+            if (gameMode === 'pve') {
+                aiSide = (playerColor === 'white') ? 'black' : 'white';
+                playerSide = playerColor;
+            }
+
+            $('#modeSelection').hide();
+            $('#gameArea').show();
+
+            initBoard();
+            socket.emit('new_game', { mode: gameMode || 'pvp', ai_side: aiSide });
+        }
+
+        function initBoard() {
+            const config = {
+                draggable: true,
+                position: 'start',
+                pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+                onDragStart: onDragStart,
+                onDrop: onDrop,
+                onSnapEnd: onSnapEnd,
+                onMouseoutSquare: onMouseoutSquare,
+                onMouseoverSquare: onMouseoverSquare
+            };
+
+            if (gameMode === 'pve' && playerSide === 'black') {
+                config.orientation = 'black';
+            }
+
+            board = Chessboard('board', config);
+        }
+
+        function onDragStart(source, piece) {
+            if (gameMode === 'pve') {
+                const pieceColor = piece[0] === 'w' ? 'white' : 'black';
+                if (pieceColor !== playerSide) return false;
+            }
+
+            selectedSquare = source;
+            if (highlightEnabled) highlightLegalMoves(source);
+        }
+
+        function onDrop(source, target) {
+            selectedSquare = null;
+            removeHighlights();
+
+            let move = source + target;
+
+            const piece = board.position()[source];
+            const isPawn = piece && (piece === 'wP' || piece === 'bP');
+            const isLastRank = (piece === 'wP' && target[1] === '8') || (piece === 'bP' && target[1] === '1');
+
+            if (isPawn && isLastRank) {
+                showPromotionDialog(source, target);
+                return 'snapback';
+            }
+
+            socket.emit('player_move', { game_id: currentGameId, move: move });
+            return 'snapback';
+        }
+
+        function showPromotionDialog(source, target) {
+            const pieceColor = board.position()[source][0];
+            const colorName = pieceColor === 'w' ? 'white' : 'black';
+            const piecePrefix = pieceColor === 'w' ? 'w' : 'b';
+
+            const modalHtml = `
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; align-items: center; justify-content: center;" id="promotionModal">
+            <div style="background: white; padding: 30px; border-radius: 15px; text-align: center;">
+                <h3 style="margin-top: 0; color: #667eea;">Promote Pawn To:</h3>
+                <div style="display: flex; gap: 15px; margin: 20px 0;">
+                    <button class="promotion-btn" onclick="selectPromotion('${source}', '${target}', 'q')" style="padding: 10px; border: 2px solid #667eea; border-radius: 10px; background: white; cursor: pointer;">
+                        <img src="https://chessboardjs.com/img/chesspieces/wikipedia/${piecePrefix}Q.png" width="60" height="60" style="display: block;">
+                    </button>
+                    <button class="promotion-btn" onclick="selectPromotion('${source}', '${target}', 'r')" style="padding: 10px; border: 2px solid #667eea; border-radius: 10px; background: white; cursor: pointer;">
+                        <img src="https://chessboardjs.com/img/chesspieces/wikipedia/${piecePrefix}R.png" width="60" height="60" style="display: block;">
+                    </button>
+                    <button class="promotion-btn" onclick="selectPromotion('${source}', '${target}', 'b')" style="padding: 10px; border: 2px solid #667eea; border-radius: 10px; background: white; cursor: pointer;">
+                        <img src="https://chessboardjs.com/img/chesspieces/wikipedia/${piecePrefix}B.png" width="60" height="60" style="display: block;">
+                    </button>
+                    <button class="promotion-btn" onclick="selectPromotion('${source}', '${target}', 'n')" style="padding: 10px; border: 2px solid #667eea; border-radius: 10px; background: white; cursor: pointer;">
+                        <img src="https://chessboardjs.com/img/chesspieces/wikipedia/${piecePrefix}N.png" width="60" height="60" style="display: block;">
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+            $('body').append(modalHtml);
+            $('.promotion-btn').hover(
+                function () { $(this).css('background', '#667eea'); },
+                function () { $(this).css('background', 'white'); }
+            );
+        }
+
+        function selectPromotion(source, target, promotion) {
+            $('#promotionModal').remove();
+            socket.emit('player_move', { game_id: currentGameId, move: source + target + promotion });
+        }
+
+        function onSnapEnd() { }
+
+        function onMouseoverSquare(square, piece) {
+            if (highlightEnabled && piece && !selectedSquare) highlightLegalMoves(square);
+        }
+
+        function onMouseoutSquare() {
+            if (!selectedSquare) removeHighlights();
+        }
+
+        function highlightLegalMoves(square) {
+            legalMoves.filter(m => m.startsWith(square)).forEach(move => {
+                $(`#board .square-${move.substring(2, 4)}`).addClass('highlight');
+            });
+        }
+
+        function removeHighlights() {
+            $('#board .square-55d63').removeClass('highlight');
+        }
+
+        function toggleHighlights() {
+            highlightEnabled = $('#highlightToggle').is(':checked');
+            if (!highlightEnabled) removeHighlights();
+        }
+
+        function updateGameState(data) {
+            board.position(data.fen);
+            legalMoves = data.legal_moves || [];
+
+            $('#gameMode').text(gameMode === 'pvp' ? 'Human vs Human' : 'Human vs AI');
+            $('#totalMoves').text(data.move_count || 0);
+            $('#currentTurn').text(data.move_count % 2 === 0 ? 'White' : 'Black');
+            $('#gameStatus').text(data.is_over ? 'Game Over' : 'In Progress');
+
+            if (data.move_count % 2 === 0) {
+                $('#whitePlayerInfo').addClass('active');
+                $('#blackPlayerInfo').removeClass('active');
+            } else {
+                $('#blackPlayerInfo').addClass('active');
+                $('#whitePlayerInfo').removeClass('active');
+            }
+
             updateMoveHistory();
         }
 
@@ -294,11 +713,7 @@
                         let html = '';
                         data.move_history.forEach((move, idx) => {
                             const moveNum = Math.floor(idx / 2) + 1;
-                            if (idx % 2 === 0) {
-                                html += `<div class="move-item">${moveNum}. ${move}`;
-                            } else {
-                                html += ` ${move}</div>`;
-                            }
+                            html += idx % 2 === 0 ? `<div class="move-item">${moveNum}. ${move}` : ` ${move}</div>`;
                         });
                         history.html(html);
                         history.scrollTop(history[0].scrollHeight);
@@ -308,85 +723,42 @@
                 });
         }
 
-        function startNewGame() {
-            fetch('/new_game', { method: 'POST' })
-                .then(r => r.json())
-                .then(d => {
-                    currentGameId = d.game_id;
-                    updateBoard(d);
-                    $('#status').text('New game started!').css('background', '#bee3f8');
-                });
-        }
-
-        function makeRandomMove() {
-            if (!currentGameId) return;
-            fetch(`/random_move/${currentGameId}`, { method: 'POST' })
-                .then(r => r.json())
-                .then(d => updateBoard(d));
-        }
-
-        function startAutoPlay() {
-            if (!currentGameId || isAutoPlaying) return;
-            isAutoPlaying = true;
-            autoPlayLoop();
-        }
-
-        async function autoPlayLoop() {
-            while (isAutoPlaying) {
-                let response = await fetch(`/random_move/${currentGameId}`, { method: 'POST' });
-                let data = await response.json();
-                updateBoard(data);
-                if (data.is_over) {
-                    isAutoPlaying = false;
-                    $('#status').text(`Game Over: ${data.result || 'Draw'}`);
-                    break;
-                }
-                let delay = parseInt($('#speedSlider').val());
-                await new Promise(r => setTimeout(r, delay));
+        function updatePlayerLabels() {
+            if (gameMode === 'pve') {
+                $('#whitePlayerName').text(aiSide === 'white' ? 'AI' : 'You');
+                $('#blackPlayerName').text(aiSide === 'black' ? 'AI' : 'You');
+            } else {
+                $('#whitePlayerName').text('Player 1 (White)');
+                $('#blackPlayerName').text('Player 2 (Black)');
             }
         }
 
-        function stopAutoPlay() {
-            isAutoPlaying = false;
-            $('#status').text('Auto-play stopped');
+        function newGame() {
+            stopTimer();
+            location.reload();
         }
 
+        function undoMove() {
+            socket.emit('undo_move', { game_id: currentGameId });
+        }
 
-        $('#speedSlider').on('input', function () {
-            $('#speedValue').text($(this).val());
-        });
+        function resign() {
+            socket.emit('resign', { game_id: currentGameId, player: $('#currentTurn').text().toLowerCase() });
+        }
 
-        $(document).ready(function () {
-            const config = {
-                draggable: false,
-                position: 'start',
-                pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
-            };
-            board = Chessboard('board', config);
+        function requestAnalysis() {
+            socket.emit('request_analysis', { game_id: currentGameId });
+        }
 
-            // Initialize SocketIO
-            socket = io();
+        function saveGame() {
+            fetch(`/save_game/${currentGameId}`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => console.log('Game saved:', data.filename));
+        }
 
-            socket.on('connect', function () {
-                console.log('Connected to server');
-            });
-
-            socket.on('game_state', function (data) {
-                if (data.game_id) currentGameId = data.game_id;
-                updateBoard(data);
-            });
-
-            socket.on('message', function (data) {
-                console.log('Server message:', data.text);
-            });
-
-            socket.on('error', function (data) {
-                console.error('Server error:', data.error);
-            });
-
-            startNewGame();
-        });
+        $('<style>').text('.highlight { box-shadow: inset 0 0 20px rgba(102, 126, 234, 0.5); }').appendTo('head');
     </script>
+
 </body>
 
 </html>
