@@ -10,7 +10,7 @@ from typing import Dict, Optional, Callable
 from datetime import datetime
 from tqdm import tqdm
 
-from cnn import ChessNet
+from cnn import ChessCNN
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -179,7 +179,7 @@ class ModelEvaluator:
         self.model_path = model_path
         self.stockfish_path = stockfish_path
 
-        self.model = ChessNet(num_filters=128, num_residual_blocks=10).to(device)
+        self.model = ChessCNN(num_filters=128, num_residual_blocks=10).to(device)
         checkpoint = torch.load(model_path, map_location=device)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.training_history = checkpoint.get('training_history', {})

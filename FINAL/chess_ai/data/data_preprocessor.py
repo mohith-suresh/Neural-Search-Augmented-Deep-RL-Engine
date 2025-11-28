@@ -71,16 +71,16 @@ class ProductionConfig:
     ]
     
     # Target: Exactly 20M positions
-    TARGET_POSITIONS_TOTAL = 20_000_000
+    TARGET_POSITIONS_TOTAL = 25_000_000
     TARGET_POSITIONS_PER_BUCKET = TARGET_POSITIONS_TOTAL // len(ELO_BUCKETS)  # 2.5M
     
     # Filters
     time_control_min = 300
-    game_length_min = 5
+    game_length_min = 20
     game_length_max = 500
     
     # I/O
-    chunk_size = 500_000  # 1M positions per chunk
+    chunk_size = 500_000 
     validate_moves = True
     
     # Paths
@@ -391,7 +391,7 @@ class ProductionDataExtractor:
         chunk_positions = []
         chunk_moves = []
         chunk_results = []
-        chunk_num = 40
+        chunk_num = 70
         chunk_files = []
         CHUNK_SIZE = 500_000
         

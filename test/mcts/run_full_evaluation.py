@@ -34,7 +34,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent / "FINAL" / "chess_ai"))
 from neural_mcts_player import NeuralMCTSPlayer, RandomPlayer
 from mcts_evaluation import MCTSEvaluator, EvaluationConfig
 from self_play import SelfPlayWorker, SelfPlayConfig
-from evaluation.elo_rating import StockfishBenchmark
+from elo_rating import StockfishBenchmark
 
 
 class FullEvaluationPipeline:

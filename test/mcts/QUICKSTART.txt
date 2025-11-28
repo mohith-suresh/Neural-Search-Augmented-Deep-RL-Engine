@@ -42,8 +42,8 @@ What it shows:
 
 STEP 3: Generate Self-Play Games (Parallel)
 --------------------------------------------
-python parallel_selfplay.py \
-    --model /home/adithya/Document/EE542-Project/FINAL/chess_ai/game_engine/model/best_model.pth \
+python3 parallel_selfplay.py \
+    --model /home/krish/EE542-Project/FINAL/chess_ai/game_engine/model/best_model.pth \
     --games 40 \
     --workers 4 \
     --sims 200

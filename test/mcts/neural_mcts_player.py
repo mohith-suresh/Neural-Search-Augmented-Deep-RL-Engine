@@ -27,13 +27,13 @@ import torch
 import torch.nn as nn
 import numpy as np
 import chess
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, List
 import logging
 
 # Add parent directories to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent / "FINAL" / "chess_ai"))
 
-from game_engine.cnn import ChessCNN, TrainingConfig
+from cnn import ChessCNN, TrainingConfig
 from mcts_tree import MCTS
 
 

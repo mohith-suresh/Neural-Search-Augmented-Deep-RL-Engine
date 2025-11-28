@@ -38,7 +38,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.amp import GradScaler, autocast
+from torch.cuda.amp import GradScaler, autocast  
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import OneCycleLR
 from torch.utils.data import DataLoader, Dataset, random_split
@@ -377,39 +377,6 @@ class ChessDataset(Dataset):
             torch.tensor(float(self._current_chunk_data['results'][local_idx]), dtype=torch.float)
         )
 
-class FullMemoryChessDataset(Dataset):
-    """Eager-loading chess dataset - loads ALL chunks into RAM at once.
-    Optimized for Colab Pro with abundant RAM (>100GB available).
-    """
-    def __init__(self, chunk_dir: Path):
-        chunk_files = sorted(Path(chunk_dir).glob('chunk_*.npz'))
-        if not chunk_files:
-            raise FileNotFoundError(f"No chunk files found in {chunk_dir}")
-        
-        positions, moves, results = [], [], []
-        print(f"Loading {len(chunk_files)} chunks into RAM...")
-        for i, f in enumerate(chunk_files):
-            data = np.load(f)
-            positions.append(data['positions'])
-            moves.append(data['moves'])
-            results.append(data['results'])
-            if (i + 1) % 10 == 0 or (i + 1) == len(chunk_files):
-                print(f"  Loaded {i+1}/{len(chunk_files)} chunks")
-        
-        self.positions = np.concatenate(positions)
-        self.moves = np.concatenate(moves)
-        self.results = np.concatenate(results).astype(np.float32) 
-        print(f"\n✅ Loaded {self.positions.shape[0]:,} positions into RAM! (~{self.positions.nbytes/1e9:.2f} GB used)")
-    
-    def __len__(self):
-        return len(self.positions)
-    
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        return (
-            torch.from_numpy(self.positions[idx]).float(),
-            torch.tensor(int(self.moves[idx]), dtype=torch.long),
-            torch.tensor(float(self.results[idx]), dtype=torch.float)
-        )
 
 # ============================================================================
 # NEW: Value Head Metrics
@@ -480,7 +447,6 @@ class Trainer:
         )
         
         # FIX: Mixed precision scaler (re-enabled)
-        
         self.scaler = GradScaler() if config.use_mixed_precision else None
         
         # Logging
@@ -514,7 +480,7 @@ class Trainer:
         chunk_dir = config.data_dir
         
         print(f"Loading dataset from: {chunk_dir}")
-        dataset = FullMemoryChessDataset(chunk_dir)  # Stores chunk paths, doesn't load data yet
+        dataset = ChessDataset(chunk_dir)  # Stores chunk paths, doesn't load data yet
         
         # Split 90/5/5
         train_size = int(config.train_split * len(dataset))
@@ -532,27 +498,24 @@ class Trainer:
             train_dataset,
             batch_size=config.batch_size,
             shuffle=True,
-            num_workers=8,
-            pin_memory=True,
-            prefetch_factor=2
+            num_workers=0,
+            pin_memory=True
         )
         
         val_loader = DataLoader(
             val_dataset,
             batch_size=config.batch_size,
             shuffle=False,
-            num_workers=8,
-            pin_memory=True,
-            prefetch_factor=2
+            num_workers=0,
+            pin_memory=True
         )
         
         test_loader = DataLoader(
             test_dataset,
             batch_size=config.batch_size,
             shuffle=False,
-            num_workers=8,
-            pin_memory=True,
-            prefetch_factor=2
+            num_workers=0,
+            pin_memory=True
         )
         
         return train_loader, val_loader, test_loader
@@ -596,6 +559,8 @@ class Trainer:
         all_value_targets = []
         
         for batch_idx, (positions, moves, results) in enumerate(train_loader):
+            print(f"Moving batch {batch_idx} to {self.device}", flush=True)
+
             positions = positions.to(self.device)
             moves = moves.to(self.device)
             results = results.to(self.device).unsqueeze(1)  # (B, 1)
@@ -604,11 +569,11 @@ class Trainer:
             
             # FIX: Mixed precision forward pass
             if self.config.use_mixed_precision:
-                with autocast('cuda'):
+                with autocast():
                     policy_logits, values = self.model(positions)
                     policy_loss = self.policy_loss_fn(policy_logits, moves)
                     value_loss = self.value_loss_fn(values, results)
-                    total_loss = policy_loss + 1.5 * value_loss 
+                    total_loss = policy_loss + value_loss
                 
                 # Backward with gradient scaling
                 self.scaler.scale(total_loss).backward()
@@ -621,7 +586,7 @@ class Trainer:
                 policy_logits, values = self.model(positions)
                 policy_loss = self.policy_loss_fn(policy_logits, moves)
                 value_loss = self.value_loss_fn(values, results)
-                total_loss = policy_loss + 1.5 * value_loss 
+                total_loss = policy_loss + value_loss
                 
                 total_loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.gradient_clip_value)
@@ -701,16 +666,16 @@ class Trainer:
             
             # FIX: Mixed precision validation
             if self.config.use_mixed_precision:
-                with autocast('cuda'):
+                with autocast():
                     policy_logits, values = self.model(positions)
                     policy_loss = self.policy_loss_fn(policy_logits, moves)
                     value_loss = self.value_loss_fn(values, results)
-                    total_loss = policy_loss + 1.5 * value_loss 
+                    total_loss = policy_loss + value_loss
             else:
                 policy_logits, values = self.model(positions)
                 policy_loss = self.policy_loss_fn(policy_logits, moves)
                 value_loss = self.value_loss_fn(values, results)
-                total_loss = policy_loss + 1.5 * value_loss 
+                total_loss = policy_loss + value_loss
             
             policy_pred = policy_logits.argmax(dim=1)
             policy_correct += (policy_pred == moves).sum().item()
@@ -798,7 +763,7 @@ class Trainer:
             
             # Validate
             val_metrics = self.validate(val_loader)
-            
+
             # Accumulate per-epoch metrics
             self.training_history['train_loss'].append(train_metrics['total_loss'])
             self.training_history['val_loss'].append(val_metrics['total_loss'])
@@ -809,7 +774,7 @@ class Trainer:
             self.training_history['train_value_loss'].append(train_metrics['value_loss'])
             self.training_history['val_value_loss'].append(val_metrics['value_loss'])
 
-
+            
             epoch_time = time.time() - start_time
             
             # Print metrics
