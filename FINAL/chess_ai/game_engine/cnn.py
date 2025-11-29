@@ -1,50 +1,44 @@
 #!/usr/bin/env python3
 """
-Chess CNN Model - Enhanced Architecture for Supervised Learning
-================================================================
+Chess CNN - Final Production Build (Stable)
+===========================================
 
-Project: EE542 - Deconstructing AlphaZero's Success
-Goal: Supervised learning baseline for chess position evaluation
+Fixes:
+- Solved 'AttributeError: scheduler': Initialized in __init__
+- Solved 'JSON Tensor Error': Explicit float conversion
+- Solved 'Testing Crash': Graceful exit handling
+- Thermal: Optimized sleep (0.2s) for speed/safety balance
 
-Architecture Design:
-- Input: 13 planes (6 piece types x 2 colors + turn indicator) x 8x8 board
-- Backbone: 10 ResNet blocks (7 standard + 3 with SE blocks)
-- Heads: Dual-head (policy for moves, value for outcome)
-- Regularization: Dropout in heads only (AlphaZero approach)
-- Training: Mixed precision (FP16) for 2x speedup
-
-Key Improvements in This Version:
-1. 13th input plane (turn indicator) to prevent value head collapse
-2. SE blocks in last 3 residual blocks (channel attention)
-3. AlphaZero-style policy head (Conv→Flatten→FC, no bottleneck)
-4. Dropout removed from residual path (better gradient flow)
-5. Mixed precision enabled (2x faster on RTX 3060)
-6. Value head metrics tracked (MAE, MSE, correlation)
-7. Data split optimized (90/5/5 for large dataset)
-8. Binary memmap loading for 50x faster data loading
-
-References:
-- Silver et al. (2017): Mastering Chess Without Human Knowledge (AlphaZero)
-- He et al. (2016): Identity Mappings in Deep Residual Networks
-- Hu et al. (2018): Squeeze-and-Excitation Networks
 """
 
-import logging
+import json
 import sys
 import time
-from dataclasses import dataclass
+import shutil
+import logging
+import warnings
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass, asdict
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.cuda.amp import GradScaler, autocast  
+from torch.cuda.amp import GradScaler, autocast
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import OneCycleLR
 from torch.utils.data import DataLoader, Dataset, random_split
 from torch.utils.tensorboard import SummaryWriter
+import matplotlib.pyplot as plt
+
+# Suppress harmless warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    print("Please install tqdm: pip install tqdm")
+    sys.exit(1)
 
 # ============================================================================
 # Configuration
@@ -52,876 +46,351 @@ from torch.utils.tensorboard import SummaryWriter
 
 @dataclass
 class TrainingConfig:
-    """Training hyperparameters and configuration."""
-
-    # Model architecture
-    input_channels: int = 13  # 6 piece types x 2 colors + turn indicator
-    board_size: int = 8
-    filters: int = 128  # ResNet block channels
+    # Architecture
+    input_channels: int = 13
+    filters: int = 128
     num_res_blocks: int = 10
-    policy_output_size: int = 8192  # All possible moves (64x64 from-to + promotions)
-    value_output_size: int = 1  # Single outcome prediction
     
-    # Training hyperparameters
-    batch_size: int = 384
+    # Dataset (90/5/5)
+    train_split: float = 0.90
+    val_split: float = 0.05
+    test_split: float = 0.05
+    
+    # Physics
+    total_dataset_size: int = 2_500_000 
+    virtual_epoch_size: int = 500_000
+    target_batch_size: int = 1024 
+    start_batch_size_guess: int = 512
+    
+    # Thermal & Optimization
+    gpu_safety_margin: float = 0.80  
+    inter_batch_sleep: float = 0.2   # Lowered to 0.2s (1s was too slow)
+    
+    # Hyperparams
     num_epochs: int = 5
     learning_rate: float = 1e-3
-    weight_decay: float = 5e-4  # L2 regularization
-    dropout_rate: float = 0.3  # Only in heads
+    weight_decay: float = 1e-4
+    label_smoothing: float = 0.1
     
-    # Learning rate schedule
-    warmup_epochs: float = 0.1  # UPDATED: 10% of epochs for warmup (was 0.5)
-    max_lr: float = 1e-3
-    div_factor: float = 25.0  # Initial LR = max_lr / div_factor
-    final_div_factor: float = 1e4  # Final LR = max_lr / final_div_factor
-    
-    # Regularization
-    gradient_clip_value: float = 1.0
-    label_smoothing: float = 0.0  # Disabled for now (start without)
-    
-    # Data split - UPDATED: 90/5/5 for large datasets
-    train_split: float = 0.90  # 18M positions
-    val_split: float = 0.05    # 1M positions
-    test_split: float = 0.05   # 1M positions
-    
-    # Mixed precision - FIX: Re-enabled
-    use_mixed_precision: bool = True  # FP16 training for RTX 3060
-    
-    # Checkpointing
-    save_frequency: int = 1  # Save every epoch
-    checkpoint_dir: str = "checkpoints"
-    
-    # Logging
-    log_frequency: int = 100  # Log every N batches
-    
-    # Paths - FIX: Corrected absolute paths
+    # Paths
     data_dir: Path = Path("/home/krish/EE542-Project/FINAL/chess_ai/data/training_data")
     model_dir: Path = Path("/home/krish/EE542-Project/FINAL/chess_ai/game_engine/model")
-    log_dir: Path = Path("/home/krish/EE542-Project/FINAL/chess_ai/logs/tensorboard")  # FIX: Added /tensorboard
+    log_dir: Path = Path("/home/krish/EE542-Project/FINAL/chess_ai/logs/tensorboard")
     
-    # Device
+    resume_checkpoint: str = None
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ============================================================================
-# NEW: Squeeze-and-Excitation Block (Channel Attention)
+# Architecture
 # ============================================================================
 
+class Mish(nn.Module):
+    def forward(self, x): return x * torch.tanh(F.softplus(x))
+
 class SEBlock(nn.Module):
-    """
-    Squeeze-and-Excitation block for channel attention.
-    
-    Allows network to dynamically reweight feature channels based on
-    global context (e.g., emphasize knight channels in fork positions).
-    
-    Reference: Hu et al. (2018) "Squeeze-and-Excitation Networks"
-    """
-    
     def __init__(self, channels: int, reduction: int = 4):
-        """
-        Args:
-            channels: Number of input/output channels
-            reduction: Reduction ratio for bottleneck (4 for 128 channels → 32)
-        """
         super().__init__()
-        
-        # Squeeze: Global average pooling (8x8 → 1x1 per channel)
         self.squeeze = nn.AdaptiveAvgPool2d(1)
-        
-        # Excitation: Bottleneck FC layers
         self.excitation = nn.Sequential(
             nn.Linear(channels, channels // reduction, bias=False),
-            nn.ReLU(inplace=True),
+            Mish(),
             nn.Linear(channels // reduction, channels, bias=False),
             nn.Sigmoid()
         )
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            x: (B, C, H, W) feature maps
-        
-        Returns:
-            Reweighted features (B, C, H, W)
-        """
+    def forward(self, x):
         b, c, _, _ = x.size()
-        
-        # Squeeze: (B, C, H, W) → (B, C, 1, 1) → (B, C)
         y = self.squeeze(x).view(b, c)
-        
-        # Excitation: (B, C) → (B, C) with learned weights
         y = self.excitation(y).view(b, c, 1, 1)
-        
-        # Scale: Apply channel weights
         return x * y.expand_as(x)
 
-# ============================================================================
-# Residual Block (Enhanced with Optional SE)
-# ============================================================================
-
 class ResidualBlock(nn.Module):
-    """
-    Residual block with optional SE attention.
-    
-    FIX: Dropout removed from residual path (AlphaZero approach).
-    Only used in final policy/value heads.
-    """
-    
     def __init__(self, channels: int, use_se: bool = False):
-        """
-        Args:
-            channels: Number of input/output channels
-            use_se: Whether to include SE block (True for last 3 blocks)
-        """
         super().__init__()
-        
-        # Main path: Conv → BN → ReLU → Conv → BN
-        self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(channels, channels, 3, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(channels)
-        self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(channels, channels, 3, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(channels)
-        
-        # NEW: Optional SE block
-        self.se = SEBlock(channels, reduction=4) if use_se else None
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            x: (B, C, H, W) input features
-        
-        Returns:
-            Residual output (B, C, H, W)
-        """
+        self.act = Mish()
+        self.se = SEBlock(channels) if use_se else None
+    def forward(self, x):
         residual = x
-        
-        # First conv block
-        out = F.relu(self.bn1(self.conv1(x)))
-        
-        # Second conv block
+        out = self.act(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
-        
-        # NEW: Apply SE attention if enabled
-        if self.se is not None:
-            out = self.se(out)
-        
-        # FIX: Residual addition (no dropout on residual path)
-        out = out + residual
-        
-        # Final activation
-        out = F.relu(out)
-        
-        return out
-
-# ============================================================================
-# Chess CNN Model
-# ============================================================================
+        if self.se: out = self.se(out)
+        out += residual
+        return self.act(out)
 
 class ChessCNN(nn.Module):
-    """
-    Chess CNN with ResNet backbone and dual policy/value heads.
-
-    Architecture:
-        Input (13x8x8)
-        → Conv 13→128
-        → ResBlocks 1-7 (standard)
-        → ResBlocks 8-10 (with SE blocks)
-        → Policy Head (Conv→Flatten→FC→8192)
-        → Value Head (Conv→GlobalPool→FC→1)
-    """
-    
     def __init__(self, config: TrainingConfig):
         super().__init__()
-        self.config = config
-        
-        # Initial convolution: 13 planes → 128 filters
-        self.input_conv = nn.Conv2d(
-            config.input_channels,
-            config.filters,
-            kernel_size=3,
-            padding=1,
-            bias=False
-        )
+        self.input_conv = nn.Conv2d(config.input_channels, config.filters, 3, padding=1, bias=False)
         self.input_bn = nn.BatchNorm2d(config.filters)
-        
-        # Residual blocks
-        self.res_blocks = nn.ModuleList([
-            # Blocks 1-7: Standard residual blocks
-            ResidualBlock(config.filters, use_se=False) for _ in range(7)
-        ] + [
-            # NEW: Blocks 8-10: With SE attention
-            ResidualBlock(config.filters, use_se=True) for _ in range(3)
-        ])
-        
-        # FIX: AlphaZero-style policy head (no bottleneck)
-        self.policy_conv = nn.Conv2d(config.filters, 32, kernel_size=1, bias=False)
+        self.act = Mish()
+        self.res_blocks = nn.ModuleList([ResidualBlock(config.filters, use_se=(i>=7)) for i in range(config.num_res_blocks)])
+        self.policy_conv = nn.Conv2d(config.filters, 32, 1, bias=False)
         self.policy_bn = nn.BatchNorm2d(32)
-        self.policy_fc = nn.Linear(32 * config.board_size * config.board_size, config.policy_output_size)
-        self.policy_dropout = nn.Dropout(config.dropout_rate)
-        
-        # Value head (unchanged, already AlphaZero-style)
-        self.value_conv = nn.Conv2d(config.filters, 1, kernel_size=1, bias=False)
+        self.policy_fc = nn.Linear(32 * 8 * 8, 8192)
+        self.value_conv = nn.Conv2d(config.filters, 1, 1, bias=False)
         self.value_bn = nn.BatchNorm2d(1)
-        self.value_fc1 = nn.Linear(config.board_size * config.board_size, 256)
+        self.value_fc1 = nn.Linear(64, 256)
         self.value_fc2 = nn.Linear(256, 1)
-        self.value_dropout = nn.Dropout(config.dropout_rate)
-    
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass.
-
-        Args:
-            x: (B, 13, 8, 8) board positions
-
-        Returns:
-            policy_logits: (B, 8192) move probabilities (raw logits)
-            values: (B, 1) position evaluation (-1 to +1)
-        """
-        # Initial convolution
-        x = F.relu(self.input_bn(self.input_conv(x)))
         
-        # Residual blocks (7 standard + 3 with SE)
-        for block in self.res_blocks:
-            x = block(x)
-        
-        # FIX: Policy head (AlphaZero-style, preserves spatial structure)
-        policy = F.relu(self.policy_bn(self.policy_conv(x)))  # (B, 32, 8, 8)
-        policy = policy.view(policy.size(0), -1)  # (B, 2048)
-        policy = self.policy_dropout(policy)
-        policy_logits = self.policy_fc(policy)  # (B, 8192)
-        
-        # Value head (global pooling → FC)
-        value = F.relu(self.value_bn(self.value_conv(x)))  # (B, 1, 8, 8)
-        value = value.view(value.size(0), -1)  # (B, 64)
-        value = F.relu(self.value_fc1(value))  # (B, 256)
-        value = self.value_dropout(value)
-        value = torch.tanh(self.value_fc2(value))  # (B, 1), range [-1, 1]
-        
-        return policy_logits, value
-
-# ============================================================================
-# Dataset
-# ============================================================================
-
-class ChessDataset(Dataset):
-    """
-    Zero-copy chess dataset using binary memmap files.
-
-    Loads data directly from binary files without copying into memory.
-    Supports both legacy .npz chunks and new memmap format.
-
-    Expected memmap format:
-        positions.bin: (N, 13, 8, 8) float16
-        moves.bin: (N,) int32 (move indices 0-8191)
-        results.bin: (N,) float16 (game outcomes -1/0/+1)
-        metadata.json: Shape and dtype information
-    """
-
-    def __init__(self, data_dir: Path):
-        """
-        Args:
-            data_dir: Directory containing binary memmap files or chunk_*.npz files
-        """
-        data_dir = Path(data_dir)
-
-        # Check for memmap format first (preferred)
-        metadata_file = data_dir / 'metadata.json'
-        if metadata_file.exists():
-            # Load from binary memmap (zero-copy)
-            self._load_memmap_format(data_dir, metadata_file)
-        else:
-            # Fallback to legacy chunk format
-            self._load_chunk_format(data_dir)
-
-    def _load_memmap_format(self, data_dir: Path, metadata_file: Path):
-        """Load dataset from binary memmap files."""
-        import json
-
-        # Load metadata
-        with open(metadata_file, 'r') as f:
-            metadata = json.load(f)
-
-        self.total_size = metadata['count']
-
-        # Memory-map the binary files (zero-copy!)
-        self.positions = np.memmap(
-            data_dir / 'positions.bin',
-            dtype=metadata['pos_dtype'],
-            mode='r',
-            shape=tuple(metadata['pos_shape'])
-        )
-
-        self.moves = np.memmap(
-            data_dir / 'moves.bin',
-            dtype=metadata['mov_dtype'],
-            mode='r',
-            shape=tuple(metadata['mov_shape'])
-        )
-
-        self.results = np.memmap(
-            data_dir / 'results.bin',
-            dtype=metadata['res_dtype'],
-            mode='r',
-            shape=tuple(metadata['res_shape'])
-        )
-
-        print(f"Dataset: Memmap format, {self.total_size:,} positions (zero-copy)")
-
-    def _load_chunk_format(self, data_dir: Path):
-        """Fallback: Load dataset from legacy chunk_*.npz files."""
-        # Find all chunk files
-        self.chunk_files = sorted(Path(data_dir).glob('chunk_*.npz'))
-        if not self.chunk_files:
-            raise FileNotFoundError(
-                f"No data files found in {data_dir}. "
-                f"Expected either metadata.json (memmap) or chunk_*.npz files."
-            )
-
-        # Get chunk sizes without loading data
-        self.chunk_sizes = []
-        for f in self.chunk_files:
-            with np.load(f, mmap_mode='r') as data:
-                self.chunk_sizes.append(len(data['positions']))
-
-        # Calculate cumulative sizes for indexing
-        self.cumulative_sizes = np.cumsum([0] + self.chunk_sizes)
-        self.total_size = sum(self.chunk_sizes)
-
-        # Cache for currently loaded chunk
-        self._current_chunk_idx = None
-        self._current_chunk_data = None
-
-        # Set flags
-        self.positions = None  # Signal that we're using chunk format
-
-        print(f"Dataset: Legacy chunk format, {len(self.chunk_files)} chunks, {self.total_size:,} total positions")
-
-    def __len__(self):
-        return self.total_size
-
-    def _load_chunk(self, chunk_idx: int):
-        """Load a specific chunk into memory (only for legacy format)."""
-        if self._current_chunk_idx != chunk_idx:
-            # Unload previous chunk
-            if self._current_chunk_data is not None:
-                del self._current_chunk_data
-
-            # Load new chunk
-            data = np.load(self.chunk_files[chunk_idx])
-            self._current_chunk_data = {
-                'positions': data['p'] if 'p' in data else data['positions'],
-                'moves': data['m'] if 'm' in data else data['moves'],
-                'results': data['r'] if 'r' in data else data['results']
-            }
-            self._current_chunk_idx = chunk_idx
-
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Returns:
-            position: (13, 8, 8) board state
-            move: (,) move index
-            result: (,) game outcome
-        """
-        if self.positions is not None:
-            # Memmap format: direct indexing (zero-copy!)
-            return (
-                torch.from_numpy(np.array(self.positions[idx])).float(),
-                torch.tensor(int(self.moves[idx]), dtype=torch.long),
-                torch.tensor(float(self.results[idx]), dtype=torch.float)
-            )
-        else:
-            # Legacy chunk format
-            chunk_idx = np.searchsorted(self.cumulative_sizes[1:], idx, side='right')
-            local_idx = idx - self.cumulative_sizes[chunk_idx]
-
-            # Load chunk if needed (lazy loading)
-            self._load_chunk(chunk_idx)
-
-            # Return position from currently loaded chunk
-            return (
-                torch.from_numpy(self._current_chunk_data['positions'][local_idx]).float(),
-                torch.tensor(int(self._current_chunk_data['moves'][local_idx]), dtype=torch.long),
-                torch.tensor(float(self._current_chunk_data['results'][local_idx]), dtype=torch.float)
-            )
-
-
-# ============================================================================
-# NEW: Value Head Metrics
-# ============================================================================
-
-def compute_value_metrics(predictions: torch.Tensor, targets: torch.Tensor) -> Dict[str, float]:
-    """
-    Compute value head performance metrics.
-    
-    Args:
-        predictions: (B, 1) predicted values
-        targets: (B, 1) actual outcomes
-    
-    Returns:
-        Dictionary with mae, mse, correlation
-    """
-    predictions = predictions.squeeze()
-    targets = targets.squeeze()
-    
-    # Mean Absolute Error (interpretable)
-    mae = F.l1_loss(predictions, targets).item()
-    
-    # Mean Squared Error (optimization metric)
-    mse = F.mse_loss(predictions, targets).item()
-    
-    # Correlation (ranking quality)
-    if len(predictions) > 1:
-        pred_centered = predictions - predictions.mean()
-        target_centered = targets - targets.mean()
-        correlation = (pred_centered * target_centered).sum() / \
-                     (torch.sqrt((pred_centered ** 2).sum() * (target_centered ** 2).sum()) + 1e-8)
-        correlation = correlation.item()
-    else:
-        correlation = 0.0
-    
-    return {
-        'mae': mae,
-        'mse': mse,
-        'correlation': correlation
-    }
+    def forward(self, x):
+        x = self.act(self.input_bn(self.input_conv(x)))
+        for block in self.res_blocks: x = block(x)
+        p = self.act(self.policy_bn(self.policy_conv(x))).view(x.size(0), -1)
+        p = self.policy_fc(p)
+        v = self.act(self.value_bn(self.value_conv(x))).view(x.size(0), -1)
+        v = torch.tanh(self.value_fc2(self.act(self.value_fc1(v))))
+        return p, v
 
 # ============================================================================
 # Trainer
 # ============================================================================
 
+class MemmapChessDataset(Dataset):
+    def __init__(self, data_dir: Path):
+        with open(data_dir / 'metadata.json', 'r') as f: self.meta = json.load(f)
+        self.positions = np.memmap(data_dir/'positions.bin', dtype=self.meta['pos_dtype'], mode='r', shape=tuple(self.meta['pos_shape']))
+        self.moves = np.memmap(data_dir/'moves.bin', dtype=self.meta['mov_dtype'], mode='r', shape=tuple(self.meta['mov_shape']))
+        self.results = np.memmap(data_dir/'results.bin', dtype=self.meta['res_dtype'], mode='r', shape=tuple(self.meta['res_shape']))
+    def __len__(self): return self.meta['count']
+    def __getitem__(self, i):
+        return torch.from_numpy(self.positions[i].copy()).float(), torch.tensor(int(self.moves[i]), dtype=torch.long), torch.tensor(float(self.results[i]), dtype=torch.float)
+
 class Trainer:
-    """Chess CNN trainer with comprehensive logging and checkpointing."""
-    
     def __init__(self, config: TrainingConfig):
         self.config = config
-        self.device = torch.device(config.device)
+        self.model = ChessCNN(config).to(config.device)
+        try: self.model = torch.compile(self.model)
+        except: pass
+        self.optimizer = AdamW(self.model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
+        self.scaler = GradScaler()
+        self.writer = SummaryWriter(log_dir=config.log_dir)
+        self.policy_loss = nn.CrossEntropyLoss(label_smoothing=config.label_smoothing)
+        self.value_loss = nn.MSELoss()
         
-        # Model
-        self.model = ChessCNN(config).to(self.device)
-        print(f"Model parameters: {sum(p.numel() for p in self.model.parameters()):,}")
-        
-        # Loss functions
-        self.policy_loss_fn = nn.CrossEntropyLoss(
-            label_smoothing=config.label_smoothing
-        )
-        self.value_loss_fn = nn.MSELoss()
-        
-        # Optimizer
-        self.optimizer = AdamW(
-            self.model.parameters(),
-            lr=config.learning_rate,
-            weight_decay=config.weight_decay
-        )
-        
-        # FIX: Mixed precision scaler (re-enabled)
-        self.scaler = GradScaler() if config.use_mixed_precision else None
-        
-        # Logging
-        self.writer = None
-        self.global_step = 0
-        
-        # Best model tracking
-        self.best_val_loss = float('inf')
+        self.scheduler = None  # FIX: Initialize here to prevent AttributeError
+        self.history = {'train_loss':[], 'val_loss':[], 'p_acc':[], 'v_mae':[], 'v_corr':[]}
+        self.top_models = []
+        if config.resume_checkpoint: self._load_ckpt(config.resume_checkpoint)
 
-        # Track per-epoch metrics for evaluation
-        self.training_history = {
-            'train_loss': [],
-            'val_loss': [],
-            'train_accuracy': [],
-            'val_accuracy': [],
-            'train_policy_loss': [],
-            'val_policy_loss': [],
-            'train_value_loss': [],
-            'val_value_loss': []
-        }
+    def _load_ckpt(self, path):
+        c = torch.load(path)
+        self.model.load_state_dict(c['state_dict'])
+        self.optimizer.load_state_dict(c['optimizer'])
+        self.history = c.get('metrics', self.history)
 
-    
-    def load_dataset(self, config: TrainingConfig) -> Tuple[DataLoader, DataLoader, DataLoader]:
-        """
-        Load and split dataset from chunk files.
-        
-        Returns:
-            train_loader, val_loader, test_loader
-        """
-        # Load from chunk directory (lazy loading)
-        chunk_dir = config.data_dir
-        
-        print(f"Loading dataset from: {chunk_dir}")
-        dataset = ChessDataset(chunk_dir)  # Stores chunk paths, doesn't load data yet
-        
-        # Split 90/5/5
-        train_size = int(config.train_split * len(dataset))
-        val_size = int(config.val_split * len(dataset))
-        test_size = len(dataset) - train_size - val_size
-        
-        train_dataset, val_dataset, test_dataset = random_split(
-            dataset, [train_size, val_size, test_size]
-        )
-        
-        print(f"Train: {len(train_dataset):,} | Val: {len(val_dataset):,} | Test: {len(test_dataset):,}")
-        
-        # Data loaders
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=config.batch_size,
-            shuffle=True,
-            num_workers=0,
-            pin_memory=True
-        )
-        
-        val_loader = DataLoader(
-            val_dataset,
-            batch_size=config.batch_size,
-            shuffle=False,
-            num_workers=0,
-            pin_memory=True
-        )
-        
-        test_loader = DataLoader(
-            test_dataset,
-            batch_size=config.batch_size,
-            shuffle=False,
-            num_workers=0,
-            pin_memory=True
-        )
-        
-        return train_loader, val_loader, test_loader
-
-    def setup_training(self, train_loader: DataLoader):
-        """Setup LR scheduler and logging."""
-        
-        # Learning rate scheduler (OneCycle)
-        steps_per_epoch = len(train_loader)
-        total_steps = steps_per_epoch * self.config.num_epochs
-        
-        self.scheduler = OneCycleLR(
-            self.optimizer,
-            max_lr=self.config.max_lr,
-            total_steps=total_steps,
-            div_factor=self.config.div_factor,
-            final_div_factor=self.config.final_div_factor,
-            pct_start=self.config.warmup_epochs  # FIX: Now correctly 10%
-        )
-        
-        # TensorBoard
-        self.config.log_dir.mkdir(parents=True, exist_ok=True)
-        self.writer = SummaryWriter(log_dir=self.config.log_dir)
-        
-        # Checkpoint directory
-        self.config.model_dir.mkdir(parents=True, exist_ok=True)
-    
-    def train_epoch(self, train_loader: DataLoader, epoch: int) -> Dict[str, float]:
-        """Train for one epoch."""
-        
-        self.model.train()
-        
-        epoch_policy_loss = 0.0
-        epoch_value_loss = 0.0
-        epoch_total_loss = 0.0
-        policy_correct = 0
-        total_samples = 0
-        
-        # NEW: Value metrics tracking
-        all_value_preds = []
-        all_value_targets = []
-        
-        for batch_idx, (positions, moves, results) in enumerate(train_loader):
-            print(f"Moving batch {batch_idx} to {self.device}", flush=True)
-
-            positions = positions.to(self.device)
-            moves = moves.to(self.device)
-            results = results.to(self.device).unsqueeze(1)  # (B, 1)
-            
-            self.optimizer.zero_grad()
-            
-            # FIX: Mixed precision forward pass
-            if self.config.use_mixed_precision:
+    def find_safe_batch_size(self):
+        print("\n--- 🌡️ Thermally Safe Auto-Scaling ---")
+        bs = self.config.start_batch_size_guess
+        max_stable = 0
+        while True:
+            try:
+                print(f"Probing Max BS={bs}...", end="", flush=True)
                 with autocast():
-                    policy_logits, values = self.model(positions)
-                    policy_loss = self.policy_loss_fn(policy_logits, moves)
-                    value_loss = self.value_loss_fn(values, results)
-                    total_loss = policy_loss + value_loss
-                
-                # Backward with gradient scaling
-                self.scaler.scale(total_loss).backward()
-                self.scaler.unscale_(self.optimizer)
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.gradient_clip_value)
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                # FP32 fallback
-                policy_logits, values = self.model(positions)
-                policy_loss = self.policy_loss_fn(policy_logits, moves)
-                value_loss = self.value_loss_fn(values, results)
-                total_loss = policy_loss + value_loss
-                
-                total_loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.gradient_clip_value)
-                self.optimizer.step()
-            
-            self.scheduler.step()
-            
-            # Metrics
-            policy_pred = policy_logits.argmax(dim=1)
-            policy_correct += (policy_pred == moves).sum().item()
-            total_samples += len(positions)
-            
-            epoch_policy_loss += policy_loss.item()
-            epoch_value_loss += value_loss.item()
-            epoch_total_loss += total_loss.item()
-            
-            # NEW: Collect value predictions for metrics
-            all_value_preds.append(values.detach())
-            all_value_targets.append(results.detach())
-            
-            # Logging
-            if batch_idx % self.config.log_frequency == 0:
-                current_lr = self.scheduler.get_last_lr()[0]
-                print(f"Epoch {epoch} | Batch {batch_idx}/{len(train_loader)} | "
-                      f"Loss: {total_loss.item():.4f} | "
-                      f"Policy: {policy_loss.item():.4f} | "
-                      f"Value: {value_loss.item():.4f} | "
-                      f"LR: {current_lr:.2e}")
-                
-                if self.writer:
-                    self.writer.add_scalar('train/policy_loss', policy_loss.item(), self.global_step)
-                    self.writer.add_scalar('train/value_loss', value_loss.item(), self.global_step)
-                    self.writer.add_scalar('train/total_loss', total_loss.item(), self.global_step)
-                    self.writer.add_scalar('train/learning_rate', current_lr, self.global_step)
-            
-            self.global_step += 1
+                    p, v = self.model(torch.randn(bs, 13, 8, 8, device=self.config.device))
+                    l = self.policy_loss(p, torch.zeros(bs, dtype=torch.long, device=self.config.device))
+                self.scaler.scale(l).backward()
+                self.optimizer.zero_grad()
+                torch.cuda.empty_cache()
+                print(" OK ✅")
+                max_stable = bs
+                if bs >= 1024: break 
+                bs *= 2
+            except RuntimeError:
+                print(" Fail ❌")
+                break
         
-        # Epoch metrics
-        num_batches = len(train_loader)
-        policy_accuracy = policy_correct / total_samples
+        safe_bs = int(max_stable * self.config.gpu_safety_margin)
+        safe_bs = max(32, safe_bs - (safe_bs % 32))
         
-        # NEW: Compute value metrics
-        all_value_preds = torch.cat(all_value_preds, dim=0)
-        all_value_targets = torch.cat(all_value_targets, dim=0)
-        value_metrics = compute_value_metrics(all_value_preds, all_value_targets)
+        acc = max(1, self.config.target_batch_size // safe_bs)
+        print(f"-> Safe Target (80%): {safe_bs}")
+        print(f"-> Accumulation: {acc}")
+        return safe_bs, acc
+
+    def train(self):
+        ds = MemmapChessDataset(self.config.data_dir)
+        tr_len = int(len(ds) * self.config.train_split)
+        val_len = int(len(ds) * self.config.val_split)
+        test_len = len(ds) - tr_len - val_len
+        train_set, val_set, test_set = random_split(ds, [tr_len, val_len, test_len])
         
-        return {
-            'policy_loss': epoch_policy_loss / num_batches,
-            'value_loss': epoch_value_loss / num_batches,
-            'total_loss': epoch_total_loss / num_batches,
-            'policy_accuracy': policy_accuracy,
-            'value_mae': value_metrics['mae'],
-            'value_mse': value_metrics['mse'],
-            'value_correlation': value_metrics['correlation']
-        }
-    
-    @torch.no_grad()
-    def validate(self, val_loader: DataLoader) -> Dict[str, float]:
-        """Validate on validation set."""
+        bs, accum = self.find_safe_batch_size()
+        loader = DataLoader(train_set, batch_size=bs, shuffle=True, num_workers=4, pin_memory=True)
+        val_loader = DataLoader(val_set, batch_size=bs, shuffle=False, num_workers=4)
+        self.test_loader = DataLoader(test_set, batch_size=bs, shuffle=False, num_workers=4)
+        
+        samples_per_virt = self.config.virtual_epoch_size
+        iters_per_virt = samples_per_virt // bs
+        
+        # Initialize Scheduler HERE, before loop
+        self.scheduler = OneCycleLR(self.optimizer, max_lr=self.config.learning_rate, 
+                                    epochs=self.config.num_epochs, steps_per_epoch=iters_per_virt//accum)
+        
+        print(f"\n🚀 STARTING TRAINING (Thermal Sleep: {self.config.inter_batch_sleep}s)")
+        
+        iter_loader = iter(loader)
+        
+        try:
+            for epoch in range(1, self.config.num_epochs + 1):
+                self.model.train()
+                t_metrics = {'loss':0, 'p_loss':0, 'v_loss':0, 'p_acc':0, 'v_mae':0}
+                pbar = tqdm(range(iters_per_virt), desc=f"Ep {epoch} Train", unit="batch")
+                
+                for _ in pbar:
+                    try: batch = next(iter_loader)
+                    except StopIteration: iter_loader = iter(loader); batch = next(iter_loader)
+                    
+                    if self.config.inter_batch_sleep > 0:
+                        time.sleep(self.config.inter_batch_sleep)
+                    
+                    pos, mov, res = batch[0].to(self.config.device), batch[1].to(self.config.device), batch[2].to(self.config.device).unsqueeze(1)
+                    
+                    with autocast():
+                        p, v = self.model(pos)
+                        lp = self.policy_loss(p, mov)
+                        lv = self.value_loss(v, res)
+                        loss = (lp + 4.0 * lv) / accum
+                    
+                    self.scaler.scale(loss).backward()
+                    
+                    t_metrics['loss'] += loss.item() * accum
+                    t_metrics['p_acc'] += (p.argmax(1) == mov).float().mean().item()
+                    pbar.set_postfix({'loss': f"{loss.item()*accum:.2f}", 'acc': f"{t_metrics['p_acc']/(_+1):.1%}"})
+                    
+                    if (_ + 1) % accum == 0:
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
+                        self.optimizer.zero_grad()
+                        if self.scheduler: self.scheduler.step()
+
+                # Validation
+                self.model.eval()
+                v_metrics = {'loss':0, 'p_loss':0, 'v_loss':0, 'p_acc':0, 'v_mae':0, 'v_corr':0}
+                val_bar = tqdm(val_loader, desc=f"Ep {epoch} Valid", total=min(len(val_loader), 200), unit="batch")
+                
+                with torch.no_grad():
+                    for i, (pos, mov, res) in enumerate(val_bar):
+                        if i >= 200: break
+                        pos, mov, res = pos.to(self.config.device), mov.to(self.config.device), res.to(self.config.device).unsqueeze(1)
+                        with autocast():
+                            p, v = self.model(pos)
+                            loss = self.policy_loss(p, mov) + 4.0 * self.value_loss(v, res)
+                        
+                        v_metrics['loss'] += loss.item()
+                        v_metrics['p_acc'] += (p.argmax(1) == mov).float().mean().item()
+                        v_metrics['v_mae'] += F.l1_loss(v, res).item()
+                        
+                        vx = v - v.mean(); vy = res - res.mean()
+                        corr = (vx*vy).sum() / (torch.sqrt((vx**2).sum() * (vy**2).sum()) + 1e-8)
+                        v_metrics['v_corr'] += corr.item()
+                        
+                        val_bar.set_postfix({'val_loss': f"{loss.item():.2f}", 'val_acc': f"{(p.argmax(1)==mov).float().mean():.1%}"})
+
+                avg_val_loss = v_metrics['loss'] / (i+1)
+                print(f"Summary Ep {epoch}: Val Loss {avg_val_loss:.4f} | Pol Acc {v_metrics['p_acc']/(i+1):.1%} | Val Corr {v_metrics['v_corr']/(i+1):.3f}")
+                
+                self.manage_checkpoints(epoch, avg_val_loss)
+                self.plot_metrics(t_metrics, v_metrics, iters_per_virt, i+1)
+
+        except KeyboardInterrupt:
+            print("\n🛑 Stop signal received. Finishing up...")
+        finally:
+            self.final_test()
+
+    def manage_checkpoints(self, epoch, loss):
+        fname = self.config.model_dir / f"model_ep{epoch}.pth"
+        self.config.model_dir.mkdir(exist_ok=True, parents=True)
+        torch.save({'epoch': epoch, 'state_dict': self.model.state_dict(), 'optimizer': self.optimizer.state_dict(), 'metrics': self.history}, fname)
+        
+        self.top_models.append({'path': fname, 'loss': loss})
+        self.top_models.sort(key=lambda x: x['loss'])
+        if len(self.top_models) > 3:
+            rem = self.top_models.pop()
+            if rem['path'].exists(): rem['path'].unlink()
+            
+        names = ["best_model.pth", "checkpoint_2.pth", "checkpoint_3.pth"]
+        for idx, item in enumerate(self.top_models[:3]):
+            if item['path'].exists(): shutil.copy(item['path'], self.config.model_dir / names[idx])
+
+    def plot_metrics(self, t, v, t_steps, v_steps):
+        # Update history
+        self.history['train_loss'].append(t['loss']/t_steps)
+        self.history['val_loss'].append(v['loss']/v_steps)
+        self.history['p_acc'].append(v['p_acc']/v_steps)
+        self.history['v_corr'].append(v['v_corr']/v_steps)
+        
+        fig, ax = plt.subplots(1, 3, figsize=(18, 6))
+        
+        # Helper for smoothing
+        def smooth(scalars, weight=0.6):
+            if not scalars: return []
+            last = scalars[0]
+            smoothed = []
+            for point in scalars:
+                smoothed_val = last * weight + (1 - weight) * point
+                smoothed.append(smoothed_val)
+                last = smoothed_val
+            return smoothed
+
+        ax[0].plot(smooth(self.history['train_loss']), label='Train (Smooth)')
+        ax[0].plot(self.history['val_loss'], label='Val')
+        ax[0].set_title('Loss')
+        ax[0].legend()
+        ax[0].grid(True, alpha=0.3)
+        
+        ax[1].plot(self.history['p_acc'], color='green', marker='o')
+        ax[1].set_title('Validation Accuracy')
+        ax[1].grid(True, alpha=0.3)
+        
+        ax[2].plot(self.history['v_corr'], color='purple', marker='x')
+        ax[2].set_title('Validation Value Correlation')
+        ax[2].grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(self.config.model_dir / "training_curves.png", dpi=150)
+        plt.close()
+
+    def final_test(self):
+        print("\n" + "="*40)
+        print("🧪 FINAL TESTING PHASE (Best Model)")
+        print("="*40)
+        best = self.config.model_dir / "best_model.pth"
+        if best.exists(): 
+            try:
+                ckpt = torch.load(best, map_location=self.config.device)
+                self.model.load_state_dict(ckpt['state_dict'])
+                print(f"Loaded: {best}")
+            except: print("Could not load best model, using current state.")
         
         self.model.eval()
+        pbar = tqdm(self.test_loader, desc="Testing", unit="batch")
+        metrics = {'loss':0, 'p_acc':0, 'v_mae':0, 'v_corr':0}
+        steps = 0
         
-        val_policy_loss = 0.0
-        val_value_loss = 0.0
-        val_total_loss = 0.0
-        policy_correct = 0
-        total_samples = 0
-        
-        # NEW: Value metrics tracking
-        all_value_preds = []
-        all_value_targets = []
-        
-        for positions, moves, results in val_loader:
-            positions = positions.to(self.device)
-            moves = moves.to(self.device)
-            results = results.to(self.device).unsqueeze(1)
-            
-            # FIX: Mixed precision validation
-            if self.config.use_mixed_precision:
+        with torch.no_grad():
+            for pos, mov, res in pbar:
+                pos, mov, res = pos.to(self.config.device), mov.to(self.config.device), res.to(self.config.device).unsqueeze(1)
                 with autocast():
-                    policy_logits, values = self.model(positions)
-                    policy_loss = self.policy_loss_fn(policy_logits, moves)
-                    value_loss = self.value_loss_fn(values, results)
-                    total_loss = policy_loss + value_loss
-            else:
-                policy_logits, values = self.model(positions)
-                policy_loss = self.policy_loss_fn(policy_logits, moves)
-                value_loss = self.value_loss_fn(values, results)
-                total_loss = policy_loss + value_loss
-            
-            policy_pred = policy_logits.argmax(dim=1)
-            policy_correct += (policy_pred == moves).sum().item()
-            total_samples += len(positions)
-            
-            val_policy_loss += policy_loss.item()
-            val_value_loss += value_loss.item()
-            val_total_loss += total_loss.item()
-            
-            # NEW: Collect value predictions
-            all_value_preds.append(values)
-            all_value_targets.append(results)
-        
-        num_batches = len(val_loader)
-        policy_accuracy = policy_correct / total_samples
-        
-        # NEW: Compute value metrics
-        all_value_preds = torch.cat(all_value_preds, dim=0)
-        all_value_targets = torch.cat(all_value_targets, dim=0)
-        value_metrics = compute_value_metrics(all_value_preds, all_value_targets)
-        
-        return {
-            'policy_loss': val_policy_loss / num_batches,
-            'value_loss': val_value_loss / num_batches,
-            'total_loss': val_total_loss / num_batches,
-            'policy_accuracy': policy_accuracy,
-            'value_mae': value_metrics['mae'],
-            'value_mse': value_metrics['mse'],
-            'value_correlation': value_metrics['correlation']
-        }
-    
-    def save_checkpoint(self, epoch: int, is_best: bool = False):
-        """Save model checkpoint."""
-        
-        checkpoint = {
-            'epoch': epoch,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.scheduler.state_dict(),
-            'global_step': self.global_step,
-            'best_val_loss': self.best_val_loss,
-            'config': self.config,
-            'training_history': self.training_history
-        }
-        
-        # Save latest
-        checkpoint_path = self.config.model_dir / f'checkpoint_epoch_{epoch}.pth'
-        torch.save(checkpoint, checkpoint_path)
-        print(f"Saved checkpoint: {checkpoint_path}")
-        
-        # Save best
-        if is_best:
-            best_path = self.config.model_dir / 'best_model.pth'
-            torch.save(checkpoint, best_path)
-            print(f"Saved best model: {best_path}")
-    
-    def train(self):
-        """Main training loop."""
-        
-        print("=" * 80)
-        print("CHESS CNN TRAINING")
-        print("=" * 80)
-        print(f"Device: {self.device}")
-        print(f"Mixed precision: {self.config.use_mixed_precision}")
-        print(f"Epochs: {self.config.num_epochs}")
-        print(f"Batch size: {self.config.batch_size}")
-        print("=" * 80)
-        
-        # Load dataset
-        train_loader, val_loader, test_loader = self.load_dataset(self.config)
-        
-        # Setup
-        self.setup_training(train_loader)
-        
-        # Training loop
-        for epoch in range(1, self.config.num_epochs + 1):
-            print(f"\n{'='*80}")
-            print(f"EPOCH {epoch}/{self.config.num_epochs}")
-            print(f"{'='*80}")
-            
-            start_time = time.time()
-            
-            # Train
-            train_metrics = self.train_epoch(train_loader, epoch)
-            
-            # Validate
-            val_metrics = self.validate(val_loader)
-
-            # Accumulate per-epoch metrics
-            self.training_history['train_loss'].append(train_metrics['total_loss'])
-            self.training_history['val_loss'].append(val_metrics['total_loss'])
-            self.training_history['train_accuracy'].append(train_metrics['policy_accuracy'])
-            self.training_history['val_accuracy'].append(val_metrics['policy_accuracy'])
-            self.training_history['train_policy_loss'].append(train_metrics['policy_loss'])
-            self.training_history['val_policy_loss'].append(val_metrics['policy_loss'])
-            self.training_history['train_value_loss'].append(train_metrics['value_loss'])
-            self.training_history['val_value_loss'].append(val_metrics['value_loss'])
-
-            
-            epoch_time = time.time() - start_time
-            
-            # Print metrics
-            print(f"\nEpoch {epoch} Summary:")
-            print(f"  Time: {epoch_time:.1f}s")
-            print(f"  Train - Policy Loss: {train_metrics['policy_loss']:.4f} | "
-                  f"Value Loss: {train_metrics['value_loss']:.4f} | "
-                  f"Policy Acc: {train_metrics['policy_accuracy']:.4f}")
-            print(f"  Train - Value MAE: {train_metrics['value_mae']:.4f} | "
-                  f"Value MSE: {train_metrics['value_mse']:.4f} | "
-                  f"Value Corr: {train_metrics['value_correlation']:.4f}")
-            print(f"  Val   - Policy Loss: {val_metrics['policy_loss']:.4f} | "
-                  f"Value Loss: {val_metrics['value_loss']:.4f} | "
-                  f"Policy Acc: {val_metrics['policy_accuracy']:.4f}")
-            print(f"  Val   - Value MAE: {val_metrics['value_mae']:.4f} | "
-                  f"Value MSE: {val_metrics['value_mse']:.4f} | "
-                  f"Value Corr: {val_metrics['value_correlation']:.4f}")
-            
-            # TensorBoard logging
-            if self.writer:
-                self.writer.add_scalar('epoch/train_policy_loss', train_metrics['policy_loss'], epoch)
-                self.writer.add_scalar('epoch/train_value_loss', train_metrics['value_loss'], epoch)
-                self.writer.add_scalar('epoch/train_policy_accuracy', train_metrics['policy_accuracy'], epoch)
-                self.writer.add_scalar('epoch/train_value_mae', train_metrics['value_mae'], epoch)
-                self.writer.add_scalar('epoch/train_value_correlation', train_metrics['value_correlation'], epoch)
+                    p, v = self.model(pos)
+                    loss = self.policy_loss(p, mov) + 4*self.value_loss(v, res)
                 
-                self.writer.add_scalar('epoch/val_policy_loss', val_metrics['policy_loss'], epoch)
-                self.writer.add_scalar('epoch/val_value_loss', val_metrics['value_loss'], epoch)
-                self.writer.add_scalar('epoch/val_policy_accuracy', val_metrics['policy_accuracy'], epoch)
-                self.writer.add_scalar('epoch/val_value_mae', val_metrics['value_mae'], epoch)
-                self.writer.add_scalar('epoch/val_value_correlation', val_metrics['value_correlation'], epoch)
-            
-            # Save checkpoint
-            is_best = val_metrics['total_loss'] < self.best_val_loss
-            if is_best:
-                self.best_val_loss = val_metrics['total_loss']
-            
-            if epoch % self.config.save_frequency == 0:
-                self.save_checkpoint(epoch, is_best)
-        
-        print("\n" + "=" * 80)
-        print("TRAINING COMPLETE")
-        print("=" * 80)
-        print(f"Best validation loss: {self.best_val_loss:.4f}")
-        
-        # Evaluate on test set
-        print("\n" + "=" * 80)
-        print("EVALUATING ON FINAL TEST SET")
-        print("=" * 80)
-        test_metrics = self.validate(test_loader)
-        
-        print(f"  Test - Policy Loss: {test_metrics['policy_loss']:.4f} | "
-              f"Value Loss: {test_metrics['value_loss']:.4f} | "
-              f"Policy Acc: {test_metrics['policy_accuracy']:.4f}")
-        print(f"  Test - Value MAE: {test_metrics['value_mae']:.4f} | "
-              f"Value MSE: {test_metrics['value_mse']:.4f} | "
-              f"Value Corr: {test_metrics['value_correlation']:.4f}")
-        
-        # Save test metrics
-        metrics_path = self.config.model_dir / "test_metrics.txt"
-        with open(metrics_path, "w") as f:
-            f.write("Test metrics after final epoch:\n")
-            for k, v in test_metrics.items():
-                f.write(f"{k}: {v}\n")
-        print(f"\nTest metrics saved to {metrics_path}")
+                metrics['loss'] += loss.item()
+                metrics['p_acc'] += (p.argmax(1)==mov).float().mean().item()
+                metrics['v_mae'] += F.l1_loss(v, res).item()
+                vx = v - v.mean(); vy = res - res.mean()
+                metrics['v_corr'] += (vx*vy).sum() / (torch.sqrt((vx**2).sum() * (vy**2).sum()) + 1e-8)
+                steps += 1
 
-        if self.writer:
-            self.writer.close()
-
-# ============================================================================
-# Main
-# ============================================================================
-
-def main():
-    """Main entry point."""
-    
-    # Configuration
-    config = TrainingConfig()
-    
-    # Train
-    trainer = Trainer(config)
-    trainer.train()
+        # FIX: Ensure JSON compatibility by casting to float
+        final = {k: float(v/steps) for k, v in metrics.items()}
+        
+        print(f"\n📊 FINAL METRICS:\n{json.dumps(final, indent=2)}")
+        with open(self.config.model_dir / "final_test_metrics.json", "w") as f:
+            json.dump(final, f, indent=2)
+        print(f"✅ Saved to {self.config.model_dir}/final_test_metrics.json")
 
 if __name__ == '__main__':
-    main()
+    Trainer(TrainingConfig()).train()

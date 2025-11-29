@@ -1,0 +1,28 @@
+{
+  "count": 2500014,
+  "pos_shape": [
+    2500014,
+    13,
+    8,
+    8
+  ],
+  "pos_dtype": "float16",
+  "mov_shape": [
+    2500014
+  ],
+  "mov_dtype": "int32",
+  "res_shape": [
+    2500014
+  ],
+  "res_dtype": "float16",
+  "bucket_stats": {
+    "Beginner": 250065,
+    "Novice": 250001,
+    "Intermediate": 250001,
+    "Advanced": 250042,
+    "Strong": 375005,
+    "Master": 375096,
+    "SuperGM": 375040,
+    "Engine": 374764
+  }
+}

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Chess Data Preprocessor - "13th Plane" & Memmap Optimized
-=========================================================
+Chess Data Preprocessor - 60/40 Split & Smooth Progress
+=======================================================
 
-Project: EE542 - AlphaZero Hybrid (Laptop/GCP Optimized)
-Target: 20M positions (Stratified)
-Output: Uncompressed Binary Memmaps (Zero-Copy Load)
+Project: EE542 - AlphaZero Hybrid
+Target: Scalable (Default 100M)
+Output: Uncompressed Binary Memmaps
 
 CHANGELOG:
-1. Added 13th input channel (Turn Indicator) to fix Value Head collapse.
-2. Switched from .npz (compressed) to .bin (memmap) for 50x faster loading.
-3. Optimized intermediate chunking to prevent RAM spikes.
+1. Skew: 60% Expert (>1600), 40% Novice (<1600).
+2. UI: Progress bar updates every 10k positions.
+3. Disk: Flushes to disk every 100k positions.
+4. Data: 13th Plane (Turn Indicator) included.
 
 """
 
@@ -19,6 +20,7 @@ import logging
 import subprocess
 import sys
 import time
+from datetime import timedelta
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -39,23 +41,30 @@ except ImportError:
 class ProductionConfig:
     """Production extraction configuration."""
     
-    # Stratified Elo buckets
-    ELO_BUCKETS = [
-        (800, 1000), (1000, 1200), (1200, 1400), (1400, 1600),
-        (1600, 1800), (1800, 2000), (2000, 2200), (2200, 2600),
-    ]
+    # Target Total (Overridden by CLI argument)
+    TARGET_POSITIONS_TOTAL = 100_000_000
     
-    # Target: 20M positions
-    TARGET_POSITIONS_TOTAL = 500_000
-    TARGET_POSITIONS_PER_BUCKET = TARGET_POSITIONS_TOTAL // len(ELO_BUCKETS)
+    # Distribution Settings (UPDATED: 60/40 Split)
+    ELO_CUTOFF = 1600
+    HIGH_ELO_SHARE = 0.60  # 60% positions from > 1600
+    LOW_ELO_SHARE = 0.40   # 40% positions from < 1600
+    
+    # Stratified Elo Buckets
+    ELO_BUCKETS = [
+        # Low Elo (< 1600)
+        (800, 1000), (1000, 1200), (1200, 1400), (1400, 1600),
+        # High Elo (>= 1600)
+        (1600, 1800), (1800, 2000), (2000, 2200), (2200, 3000),
+    ]
     
     # Filters
     time_control_min = 300
     game_length_min = 20
     game_length_max = 500
     
-    # I/O
-    chunk_size = 500_000 
+    # I/O Settings
+    ui_update_interval = 1_000 # Update progress bar every 1k
+    flush_interval = 250_000    # Write to disk every 250k
     validate_moves = True
     
     # Paths
@@ -67,31 +76,40 @@ class ProductionConfig:
             (800, 1000): "Beginner", (1000, 1200): "Novice",
             (1200, 1400): "Intermediate", (1400, 1600): "Advanced",
             (1600, 1800): "Strong", (1800, 2000): "Master",
-            (2000, 2200): "SuperGM", (2200, 2600): "Engine",
+            (2000, 2200): "SuperGM", (2200, 3000): "Engine",
         }
         return names.get((elo_min, elo_max), f"Unknown({elo_min}-{elo_max})")
 
-class SystemMonitor:
-    def __init__(self):
-        self.start_memory_mb = psutil.virtual_memory().used / (1024 ** 2)
-        self.peak_memory_mb = self.start_memory_mb
-        self.start_time = None
-    
-    def current_memory_mb(self) -> float:
-        return psutil.virtual_memory().used / (1024 ** 2)
-    
-    def update_peak(self):
-        current = self.current_memory_mb()
-        if current > self.peak_memory_mb:
-            self.peak_memory_mb = current
+    def get_bucket_targets(self) -> dict:
+        """Calculates exact position count required for each bucket based on skew."""
+        targets = {}
+        
+        # Split buckets into High/Low groups
+        low_buckets = [b for b in self.ELO_BUCKETS if b[1] <= self.ELO_CUTOFF]
+        high_buckets = [b for b in self.ELO_BUCKETS if b[0] >= self.ELO_CUTOFF]
+        
+        # Calculate total slots for each group
+        total_low_slots = int(self.TARGET_POSITIONS_TOTAL * self.LOW_ELO_SHARE)
+        total_high_slots = int(self.TARGET_POSITIONS_TOTAL * self.HIGH_ELO_SHARE)
+        
+        # Distribute evenly within groups
+        per_bucket_low = total_low_slots // len(low_buckets)
+        per_bucket_high = total_high_slots // len(high_buckets)
+        
+        for b in low_buckets:
+            targets[self.get_bucket_name(*b)] = per_bucket_low
+            
+        for b in high_buckets:
+            targets[self.get_bucket_name(*b)] = per_bucket_high
+            
+        return targets
 
 # ============================================================================
-# Core Logic: 13-Plane Encoding
+# Core Logic
 # ============================================================================
 
 class BoardEncoder:
-    """Encode board to 13x8x8 tensor (Includes Turn Indicator)."""
-    
+    """Encode board to 13x8x8 tensor."""
     PIECE_TO_CHANNEL = {
         (chess.PAWN, chess.WHITE): 0, (chess.KNIGHT, chess.WHITE): 1,
         (chess.BISHOP, chess.WHITE): 2, (chess.ROOK, chess.WHITE): 3,
@@ -103,10 +121,7 @@ class BoardEncoder:
     
     @staticmethod
     def board_to_tensor(board: chess.Board) -> np.ndarray:
-        # CRITICAL FIX: 13 channels instead of 12
-        # Channel 12 is the "Turn Indicator" (All 0s for White, All 1s for Black)
         tensor = np.zeros((13, 8, 8), dtype=np.float16)
-        
         for square in chess.SQUARES:
             piece = board.piece_at(square)
             if piece:
@@ -115,10 +130,9 @@ class BoardEncoder:
                 channel = BoardEncoder.PIECE_TO_CHANNEL[(piece.piece_type, piece.color)]
                 tensor[channel, rank, file] = 1.0
         
-        # 13th Plane: Turn Indicator
+        # 13th Plane: Turn Indicator (0 for White, 1 for Black)
         if board.turn == chess.BLACK:
             tensor[12, :, :] = 1.0
-            
         return tensor
 
 class MoveEncoder:
@@ -131,273 +145,205 @@ class MoveEncoder:
         return from_sq * 64 + to_sq
 
 # ============================================================================
-# Pipeline Components
+# Streaming Extractor
 # ============================================================================
 
-class StratifiedGameFilter:
-    def __init__(self, config: ProductionConfig):
+class ProductionDataExtractor:
+    def __init__(self, config: ProductionConfig, logger):
         self.config = config
-        self.stats = {
-            'total_games_processed': 0,
-            'bucket_stats': {}
-        }
-        for elo_min, elo_max in config.ELO_BUCKETS:
-            name = config.get_bucket_name(elo_min, elo_max)
-            self.stats['bucket_stats'][name] = {
-                'elo_range': (elo_min, elo_max),
-                'positions_created': 0,
-                'target': config.TARGET_POSITIONS_PER_BUCKET,
-            }
-    
-    def get_elo_bucket(self, white_elo: int, black_elo: int) -> Optional[str]:
-        avg = (white_elo + black_elo) // 2
-        for elo_min, elo_max in self.config.ELO_BUCKETS:
-            if elo_min <= avg < elo_max:
-                return self.config.get_bucket_name(elo_min, elo_max)
-        return None
-    
-    def passes_filters(self, game: chess.pgn.GameNode) -> Tuple[bool, Optional[str]]:
-        try:
-            self.stats['total_games_processed'] += 1
-            headers = game.headers
-            
-            # Elo Check
-            try:
-                w_elo = int(headers.get("WhiteElo", 0))
-                b_elo = int(headers.get("BlackElo", 0))
-            except ValueError:
-                return False, None
-            
-            bucket = self.get_elo_bucket(w_elo, b_elo)
-            if not bucket: return False, None
-            
-            # Bucket Full Check
-            if self.stats['bucket_stats'][bucket]['positions_created'] >= \
-               self.stats['bucket_stats'][bucket]['target']:
-                return False, None
-
-            # Time Control Check (Standard/Rapid only)
-            tc = headers.get("TimeControl", "")
-            if not tc or tc == "-": return False, None
-            try:
-                base = int(tc.split('+')[0])
-                if base < self.config.time_control_min: return False, None
-            except: return False, None
-            
-            return True, bucket
-            
-        except Exception:
-            return False, None
-
-    def get_result_value(self, game: chess.pgn.GameNode) -> float:
-        res = game.headers.get("Result", "*")
-        if res == "1-0": return 1.0
-        if res == "0-1": return -1.0
-        return 0.0
-
-class PGNStreamReader:
-    def __init__(self, logger):
         self.logger = logger
-    
-    def stream_from_zst(self, zst_file: Path):
+        self.encoder = BoardEncoder()
+        
+        # Stats
+        self.total_positions = 0
+        self.start_time = None
+        self.bucket_counts = {config.get_bucket_name(l, h): 0 for l, h in config.ELO_BUCKETS}
+        self.bucket_targets = config.get_bucket_targets()
+        
+        # Print Plan
+        self.logger.info("-" * 40)
+        self.logger.info(f"DISTRIBUTION PLAN (Total: {config.TARGET_POSITIONS_TOTAL:,})")
+        self.logger.info("-" * 40)
+        for bucket, target in self.bucket_targets.items():
+            self.logger.info(f"{bucket:<15}: {target:,} positions")
+        self.logger.info("-" * 40)
+        
+        # Buffers
+        self.buf_pos = []
+        self.buf_mov = []
+        self.buf_res = []
+
+    def extract_dataset(self, input_files: List[Path]):
+        self.config.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        self.start_time = time.time()
+        
+        # 1. Open File Handles (Append Mode)
+        f_pos = open(self.config.OUTPUT_DIR / 'positions.bin', 'wb')
+        f_mov = open(self.config.OUTPUT_DIR / 'moves.bin', 'wb')
+        f_res = open(self.config.OUTPUT_DIR / 'results.bin', 'wb')
+        
+        self.logger.info("Starting Direct Stream Extraction...")
+        
+        try:
+            for input_file in input_files:
+                if self.total_positions >= self.config.TARGET_POSITIONS_TOTAL: break
+                
+                self.logger.info(f"\nProcessing: {input_file.name}")
+                self._process_pgn_file(input_file, f_pos, f_mov, f_res)
+                
+        except KeyboardInterrupt:
+            self.logger.info("\n\nStopping early... saving metadata.")
+        finally:
+            # Final Flush
+            if self.buf_pos:
+                self._flush_buffer(f_pos, f_mov, f_res)
+            
+            f_pos.close()
+            f_mov.close()
+            f_res.close()
+            self._save_metadata()
+            self.logger.info("\nExtraction Complete.")
+
+    def _process_pgn_file(self, zst_file, f_pos, f_mov, f_res):
         try:
             process = subprocess.Popen(
                 ['zstdcat', str(zst_file)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                bufsize=1024 * 1024, # 1MB buffer
+                bufsize=1024 * 1024,
                 universal_newlines=True,
                 text=True
             )
+            
             while True:
+                if self.total_positions >= self.config.TARGET_POSITIONS_TOTAL: break
+                
                 game = chess.pgn.read_game(process.stdout)
                 if game is None: break
-                yield game
-        except FileNotFoundError:
-            self.logger.error("zstdcat not found. Install: sudo apt install zstd")
+                
+                # Filters
+                headers = game.headers
+                try:
+                    w_elo = int(headers.get("WhiteElo", 0))
+                    b_elo = int(headers.get("BlackElo", 0))
+                    tc = headers.get("TimeControl", "0+0").split('+')[0]
+                    base_time = int(tc)
+                except: continue
+
+                if base_time < self.config.time_control_min: continue
+                
+                bucket = self._get_bucket(w_elo, b_elo)
+                if not bucket: continue
+                
+                # SKEW CHECK: Stop taking data from this bucket if it's full
+                if self.bucket_counts[bucket] >= self.bucket_targets[bucket]: continue
+                
+                # Result
+                res_str = headers.get("Result", "*")
+                if res_str == "1-0": game_res = 1.0
+                elif res_str == "0-1": game_res = -1.0
+                else: game_res = 0.0 # Draw or unknown
+                
+                # Moves
+                board = game.board()
+                for move in game.mainline_moves():
+                    if self.config.validate_moves and move not in board.legal_moves: break
+                    
+                    # Add to Buffer
+                    self.buf_pos.append(self.encoder.board_to_tensor(board))
+                    self.buf_mov.append(MoveEncoder.move_to_index(move))
+                    self.buf_res.append(game_res if board.turn == chess.WHITE else -game_res)
+                    
+                    self.total_positions += 1
+                    self.bucket_counts[bucket] += 1
+                    board.push(move)
+                    
+                    # UPDATE UI every 10k
+                    if self.total_positions % self.config.ui_update_interval == 0:
+                        self._print_progress()
+
+                    # FLUSH DISK every 100k
+                    if len(self.buf_pos) >= self.config.flush_interval:
+                        self._flush_buffer(f_pos, f_mov, f_res)
+                        
         except Exception as e:
             self.logger.error(f"Stream error: {e}")
 
-# ============================================================================
-# Main Extractor (Memmap Optimized)
-# ============================================================================
+    def _flush_buffer(self, f_pos, f_mov, f_res):
+        """Write buffer to disk immediately."""
+        # Convert to numpy (fast C-contiguous)
+        np_pos = np.array(self.buf_pos, dtype=np.float16)
+        np_mov = np.array(self.buf_mov, dtype=np.int32)
+        np_res = np.array(self.buf_res, dtype=np.float16)
+        
+        # Write raw bytes (append)
+        f_pos.write(np_pos.tobytes())
+        f_mov.write(np_mov.tobytes())
+        f_res.write(np_res.tobytes())
+        
+        # Clear RAM
+        self.buf_pos, self.buf_mov, self.buf_res = [], [], []
+        
+        # Update metadata so partial runs are valid
+        self._save_metadata()
 
-class ProductionDataExtractor:
-    def __init__(self, config: ProductionConfig, logger, monitor: SystemMonitor):
-        self.config = config
-        self.logger = logger
-        self.monitor = monitor
-        self.encoder = BoardEncoder()
-        self.filter = StratifiedGameFilter(config)
-        self.reader = PGNStreamReader(logger)
-        
-        self.stats = {
-            'positions': 0,
-            'start_time': None
-        }
-
-    def extract_dataset(self, input_files: List[Path]):
-        self.stats['start_time'] = time.time()
-        self.monitor.start_time = self.stats['start_time']
-        self.config.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        
-        # Temp chunk storage
-        chunk_files = []
-        current_chunk_pos = []
-        current_chunk_mov = []
-        current_chunk_res = []
-        chunk_idx = 0
-        
-        self.logger.info("Starting Extraction...")
-        
-        for input_file in input_files:
-            if self.stats['positions'] >= self.config.TARGET_POSITIONS_TOTAL: break
-            
-            self.logger.info(f"Reading {input_file.name}...")
-            
-            for game in self.reader.stream_from_zst(input_file):
-                if self.stats['positions'] >= self.config.TARGET_POSITIONS_TOTAL: break
-                
-                passed, bucket_name = self.filter.passes_filters(game)
-                if not passed: continue
-                
-                # Extract
-                board = game.board()
-                game_res = self.filter.get_result_value(game)
-                
-                for move in game.mainline_moves():
-                    # Validation
-                    if self.config.validate_moves and move not in board.legal_moves: break
-                    
-                    # Encode
-                    pos_tensor = self.encoder.board_to_tensor(board)
-                    move_idx = MoveEncoder.move_to_index(move)
-                    
-                    # Result perspective
-                    result = game_res if board.turn == chess.WHITE else -game_res
-                    
-                    current_chunk_pos.append(pos_tensor)
-                    current_chunk_mov.append(move_idx)
-                    current_chunk_res.append(result)
-                    
-                    # Stats
-                    self.stats['positions'] += 1
-                    self.filter.stats['bucket_stats'][bucket_name]['positions_created'] += 1
-                    
-                    # Chunk write
-                    if len(current_chunk_pos) >= self.config.chunk_size:
-                        self._dump_chunk(chunk_idx, current_chunk_pos, current_chunk_mov, current_chunk_res, chunk_files)
-                        current_chunk_pos, current_chunk_mov, current_chunk_res = [], [], []
-                        chunk_idx += 1
-                        self._print_progress()
-                    
-                    board.push(move)
-        
-        # Final residual chunk
-        if current_chunk_pos:
-            self._dump_chunk(chunk_idx, current_chunk_pos, current_chunk_mov, current_chunk_res, chunk_files)
-            chunk_files.append(self.config.OUTPUT_DIR / f'temp_{chunk_idx}.npz')
-
-        # CONSOLIDATE TO MEMMAP
-        self._consolidate_to_memmap(chunk_files)
-
-    def _dump_chunk(self, idx, pos, mov, res, file_list):
-        """Save temp chunk as uncompressed NPZ for speed."""
-        path = self.config.OUTPUT_DIR / f'temp_{idx}.npz'
-        # Uncompressed save is faster
-        np.savez(path, 
-                 p=np.array(pos, dtype=np.float16),
-                 m=np.array(mov, dtype=np.int32),
-                 r=np.array(res, dtype=np.float16))
-        file_list.append(path)
-
-    def _consolidate_to_memmap(self, chunk_files):
-        """Merge all temp chunks into final binary memmaps."""
-        self.logger.info("\n" + "="*60)
-        self.logger.info("CONSOLIDATING TO MEMMAP (Zero-Copy Format)")
-        self.logger.info("="*60)
-        
-        total = self.stats['positions']
-        
-        # 1. Create Metadata
-        metadata = {
-            'count': total,
-            'pos_shape': [total, 13, 8, 8],
+    def _save_metadata(self):
+        meta = {
+            'count': self.total_positions,
+            'pos_shape': [self.total_positions, 13, 8, 8],
             'pos_dtype': 'float16',
-            'mov_shape': [total],
+            'mov_shape': [self.total_positions],
             'mov_dtype': 'int32',
-            'res_shape': [total],
-            'res_dtype': 'float16'
+            'res_shape': [self.total_positions],
+            'res_dtype': 'float16',
+            'bucket_stats': self.bucket_counts
         }
         with open(self.config.OUTPUT_DIR / 'metadata.json', 'w') as f:
-            json.dump(metadata, f, indent=2)
-            
-        # 2. Allocate Memmaps
-        self.logger.info(f"Allocating disk space for {total:,} positions...")
-        
-        fp_pos = np.memmap(self.config.OUTPUT_DIR / 'positions.bin', dtype='float16', mode='w+', shape=(total, 13, 8, 8))
-        fp_mov = np.memmap(self.config.OUTPUT_DIR / 'moves.bin', dtype='int32', mode='w+', shape=(total,))
-        fp_res = np.memmap(self.config.OUTPUT_DIR / 'results.bin', dtype='float16', mode='w+', shape=(total,))
-        
-        # 3. Stream Copy
-        ptr = 0
-        for i, cf in enumerate(chunk_files):
-            try:
-                data = np.load(cf)
-                n = len(data['p'])
-                
-                fp_pos[ptr:ptr+n] = data['p']
-                fp_mov[ptr:ptr+n] = data['m']
-                fp_res[ptr:ptr+n] = data['r']
-                
-                ptr += n
-                
-                if i % 5 == 0:
-                    self.logger.info(f"Merged chunk {i+1}/{len(chunk_files)}...")
-                
-                # Cleanup temp file immediately
-                cf.unlink()
-                
-            except Exception as e:
-                self.logger.error(f"Error merging chunk {cf}: {e}")
-        
-        # Flush to disk
-        fp_pos.flush()
-        fp_mov.flush()
-        fp_res.flush()
-        
-        self.logger.info(f"\n✓ SUCCESS. Dataset ready at: {self.config.OUTPUT_DIR}")
-        self.logger.info(f"  Total Positions: {total:,}")
-        self.logger.info(f"  Format: Raw Binary (Memmap)")
+            json.dump(meta, f, indent=2)
+
+    def _get_bucket(self, w, b):
+        avg = (w + b) // 2
+        for l, h in self.config.ELO_BUCKETS:
+            if l <= avg < h:
+                return self.config.get_bucket_name(l, h)
+        return None
 
     def _print_progress(self):
-        elapsed = time.time() - self.stats['start_time']
-        rate = self.stats['positions'] / max(1, elapsed)
-        print(f"\rExtracted: {self.stats['positions']:,} | Speed: {rate:.0f} pos/s", end="")
+        elapsed = time.time() - self.start_time
+        if elapsed == 0: return
+        rate = self.total_positions / elapsed
+        percent = self.total_positions / self.config.TARGET_POSITIONS_TOTAL
+        eta = (self.config.TARGET_POSITIONS_TOTAL - self.total_positions) / rate
+        
+        bar = '█' * int(30 * percent) + '░' * (30 - int(30 * percent))
+        sys.stdout.write(
+            f"\r[{bar}] {percent:>6.1%} | {self.total_positions} Pos | {rate:.0f} pos/s | ETA: {str(timedelta(seconds=int(eta)))}"
+        )
+        sys.stdout.flush()
 
 def setup_logging(config):
     config.LOG_DIR.mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s [%(levelname)s] %(message)s',
-        handlers=[logging.FileHandler(config.LOG_DIR / "extract.log"), logging.StreamHandler(sys.stdout)]
-    )
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
     return logging.getLogger(__name__)
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--input-dir', type=str, default='/home/krish/EE542-Project/FINAL/chess_ai/data/lichess_raw')
+    parser.add_argument('--target', type=int, default=None, help='Total positions to extract')
     args = parser.parse_args()
     
     config = ProductionConfig()
+    
+    # CLI Override
+    if args.target is not None:
+        config.TARGET_POSITIONS_TOTAL = args.target
+        
     logger = setup_logging(config)
-    monitor = SystemMonitor()
     
     input_files = sorted(Path(args.input_dir).glob('*.pgn.zst'))
     if not input_files:
         print("No .pgn.zst files found!")
-        sys.exit(1)
-        
-    extractor = ProductionDataExtractor(config, logger, monitor)
-    extractor.extract_dataset(input_files)
+    else:
+        extractor = ProductionDataExtractor(config, logger)
+        extractor.extract_dataset(input_files)
