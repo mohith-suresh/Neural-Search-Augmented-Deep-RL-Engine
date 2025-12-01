@@ -63,8 +63,8 @@ class ProductionConfig:
     game_length_max = 500
     
     # I/O Settings
-    ui_update_interval = 1_000 # Update progress bar every 1k
-    flush_interval = 250_000    # Write to disk every 250k
+    ui_update_interval = 1_000_000 # Update progress bar every 1k
+    flush_interval = 500_000    # Write to disk every 250k
     validate_moves = True
     
     # Paths
@@ -309,17 +309,19 @@ class ProductionDataExtractor:
         return None
 
     def _print_progress(self):
+        """Prints a simple log line instead of a dynamic bar (better for log files)."""
         elapsed = time.time() - self.start_time
         if elapsed == 0: return
         rate = self.total_positions / elapsed
         percent = self.total_positions / self.config.TARGET_POSITIONS_TOTAL
-        eta = (self.config.TARGET_POSITIONS_TOTAL - self.total_positions) / rate
         
-        bar = '█' * int(30 * percent) + '░' * (30 - int(30 * percent))
-        sys.stdout.write(
-            f"\r[{bar}] {percent:>6.1%} | {self.total_positions} Pos | {rate:.0f} pos/s | ETA: {str(timedelta(seconds=int(eta)))}"
+        # Format: [2023-11-29 10:00:00] Progress: 15.5% | 15.5M / 100M | Speed: 9500 pos/s
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.logger.info(
+            f"[{timestamp}] Progress: {percent:>6.1%} | "
+            f"{self.total_positions/1e6:.1f}M / {self.config.TARGET_POSITIONS_TOTAL/1e6:.0f}M | "
+            f"Speed: {rate:.0f} pos/s"
         )
-        sys.stdout.flush()
 
 def setup_logging(config):
     config.LOG_DIR.mkdir(parents=True, exist_ok=True)

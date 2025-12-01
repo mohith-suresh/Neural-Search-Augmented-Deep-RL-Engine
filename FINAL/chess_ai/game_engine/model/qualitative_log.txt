@@ -1,0 +1,5 @@
+
+--- Epoch 1 Analysis ---
+[Start   ] Value: +0.041 | Top Moves: 796(43.5%), 731(32.7%), 405(4.3%)
+[Tactic  ] Value: -0.109 | Top Moves: 3893(48.4%), 3892(11.3%), 3828(6.5%)
+[Endgame ] Value: -0.319 | Top Moves: 779(15.4%), 781(14.3%), 787(9.8%)

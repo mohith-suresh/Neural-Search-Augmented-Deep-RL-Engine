@@ -1,28 +1,28 @@
 {
-  "count": 2500014,
+  "count": 92359146,
   "pos_shape": [
-    2500014,
+    92359146,
     13,
     8,
     8
   ],
   "pos_dtype": "float16",
   "mov_shape": [
-    2500014
+    92359146
   ],
   "mov_dtype": "int32",
   "res_shape": [
-    2500014
+    92359146
   ],
   "res_dtype": "float16",
   "bucket_stats": {
-    "Beginner": 250065,
-    "Novice": 250001,
-    "Intermediate": 250001,
-    "Advanced": 250042,
-    "Strong": 375005,
-    "Master": 375096,
-    "SuperGM": 375040,
-    "Engine": 374764
+    "Beginner": 10000022,
+    "Novice": 10000056,
+    "Intermediate": 10000049,
+    "Advanced": 10000092,
+    "Strong": 15000072,
+    "Master": 15000000,
+    "SuperGM": 15000003,
+    "Engine": 7358852
   }
 }
