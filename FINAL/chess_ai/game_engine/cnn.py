@@ -17,6 +17,8 @@ import os
 import shutil
 import logging
 import warnings
+import smtplib
+from email.message import EmailMessage
 from pathlib import Path
 from dataclasses import dataclass, asdict
 
@@ -30,6 +32,13 @@ from torch.optim.lr_scheduler import OneCycleLR
 from torch.utils.data import DataLoader, Dataset, random_split
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv is optional; skip if not installed
+    pass
 
 # Suppress harmless warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -348,6 +357,14 @@ class Trainer:
                 self.save_plots()
                 
                 print(f"Summary Ep {epoch}: Val Loss {avg_val_loss:.4f} | Acc {v_metrics['p_acc']/(i+1):.1%} | Corr {v_metrics['v_corr']/(i+1):.3f}\n")
+                
+                # Email notification with plots and qualitative log
+                self.email_epoch_summary(
+                    epoch=epoch,
+                    val_loss=avg_val_loss,
+                    val_acc=v_metrics['p_acc']/(i+1),
+                    val_corr=v_metrics['v_corr']/(i+1)
+                )
 
         except KeyboardInterrupt:
             print("\n🛑 Stop signal received. Finishing up...")
@@ -404,6 +421,55 @@ class Trainer:
         plt.tight_layout()
         plt.savefig(self.config.model_dir / "training_curves.png", dpi=100)
         plt.close()
+
+    def email_epoch_summary(self, epoch, val_loss, val_acc, val_corr):
+        """Send epoch summary email with plot and qualitative log attachments."""
+        smtp_host = os.getenv("SMTP_HOST")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        smtp_user = os.getenv("SMTP_USER")
+        smtp_pass = os.getenv("SMTP_PASS")
+        from_addr = os.getenv("SMTP_FROM", smtp_user or "noreply@example.com")
+        recipients = ["adithya@usc.edu", "krishmod@usc.edu", "mohiths@usc.edu"]
+
+        # Skip if required config missing
+        if not smtp_host or not smtp_user or not smtp_pass:
+            print("Email skipped: SMTP_HOST/SMTP_USER/SMTP_PASS not set.")
+            return
+
+        msg = EmailMessage()
+        msg["Subject"] = f"[Chess AI] Epoch {epoch} summary"
+        msg["From"] = from_addr
+        msg["To"] = ", ".join(recipients)
+
+        body = (
+            f"Epoch {epoch} complete.\n"
+            f"Validation Loss: {val_loss:.4f}\n"
+            f"Validation Policy Acc: {val_acc:.1%}\n"
+            f"Validation Value Corr: {val_corr:.3f}\n"
+            f"Model Dir: {self.config.model_dir}\n"
+        )
+        msg.set_content(body)
+
+        # Attach training curves if available
+        plot_path = self.config.model_dir / "training_curves.png"
+        if plot_path.exists():
+            with open(plot_path, "rb") as f:
+                msg.add_attachment(f.read(), maintype="application", subtype="octet-stream", filename=plot_path.name)
+
+        # Attach qualitative log if available
+        qual_path = self.config.model_dir / "qualitative_log.txt"
+        if qual_path.exists():
+            with open(qual_path, "rb") as f:
+                msg.add_attachment(f.read(), maintype="text", subtype="plain", filename=qual_path.name)
+
+        try:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+                server.send_message(msg)
+            print(f"Email sent to {', '.join(recipients)} for epoch {epoch}")
+        except Exception as exc:
+            print(f"Email failed for epoch {epoch}: {exc}")
 
     def final_test(self):
         print("\n" + "="*40)
