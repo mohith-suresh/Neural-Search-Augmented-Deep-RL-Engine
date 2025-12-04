@@ -1,5 +1,105 @@
 
---- Epoch 1 Analysis ---
-[Start   ] Value: +0.041 | Top Moves: 796(43.5%), 731(32.7%), 405(4.3%)
-[Tactic  ] Value: -0.109 | Top Moves: 3893(48.4%), 3892(11.3%), 3828(6.5%)
-[Endgame ] Value: -0.319 | Top Moves: 779(15.4%), 781(14.3%), 787(9.8%)
+--- Epoch 2 Analysis ---
+[Start   ] Value: -0.008 | Top Moves: 796(40.8%), 731(28.8%), 405(4.7%)
+[Tactic  ] Value: +0.184 | Top Moves: 3893(27.5%), 3892(10.1%), 2715(7.4%)
+[Endgame ] Value: -0.298 | Top Moves: 1308(22.5%), 781(17.4%), 779(14.4%)
+
+--- Epoch 3 Analysis ---
+[Start   ] Value: +0.205 | Top Moves: 796(68.3%), 731(12.8%), 405(1.9%)
+[Tactic  ] Value: +0.050 | Top Moves: 3893(31.0%), 3892(29.2%), 3899(5.8%)
+[Endgame ] Value: +0.530 | Top Moves: 781(41.1%), 779(26.2%), 771(4.9%)
+
+--- Epoch 4 Analysis ---
+[Start   ] Value: +0.061 | Top Moves: 796(53.9%), 731(25.3%), 666(4.1%)
+[Tactic  ] Value: +0.269 | Top Moves: 3892(26.9%), 3893(11.9%), 3899(7.0%)
+[Endgame ] Value: +0.420 | Top Moves: 779(52.8%), 781(33.4%), 772(1.9%)
+
+--- Epoch 5 Analysis ---
+[Start   ] Value: +0.083 | Top Moves: 796(58.0%), 731(25.8%), 666(3.0%)
+[Tactic  ] Value: -0.047 | Top Moves: 3892(38.5%), 3893(31.4%), 3828(2.8%)
+[Endgame ] Value: +0.537 | Top Moves: 781(48.9%), 779(19.1%), 1308(1.7%)
+
+--- Epoch 7 Analysis ---
+[Start   ] Value: +0.040 | Top Moves: 796(59.1%), 731(19.3%), 405(3.0%)
+[Tactic  ] Value: -0.054 | Top Moves: 3892(77.9%), 3893(2.7%), 3899(1.9%)
+[Endgame ] Value: +0.417 | Top Moves: 781(54.1%), 779(25.2%), 771(1.8%)
+
+--- Epoch 8 Analysis ---
+[Start   ] Value: +0.040 | Top Moves: 796(60.1%), 731(22.3%), 666(2.7%)
+[Tactic  ] Value: -0.085 | Top Moves: 3892(79.9%), 3956(2.0%), 3899(1.9%)
+[Endgame ] Value: +0.327 | Top Moves: 781(63.8%), 779(23.0%), 773(1.0%)
+
+--- Epoch 9 Analysis ---
+[Start   ] Value: +0.037 | Top Moves: 796(58.8%), 731(21.1%), 666(2.5%)
+[Tactic  ] Value: -0.112 | Top Moves: 3892(74.7%), 3899(2.0%), 3956(1.8%)
+[Endgame ] Value: +0.420 | Top Moves: 781(50.1%), 779(30.6%), 773(1.2%)
+
+--- Epoch 10 Analysis ---
+[Start   ] Value: +0.041 | Top Moves: 796(58.3%), 731(21.0%), 405(2.5%)
+[Tactic  ] Value: -0.140 | Top Moves: 3892(75.9%), 3893(2.2%), 3956(1.7%)
+[Endgame ] Value: +0.322 | Top Moves: 781(53.6%), 779(27.6%), 773(1.2%)
+
+--- Epoch 11 Analysis ---
+[Start   ] Value: +0.026 | Top Moves: 796(58.3%), 731(20.1%), 405(2.4%)
+[Tactic  ] Value: -0.294 | Top Moves: 3892(68.7%), 3956(3.8%), 2740(2.6%)
+[Endgame ] Value: -0.010 | Top Moves: 781(53.3%), 779(29.6%), 773(1.1%)
+
+--- Epoch 12 Analysis ---
+[Start   ] Value: +0.023 | Top Moves: 796(58.6%), 731(22.1%), 666(2.7%)
+[Tactic  ] Value: -0.262 | Top Moves: 3892(73.9%), 2740(2.4%), 3956(2.1%)
+[Endgame ] Value: +0.278 | Top Moves: 781(43.9%), 779(38.8%), 773(1.0%)
+
+--- Epoch 13 Analysis ---
+[Start   ] Value: +0.037 | Top Moves: 796(58.5%), 731(21.0%), 405(2.6%)
+[Tactic  ] Value: -0.083 | Top Moves: 3892(73.4%), 3893(2.1%), 3956(1.9%)
+[Endgame ] Value: +0.259 | Top Moves: 781(50.5%), 779(34.0%), 772(0.9%)
+
+--- Epoch 11 Analysis ---
+[Start   ] Value: +0.051 | Top Moves: 796(60.3%), 731(19.4%), 405(2.6%)
+[Tactic  ] Value: -0.214 | Top Moves: 3892(68.5%), 3893(2.7%), 3956(2.2%)
+[Endgame ] Value: +0.302 | Top Moves: 779(50.1%), 781(32.0%), 773(1.1%)
+
+--- Epoch 12 Analysis ---
+[Start   ] Value: +0.037 | Top Moves: 796(56.5%), 731(21.7%), 666(2.7%)
+[Tactic  ] Value: -0.292 | Top Moves: 3892(67.9%), 3899(2.4%), 3893(2.4%)
+[Endgame ] Value: +0.095 | Top Moves: 781(45.6%), 779(35.0%), 773(1.3%)
+
+--- Epoch 13 Analysis ---
+[Start   ] Value: +0.023 | Top Moves: 796(56.5%), 731(21.9%), 405(2.5%)
+[Tactic  ] Value: -0.094 | Top Moves: 3892(68.4%), 3893(3.6%), 3956(2.4%)
+[Endgame ] Value: +0.257 | Top Moves: 781(51.7%), 779(27.3%), 773(1.5%)
+
+--- Epoch 14 Analysis ---
+[Start   ] Value: +0.032 | Top Moves: 796(58.3%), 731(21.4%), 666(2.4%)
+[Tactic  ] Value: -0.184 | Top Moves: 3892(70.7%), 3893(2.9%), 2740(2.1%)
+[Endgame ] Value: +0.194 | Top Moves: 781(53.3%), 779(29.1%), 773(1.1%)
+
+--- Epoch 15 Analysis ---
+[Start   ] Value: +0.038 | Top Moves: 796(58.6%), 731(21.2%), 405(2.4%)
+[Tactic  ] Value: -0.170 | Top Moves: 3892(69.0%), 3893(3.1%), 2740(2.2%)
+[Endgame ] Value: +0.215 | Top Moves: 781(51.0%), 779(31.7%), 773(1.1%)
+
+--- Epoch 16 Analysis ---
+[Start   ] Value: +0.029 | Top Moves: 796(55.8%), 731(23.5%), 666(3.3%)
+[Tactic  ] Value: -0.177 | Top Moves: 3892(67.1%), 3893(3.7%), 3956(2.5%)
+[Endgame ] Value: +0.153 | Top Moves: 781(54.2%), 779(30.2%), 773(1.1%)
+
+--- Epoch 17 Analysis ---
+[Start   ] Value: +0.034 | Top Moves: 796(55.0%), 731(24.1%), 666(3.1%)
+[Tactic  ] Value: -0.199 | Top Moves: 3892(70.1%), 3893(2.9%), 2740(2.5%)
+[Endgame ] Value: +0.251 | Top Moves: 781(52.9%), 779(30.3%), 773(1.0%)
+
+--- Epoch 18 Analysis ---
+[Start   ] Value: +0.039 | Top Moves: 796(56.1%), 731(23.5%), 666(3.1%)
+[Tactic  ] Value: -0.184 | Top Moves: 3892(71.0%), 3893(3.0%), 3956(2.2%)
+[Endgame ] Value: +0.201 | Top Moves: 781(57.6%), 779(27.1%), 773(0.9%)
+
+--- Epoch 19 Analysis ---
+[Start   ] Value: +0.035 | Top Moves: 796(55.9%), 731(23.2%), 666(3.2%)
+[Tactic  ] Value: -0.227 | Top Moves: 3892(71.7%), 3893(2.7%), 3956(2.1%)
+[Endgame ] Value: +0.238 | Top Moves: 781(55.0%), 779(28.0%), 773(1.0%)
+
+--- Epoch 20 Analysis ---
+[Start   ] Value: +0.035 | Top Moves: 796(56.0%), 731(23.1%), 666(3.2%)
+[Tactic  ] Value: -0.224 | Top Moves: 3892(72.1%), 3893(2.8%), 3956(2.0%)
+[Endgame ] Value: +0.228 | Top Moves: 781(54.9%), 779(28.3%), 773(1.0%)

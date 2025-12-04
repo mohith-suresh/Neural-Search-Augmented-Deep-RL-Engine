@@ -114,34 +114,29 @@ fig, ax = plt.subplots(figsize=(12, 7))
 
 companies = ['Alphabet\n(Google)', 'Meta\nPlatforms', 'Tesla']
 investments = [96.5, 39, 25.2]  # Billions USD
-colors = ['#4285F4', '#0668E1', '#CC0000']
+colors = ["#15FF00", '#0668E1', '#CC0000']
 
 bars = ax.barh(companies, investments, color=colors, height=0.5, 
                edgecolor='black', linewidth=1.5, alpha=0.9)
 
 # Add value labels and applications
-applications = ['AlphaZero, AlphaFold, Cooling -40%', 
-                'Meta Motivo SOTA Robotics',
-                'FSD 2B+ Miles Driven']
+applications = ['Gemini, AlphaZero, Waymo', 
+                'Meta Superintelligence Labs',
+                'Tesla\'s Full Self Driving']
 
 for i, (bar, inv, app) in enumerate(zip(bars, investments, applications)):
     # Investment value
     ax.text(inv + 2, i, f'${inv:.1f}B', va='center', fontsize=14, fontweight='bold')
     # Application text
-    ax.text(inv - 2, i, app, va='center', ha='right', fontsize=11, style='italic', color='white')
+    ax.text(inv - 2, i, app, va='center', ha='right', fontsize=11, style='italic', color='black')
 
-ax.set_xlabel('2024 Investment/Revenue (USD Billions)', fontsize=16, fontweight='bold')
-ax.set_title('Industry Leaders: $175B+ Annual Investment Validates RL', 
+ax.set_xlabel('2024 Market Size (USD Billions)', fontsize=16, fontweight='bold')
+ax.set_title('Industry Leaders in Reinforcement Learning based AI', 
              fontsize=18, fontweight='bold', pad=20)
 ax.spines['top'].set_visible(False)
 ax.spines['right'].set_visible(False)
 ax.set_xlim(0, 110)
 ax.grid(axis='x', alpha=0.3, linestyle='--')
-
-# Add total annotation
-ax.text(55, -0.8, 'Total: $175B+ validates production RL', 
-        fontsize=14, ha='center', fontweight='bold',
-        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7))
 
 plt.tight_layout()
 plt.savefig('chart2_industry_leaders.png', dpi=300, bbox_inches='tight', facecolor='white')
