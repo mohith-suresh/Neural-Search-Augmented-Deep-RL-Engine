@@ -1,4 +1,5 @@
 import multiprocessing as mp
+import threading
 import os
 import sys
 import time
@@ -17,23 +18,19 @@ from game_engine.evaluation import Arena, StockfishEvaluator, MetricsLogger
 from game_engine.cnn import ChessCNN
 
 # ==========================================
-#        PINNED PRODUCTION CONFIG
+#        SAFE PRODUCTION CONFIG (MONITORED)
 # ==========================================
 
 # --- EXECUTION ---
 ITERATIONS = 1000
 
-# STRICT MAPPING:
-# We use 30 workers. We will PIN them to Cores 0-29.
-# We will PIN the Server to Cores 30-31.
-NUM_WORKERS = 30 
+# 15 Workers is the "Safe Zone" for your RAM.
+NUM_WORKERS = 15
 
 # Generation
 GAMES_PER_WORKER = 5       
-                           
+
 # --- QUALITY ---
-# Increased to 1200 to eliminate idle time.
-# Deeper search = Better data = Faster convergence (per game).
 SIMULATIONS = 1200          
 
 # Training
@@ -78,19 +75,34 @@ def setup_child_logging():
 
 # ==========================================
 
+def queue_monitor_thread(queue):
+    """
+    Runs in the background of the Server process.
+    Checks how many requests are waiting for the GPU.
+    """
+    while True:
+        try:
+            # qsize() is approximate but good enough for monitoring
+            size = queue.qsize()
+            if size > 0:
+                # Only print if there is actually traffic, to reduce log spam
+                print(f"   [Server Monitor] Pending Requests in Queue: {size}")
+            time.sleep(2.0)
+        except NotImplementedError:
+            print("   [Server Monitor] Queue size not supported on this OS.")
+            break
+        except Exception:
+            break
+
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
     # --- CPU AFFINITY (PINNING) ---
-    # Pin this worker strictly to one core to prevent context switching
     if hasattr(os, 'sched_setaffinity'):
         try:
-            # Worker 0 -> Core 0, Worker 1 -> Core 1, etc.
             os.sched_setaffinity(0, {worker_id})
-        except Exception as e:
-            print(f"Warning: Could not pin Worker {worker_id}: {e}")
+        except Exception:
+            pass
 
     setup_child_logging()
-    
-    # Stagger start to ease the initial GPU spike
     time.sleep(worker_id * 0.2) 
 
     print(f"   [Worker {worker_id}] Starting batch of {game_limit} HQ games ({SIMULATIONS} sims)...")
@@ -112,7 +124,6 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
             move_duration = time.time() - move_start
 
-            # --- DETAILED LOGGING FOR WORKER 0 ---
             if worker_id == 0:
                 print(f"   [Worker 0] Move {len(game.moves)+1}: {best_move} ({move_duration:.2f}s)")
             
@@ -149,24 +160,27 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
     print(f"   [Worker {worker_id}] Batch Complete.")
 
 def run_server_wrapper(server):
-    # --- PIN SERVER TO REMAINING CORES ---
-    # If we have 32 cores and 30 workers, pin server to 30 and 31.
+    # --- PIN SERVER ---
     if hasattr(os, 'sched_setaffinity'):
         try:
             total_cores = os.cpu_count()
-            # Pin to the last available cores (e.g., 30 and 31)
-            server_cores = {i for i in range(NUM_WORKERS, total_cores)}
+            server_cores = {i for i in range(16, total_cores)}
             if server_cores:
                 os.sched_setaffinity(0, server_cores)
-                print(f"Server pinned to Cores: {server_cores}")
         except Exception:
             pass
 
     setup_child_logging()
+    
+    # --- START MONITOR THREAD ---
+    monitor = threading.Thread(target=queue_monitor_thread, args=(server.input_queue,))
+    monitor.daemon = True # Dies when main process dies
+    monitor.start()
+
     server.loop()
 
 def run_self_play_phase(iteration):
-    print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Pinned & Deep) ===")
+    print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Safe & Monitored) ===")
     
     server = InferenceServer(BEST_MODEL)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
@@ -190,7 +204,7 @@ def run_self_play_phase(iteration):
     if server_process.is_alive():
         server_process.terminate()
         
-    print(f"=== SELF-PLAY COMPLETE: Generated {NUM_WORKERS * GAMES_PER_WORKER} Deep games ===")
+    print(f"=== SELF-PLAY COMPLETE: Generated {NUM_WORKERS * GAMES_PER_WORKER} games ===")
 
 def run_training_phase(iteration):
     print(f"\n=== ITERATION {iteration}: TRAINING PHASE ===")
@@ -230,7 +244,7 @@ if __name__ == "__main__":
     logger = MetricsLogger()
     
     print("=================================================")
-    print(f"STARTING PINNED PRODUCTION (1 Iteration)")
+    print(f"STARTING MONITORED RUN (1 Iteration)")
     print(f"Workers: {NUM_WORKERS} | Sims: {SIMULATIONS}")
     print("=================================================")
 
