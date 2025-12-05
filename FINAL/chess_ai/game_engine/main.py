@@ -25,7 +25,7 @@ ITERATIONS = 1000             # Just 1 loop to verify the high-quality settings
 
 # Auto-detect CPUs: Leave 2 cores free for OS & GPU Server
 # On a 32-core cloud VM, this gives 30 workers.
-NUM_WORKERS = 2 * (max(1, mp.cpu_count() - 2))
+NUM_WORKERS = 60
 
 # Generation
 GAMES_PER_WORKER = 5       # Lower batch size per worker for higher parallelism
