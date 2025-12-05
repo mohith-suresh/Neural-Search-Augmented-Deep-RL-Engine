@@ -17,29 +17,31 @@ from game_engine.evaluation import Arena, StockfishEvaluator, MetricsLogger
 from game_engine.cnn import ChessCNN
 
 # ==========================================
-#        PRODUCTION TEST CONFIGURATION
+#        PINNED PRODUCTION CONFIG
 # ==========================================
 
 # --- EXECUTION ---
-ITERATIONS = 1000             # Just 1 loop to verify the high-quality settings
+ITERATIONS = 1000
 
-# Auto-detect CPUs: Leave 2 cores free for OS & GPU Server
-# On a 32-core cloud VM, this gives 30 workers.
-NUM_WORKERS = 60
+# STRICT MAPPING:
+# We use 30 workers. We will PIN them to Cores 0-29.
+# We will PIN the Server to Cores 30-31.
+NUM_WORKERS = 30 
 
 # Generation
-GAMES_PER_WORKER = 5       # Lower batch size per worker for higher parallelism
-                           # Total Games/Iter = ~60 workers * 5 = 300 games
-
+GAMES_PER_WORKER = 5       
+                           
 # --- QUALITY ---
-SIMULATIONS = 400          # High quality search (Standard "strong" setting)
+# Increased to 1200 to eliminate idle time.
+# Deeper search = Better data = Faster convergence (per game).
+SIMULATIONS = 1200          
 
 # Training
-TRAIN_EPOCHS = 2           # Prevent overfitting on small iterative datasets
+TRAIN_EPOCHS = 2           
 
 # Evaluation
-EVAL_GAMES = 20            # 10 White, 10 Black
-STOCKFISH_GAMES = 10       # Accurate Elo tracking
+EVAL_GAMES = 20            
+STOCKFISH_GAMES = 10       
 
 # --- PATHS ---
 STOCKFISH_PATH = "/usr/games/stockfish" 
@@ -54,7 +56,6 @@ class Logger(object):
     """Redirects stdout to both file and console."""
     def __init__(self):
         self.terminal = sys.stdout
-        # buffering=1 means line buffered (writes to disk every new line)
         self.log = open(LOG_FILE, "a", buffering=1, encoding='utf-8')
 
     def write(self, message):
@@ -62,7 +63,7 @@ class Logger(object):
             self.terminal.write(message)
             self.log.write(message)
         except Exception:
-            pass # Prevent logging errors from crashing training
+            pass 
 
     def flush(self):
         try:
@@ -72,20 +73,27 @@ class Logger(object):
             pass
 
 def setup_child_logging():
-    """Forces child processes to use the custom Logger"""
     sys.stdout = Logger()
     sys.stderr = sys.stdout
 
 # ==========================================
 
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
-    """
-    Generates high-quality games with Temperature Decay.
-    """
-    # CRITICAL FIX: Re-attach logger inside the child process
-    setup_child_logging()
+    # --- CPU AFFINITY (PINNING) ---
+    # Pin this worker strictly to one core to prevent context switching
+    if hasattr(os, 'sched_setaffinity'):
+        try:
+            # Worker 0 -> Core 0, Worker 1 -> Core 1, etc.
+            os.sched_setaffinity(0, {worker_id})
+        except Exception as e:
+            print(f"Warning: Could not pin Worker {worker_id}: {e}")
 
-    print(f"   [Worker {worker_id}] Starting batch of {game_limit} HQ games (400 sims)...")
+    setup_child_logging()
+    
+    # Stagger start to ease the initial GPU spike
+    time.sleep(worker_id * 0.2) 
+
+    print(f"   [Worker {worker_id}] Starting batch of {game_limit} HQ games ({SIMULATIONS} sims)...")
     worker = MCTSWorker(worker_id, input_queue, output_queue, simulations=SIMULATIONS)
     
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -96,13 +104,17 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
         game_data = []
         
         while not game.is_over:
-            # --- ALPHA ZERO TEMPERATURE SCHEDULE ---
-            # Moves 0-30 (Plies): High Temperature (1.0) for exploration
-            # Moves 30+: Low Temperature (0.1) for winning precision
-            # len(game.moves) counts plies (half-moves).
+            move_start = time.time()
+            
+            # Temperature Schedule
             current_temp = 1.0 if len(game.moves) < 30 else 0.1
             
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
+            move_duration = time.time() - move_start
+
+            # --- DETAILED LOGGING FOR WORKER 0 ---
+            if worker_id == 0:
+                print(f"   [Worker 0] Move {len(game.moves)+1}: {best_move} ({move_duration:.2f}s)")
             
             game_data.append({
                 "state": game.to_tensor(),
@@ -110,10 +122,6 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
                 "turn": game.turn_player
             })
             game.push(best_move)
-            
-            # Optional: Print progress for long games
-            if worker_id == 0 and len(game.moves) % 10 == 0:
-                print(f"   [Worker 0] Game {i+1} Move {len(game.moves)}...")
         
         # Save Game
         result = game.result
@@ -121,7 +129,6 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
         if result == "1-0": final_winner = 1.0
         elif result == "0-1": final_winner = 0.0
         
-        # Value Targets
         values = []
         for g in game_data:
             if result == "1/2-1/2": values.append(0.0)
@@ -136,25 +143,37 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
                             values=np.array(values, dtype=np.float32))
         
         duration = time.time() - game_start
-        print(f"   [Worker {worker_id}] Finished Game {i+1}/{game_limit} ({len(game.moves)} moves) in {duration:.1f}s")
+        if worker_id < 5:
+            print(f"   [Worker {worker_id}] Finished Game {i+1}/{game_limit} ({len(game.moves)} moves) in {duration:.1f}s")
         
     print(f"   [Worker {worker_id}] Batch Complete.")
 
 def run_server_wrapper(server):
-    """Wrapper to ensure server process also logs to file"""
+    # --- PIN SERVER TO REMAINING CORES ---
+    # If we have 32 cores and 30 workers, pin server to 30 and 31.
+    if hasattr(os, 'sched_setaffinity'):
+        try:
+            total_cores = os.cpu_count()
+            # Pin to the last available cores (e.g., 30 and 31)
+            server_cores = {i for i in range(NUM_WORKERS, total_cores)}
+            if server_cores:
+                os.sched_setaffinity(0, server_cores)
+                print(f"Server pinned to Cores: {server_cores}")
+        except Exception:
+            pass
+
     setup_child_logging()
     server.loop()
 
 def run_self_play_phase(iteration):
-    print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (High Quality) ===")
+    print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Pinned & Deep) ===")
     
     server = InferenceServer(BEST_MODEL)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
     
-    # Updated to use wrapper for logging
     server_process = mp.Process(target=run_server_wrapper, args=(server,))
     server_process.start()
-    time.sleep(3) 
+    time.sleep(5) 
     
     workers = []
     for i in range(NUM_WORKERS):
@@ -167,11 +186,11 @@ def run_self_play_phase(iteration):
         p.join()
         
     server.input_queue.put("STOP")
-    server_process.join(timeout=5)
+    server_process.join(timeout=10)
     if server_process.is_alive():
         server_process.terminate()
         
-    print(f"=== SELF-PLAY COMPLETE: Generated {NUM_WORKERS * GAMES_PER_WORKER} HQ games ===")
+    print(f"=== SELF-PLAY COMPLETE: Generated {NUM_WORKERS * GAMES_PER_WORKER} Deep games ===")
 
 def run_training_phase(iteration):
     print(f"\n=== ITERATION {iteration}: TRAINING PHASE ===")
@@ -183,11 +202,9 @@ def run_training_phase(iteration):
 def run_evaluation_phase(iteration, logger):
     print(f"\n=== ITERATION {iteration}: EVALUATION PHASE ===")
     
-    # 1. Arena (Simulations match generation to be fair)
     arena = Arena(CANDIDATE_MODEL, BEST_MODEL, simulations=SIMULATIONS)
     win_rate = arena.play_match(num_games=EVAL_GAMES)
     
-    # 2. Promotion Logic
     if win_rate >= 0.55:
         print(f"🚀 PROMOTION! Candidate ({win_rate:.2f}) defeated Champion.")
         shutil.move(CANDIDATE_MODEL, BEST_MODEL)
@@ -196,18 +213,13 @@ def run_evaluation_phase(iteration, logger):
         if os.path.exists(CANDIDATE_MODEL):
             os.remove(CANDIDATE_MODEL)
             
-    # 3. Stockfish Benchmark
     sf_eval = StockfishEvaluator(STOCKFISH_PATH, simulations=SIMULATIONS)
     elo = sf_eval.evaluate(BEST_MODEL, num_games=STOCKFISH_GAMES, stockfish_elo=1350) 
     
     logger.log(iteration, policy_loss=0.0, value_loss=0.0, arena_win_rate=win_rate, elo=elo)
 
 if __name__ == "__main__":
-    
-    # --- LOGGING SETUP ---
-    # Redirect stdout and stderr to both console and file
     setup_child_logging()
-
     mp.set_start_method('spawn', force=True)
     os.makedirs(MODEL_DIR, exist_ok=True)
     
@@ -218,7 +230,7 @@ if __name__ == "__main__":
     logger = MetricsLogger()
     
     print("=================================================")
-    print(f"STARTING PRODUCTION TEST (1 Iteration)")
+    print(f"STARTING PINNED PRODUCTION (1 Iteration)")
     print(f"Workers: {NUM_WORKERS} | Sims: {SIMULATIONS}")
     print("=================================================")
 
