@@ -24,12 +24,12 @@ from game_engine.cnn import ChessCNN
 ITERATIONS = 1000             # Just 1 loop to verify the high-quality settings
 
 # Auto-detect CPUs: Leave 2 cores free for OS & GPU Server
-# On a 16-core cloud VM, this gives 14 workers.
+# On a 32-core cloud VM, this gives 30 workers.
 NUM_WORKERS = max(1, mp.cpu_count() - 2)
 
 # Generation
-GAMES_PER_WORKER = 25      # Higher batch size = less overhead
-                           # Total Games/Iter = NUM_WORKERS * 25
+GAMES_PER_WORKER = 5       # Lower batch size per worker for higher parallelism
+                           # Total Games/Iter = 30 workers * 10 = 150 games
 
 # --- QUALITY ---
 SIMULATIONS = 400          # High quality search (Standard "strong" setting)

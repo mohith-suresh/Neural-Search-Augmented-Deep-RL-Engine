@@ -1,0 +1,51 @@
+# 1. Update lists (Ubuntu repos rarely break like Debian's)
+sudo apt update
+
+# 2. Install NVIDIA Drivers (Automatic)
+sudo apt install -y ubuntu-drivers-common
+sudo ubuntu-drivers autoinstall
+
+# 3. Reboot to load drivers
+sudo reboot
+
+nvidia-smi
+
+echo "================= SYSTEM CONTEXT ================="
+echo "[1. CPU Info]"
+echo "Logical Cores: $(nproc)"
+lscpu | grep -E 'Model name|Thread\(s\) per core|Core\(s\) per socket'
+
+echo -e "\n[2. Memory Info]"
+free -h | grep Mem
+
+echo -e "\n[3. GPU Info]"
+if command -v nvidia-smi &> /dev/null; then
+    nvidia-smi --query-gpu=name,memory.total,memory.free,compute_cap --format=csv
+else
+    echo "No GPU found or driver not installed."
+fi
+
+echo -e "\n[4. Disk Space]"
+df -h . | awk 'NR==2 {print "Available: "$4 " / Used: "$3}'
+echo "=================================================="
+
+# Install dependencies
+sudo apt install -y python3-pip git tmux stockfish
+
+pip3 install torch numpy python-chess gdown matplotlib --break-system-packages
+
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Setup project and start training
+
+git clone https://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@github.com/krish-modi1/EE542-Project.git
+cd EE542-Project/FINAL/chess_ai
+
+https://drive.google.com/file/d//view?usp=drive_link
+# Download your model
+gdown "1MM3YepePOI599dGRjNMkiQ5FHWNRAwX8" -O game_engine/model/best_model.pth
+
+# Run training
+nohup python3 -u game_engine/main.py > /dev/null 2>&1 &
+tail -f training_log.txt
