@@ -43,10 +43,26 @@ STOCKFISH_GAMES = 10       # Accurate Elo tracking
 
 # --- PATHS ---
 STOCKFISH_PATH = "/usr/games/stockfish" 
+LOG_FILE = "training_log.txt"
 MODEL_DIR = "game_engine/model"
 DATA_DIR = "data/self_play"
 BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
+
+# ==========================================
+class Logger(object):
+    """Redirects stdout to both file and console."""
+    def __init__(self):
+        self.terminal = sys.stdout
+        self.log = open(LOG_FILE, "a", buffering=1) # Line buffered
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.terminal.flush()
+        self.log.flush()
 
 # ==========================================
 
@@ -166,6 +182,12 @@ def run_evaluation_phase(iteration, logger):
     logger.log(iteration, policy_loss=0.0, value_loss=0.0, arena_win_rate=win_rate, elo=elo)
 
 if __name__ == "__main__":
+    
+    # --- LOGGING SETUP ---
+    # Redirect stdout and stderr to both console and file
+    sys.stdout = Logger()
+    sys.stderr = sys.stdout
+
     mp.set_start_method('spawn', force=True)
     os.makedirs(MODEL_DIR, exist_ok=True)
     
