@@ -176,7 +176,6 @@ ipython_config.py
 data/lichess_raw/
 data/training_data/
 data/played_games/
-*.npz
 *.bin
 *.zst
 *.pgn
