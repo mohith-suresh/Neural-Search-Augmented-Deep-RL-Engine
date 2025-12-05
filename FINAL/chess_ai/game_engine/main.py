@@ -54,15 +54,27 @@ class Logger(object):
     """Redirects stdout to both file and console."""
     def __init__(self):
         self.terminal = sys.stdout
-        self.log = open(LOG_FILE, "a", buffering=1) # Line buffered
+        # buffering=1 means line buffered (writes to disk every new line)
+        self.log = open(LOG_FILE, "a", buffering=1, encoding='utf-8')
 
     def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
+        try:
+            self.terminal.write(message)
+            self.log.write(message)
+        except Exception:
+            pass # Prevent logging errors from crashing training
 
     def flush(self):
-        self.terminal.flush()
-        self.log.flush()
+        try:
+            self.terminal.flush()
+            self.log.flush()
+        except Exception:
+            pass
+
+def setup_child_logging():
+    """Forces child processes to use the custom Logger"""
+    sys.stdout = Logger()
+    sys.stderr = sys.stdout
 
 # ==========================================
 
@@ -70,6 +82,9 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
     """
     Generates high-quality games with Temperature Decay.
     """
+    # CRITICAL FIX: Re-attach logger inside the child process
+    setup_child_logging()
+
     print(f"   [Worker {worker_id}] Starting batch of {game_limit} HQ games (400 sims)...")
     worker = MCTSWorker(worker_id, input_queue, output_queue, simulations=SIMULATIONS)
     
@@ -125,13 +140,19 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
         
     print(f"   [Worker {worker_id}] Batch Complete.")
 
+def run_server_wrapper(server):
+    """Wrapper to ensure server process also logs to file"""
+    setup_child_logging()
+    server.loop()
+
 def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (High Quality) ===")
     
     server = InferenceServer(BEST_MODEL)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
     
-    server_process = mp.Process(target=server.loop)
+    # Updated to use wrapper for logging
+    server_process = mp.Process(target=run_server_wrapper, args=(server,))
     server_process.start()
     time.sleep(3) 
     
@@ -185,8 +206,7 @@ if __name__ == "__main__":
     
     # --- LOGGING SETUP ---
     # Redirect stdout and stderr to both console and file
-    sys.stdout = Logger()
-    sys.stderr = sys.stdout
+    setup_child_logging()
 
     mp.set_start_method('spawn', force=True)
     os.makedirs(MODEL_DIR, exist_ok=True)
