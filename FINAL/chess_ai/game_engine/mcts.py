@@ -3,7 +3,30 @@ import math
 import copy
 import numpy as np
 
-# Node class MUST be defined before MCTSWorker uses it
+def move_to_index(move_str):
+    """
+    Fast conversion of UCI move string to policy index (0-8191).
+    """
+    # 97 is ord('a'), 49 is ord('1')
+    # src_col = ord(move_str[0]) - 97
+    # src_row = ord(move_str[1]) - 49
+    src = (ord(move_str[0]) - 97) + (ord(move_str[1]) - 49) * 8
+    dst = (ord(move_str[2]) - 97) + (ord(move_str[3]) - 49) * 8
+    idx = src * 64 + dst
+    
+    # Promotion Logic
+    if len(move_str) == 5:
+        promotion = move_str[4]
+        if promotion == 'n': idx += 4096
+        elif promotion == 'r': idx += 4096 * 2 # Just an example offset strategy, keeping your logic
+        elif promotion == 'b': idx += 4096 * 3 
+        # Note: Your original code used `idx += 4096` for all promotions. 
+        # I kept your original logic below to ensure compatibility with weights.
+        if promotion in ['n', 'r', 'b']:
+            return src * 64 + dst + 4096
+            
+    return idx
+
 class Node:
     def __init__(self, state, parent=None, action_taken=None, prior=0):
         self.state = state
@@ -23,14 +46,12 @@ class Node:
         best_action = None
         best_child = None
         
+        # Optimization: Pre-calculate constant part
+        sqrt_total_visits = math.sqrt(self.visit_count)
+        
         for action, child in self.children.items():
-            # Q-value (Exploitation)
             q_value = child.value_sum / child.visit_count if child.visit_count > 0 else 0
-            
-            # U-value (Exploration)
-            # PUCT: Prior * (sqrt(ParentVisits) / (1 + ChildVisits))
-            u_value = cpuct * child.prior * math.sqrt(self.visit_count) / (1 + child.visit_count)
-            
+            u_value = cpuct * child.prior * sqrt_total_visits / (1 + child.visit_count)
             score = q_value + u_value
             
             if score > best_score:
@@ -41,25 +62,19 @@ class Node:
         return best_action, best_child
 
     def expand(self, valid_moves, policy_logits):
-        """
-        Maps Neural Network output (8192 logits) to valid moves.
-        """
         move_probs = {}
         policy_sum = 0
         
         for move_str in valid_moves:
-            # 1. Base Hash: From-Square to To-Square (0 - 4095)
+            # Use the optimized index calculation logic inline or via helper
+            # Inline is faster for Python loops
             src = (ord(move_str[0]) - 97) + (int(move_str[1]) - 1) * 8
             dst = (ord(move_str[2]) - 97) + (int(move_str[3]) - 1) * 8
             idx = src * 64 + dst
             
-            # 2. Promotion Logic
-            if len(move_str) == 5:
-                promotion_type = move_str[4]
-                if promotion_type in ['n', 'r', 'b']:
-                    idx += 4096
+            if len(move_str) == 5 and move_str[4] in ['n', 'r', 'b']:
+                idx += 4096
             
-            # 3. Safety Check
             if idx < len(policy_logits):
                 logit = policy_logits[idx]
             else:
@@ -69,20 +84,18 @@ class Node:
             move_probs[move_str] = prob
             policy_sum += prob
             
-        # 4. Normalize
         for move in valid_moves:
             if policy_sum > 0:
                 normalized_prior = move_probs[move] / policy_sum
             else:
                 normalized_prior = 1.0 / len(valid_moves)
             
-            next_state = copy.deepcopy(self.state)
+            next_state = self.state.copy() # Use .copy() instead of deepcopy for speed
             next_state.push(move)
             
             self.children[move] = Node(next_state, parent=self, action_taken=move, prior=normalized_prior)
 
     def best_action(self):
-        """Returns action with most visits (Exploitation)."""
         most_visits = -1
         best_action = None
         for action, child in self.children.items():
@@ -100,19 +113,15 @@ class MCTSWorker:
         self.cpu = 1.0 
     
     def add_exploration_noise(self, node):
-        """
-        Adds Dirichlet noise to the prior probabilities of the root node's children.
-        This forces the MCTS to explore different moves in self-play.
-        """
         actions = list(node.children.keys())
+        if not actions: return
         noise = np.random.dirichlet([0.3] * len(actions))
-        frac = 0.25 # 25% noise, 75% original policy
+        frac = 0.25 
         
         for i, action in enumerate(actions):
             node.children[action].prior = node.children[action].prior * (1 - frac) + noise[i] * frac
 
     def get_policy_vector(self, root):
-        """Converts visit counts to probability vector."""
         policy_vector = np.zeros(8192, dtype=np.float32)
         visit_sum = sum(child.visit_count for child in root.children.values())
         
@@ -130,30 +139,18 @@ class MCTSWorker:
         return policy_vector
 
     def search(self, root_state, temperature=1.0):
-        """
-        Runs MCTS simulations and selects an action.
-        
-        Args:
-            root_state: The current ChessGame state.
-            temperature (float): Controls Exploration vs Exploitation.
-                - 1.0: Exploration (Proportional to visit counts)
-                - 0.0: Exploitation (Strictly max visits)
-                - 0.1 - 0.9: Mixed strategies (Sharpened distribution)
-        """
         root = Node(root_state)
         
-        # 1. Evaluate Root immediately
-        tensor_numpy = root.state.to_tensor()
-        tensor = torch.tensor(tensor_numpy, dtype=torch.float32)
+        # 1. Evaluate Root
+        tensor = torch.from_numpy(root.state.to_tensor()) # Faster than torch.tensor(..., dtype)
         self.input_queue.put((self.worker_id, tensor))
         policy, value = self.output_queue.get()
         valid_moves = root.state.legal_moves()
         root.expand(valid_moves, policy)
         
-        # 2. Add Noise (Critical for diversity)
         self.add_exploration_noise(root)
         
-        # 3. Run Simulations
+        # 2. Simulations
         for _ in range(self.simulations):
             node = root
             search_path = [node]
@@ -167,38 +164,34 @@ class MCTSWorker:
                 self.backpropagate(search_path, reward, node.state.turn_player)
                 continue
                 
-            tensor_numpy = node.state.to_tensor() 
-            tensor = torch.tensor(tensor_numpy, dtype=torch.float32)
+            # Efficient tensor creation
+            tensor = torch.from_numpy(node.state.to_tensor())
             self.input_queue.put((self.worker_id, tensor))
             policy, value = self.output_queue.get()
+            
             valid_moves = node.state.legal_moves()
             node.expand(valid_moves, policy)
             self.backpropagate(search_path, value, node.state.turn_player)
             
         policy_vector = self.get_policy_vector(root)
         
-        # 4. Select Action based on Temperature
+        # 3. Select Action
         if temperature == 0:
-            # Exploitation: Strictly pick the most visited node
             return root.best_action(), policy_vector
         else:
-            # Exploration: Sample from the distribution of visits
-            # Probability P(a) ~ (Visits)^(1/Temperature)
             actions = list(root.children.keys())
-            visits = np.array([root.children[a].visit_count for a in actions])
-            
-            if len(actions) == 0:
-                return None, policy_vector # Should not happen if game not over
+            if not actions: return None, policy_vector
 
-            if temperature != 1.0:
-                # Sharpen or flatten the distribution
-                visits = visits ** (1.0 / temperature)
+            visits = np.array([root.children[a].visit_count for a in actions], dtype=np.float32)
             
-            # Normalize to probabilities
-            if np.sum(visits) == 0:
+            if temperature != 1.0:
+                visits = np.power(visits, 1.0 / temperature)
+            
+            visit_sum = np.sum(visits)
+            if visit_sum == 0:
                 probs = np.ones(len(visits)) / len(visits)
             else:
-                probs = visits / np.sum(visits)
+                probs = visits / visit_sum
             
             chosen_action = np.random.choice(actions, p=probs)
             return chosen_action, policy_vector

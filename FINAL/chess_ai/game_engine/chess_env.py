@@ -16,10 +16,6 @@ class ChessGame:
 
     @property
     def turn_player(self):
-        """
-        Returns 1.0 for White, 0.0 for Black.
-        Used by MCTS to track whose turn it is in the tree.
-        """
         return 1.0 if self.board.turn == chess.WHITE else 0.0
 
     @property
@@ -31,25 +27,27 @@ class ChessGame:
         return self.board.result()
 
     def legal_moves(self):
-        """Returns list of UCI strings. Cached for MCTS speed."""
         if self._cache_legal is None:
             self._cache_legal = [move.uci() for move in self.board.legal_moves]
         return self._cache_legal
 
     def push(self, move_uci):
         try:
+            # Optimization: Check cache first if available to avoid parsing
+            if self._cache_legal and move_uci not in self._cache_legal:
+                return False
+                
             move = chess.Move.from_uci(move_uci)
             if move in self.board.legal_moves:
                 self.board.push(move)
                 self.moves.append(move_uci)
-                self._cache_legal = None # Invalidate cache
+                self._cache_legal = None 
                 return True
             return False
         except ValueError:
             return False
 
     def copy(self):
-        """Optimized copy for MCTS simulation."""
         new_board = self.board.copy()
         new_game = ChessGame(_board=new_board)
         new_game.moves = self.moves.copy()
@@ -60,46 +58,35 @@ class ChessGame:
 
     def to_tensor(self):
         """
-        Input for cnn.py. 
-        Shape: (13, 8, 8) - Float32
-        
-        MATCHES TRAINING DATA ENCODING:
-        - Rank 1 is at index 0 (sq // 8)
-        - Rank 8 is at index 7
+        Optimized tensor conversion. 
+        Iterates only occupied squares instead of all 64 squares.
         """
         tensor = np.zeros((13, 8, 8), dtype=np.float32)
         
+        # Optimization: Map types directly to indices
         piece_map = {
             chess.PAWN: 0, chess.KNIGHT: 1, chess.BISHOP: 2,
             chess.ROOK: 3, chess.QUEEN: 4, chess.KING: 5
         }
         
-        for square in chess.SQUARES:
-            piece = self.board.piece_at(square)
-            if piece:
-                offset = 0 if piece.color == chess.WHITE else 6
-                idx = offset + piece_map[piece.piece_type]
+        # Optimization: use piece_map() to get only existing pieces
+        for square, piece in self.board.piece_map().items():
+            offset = 0 if piece.color == chess.WHITE else 6
+            idx = offset + piece_map[piece.piece_type]
+            
+            # Bottom-Up orientation (Matches training)
+            row = square // 8
+            col = square % 8
+            
+            tensor[idx][row][col] = 1.0
                 
-                # --- CRITICAL FIX: MATCH TRAINING DATA ORIENTATION ---
-                # Old: row = 7 - (square // 8)  <-- Visual (Top-Down)
-                # New: row = square // 8        <-- Mathematical (Bottom-Up, matches training)
-                row = square // 8
-                col = square % 8
-                
-                tensor[idx][row][col] = 1.0
-                
-        # Channel 12: 1.0 if Black to move
         if self.board.turn == chess.BLACK:
              tensor[12, :, :] = 1.0
              
         return tensor
 
     def get_reward_for_turn(self, turn_val):
-        """
-        Returns reward from the perspective of 'turn_val'.
-        If turn_val is White (1.0) and White won, returns +1.
-        """
         res = self.board.result()
         if res == "1-0": return 1.0 if turn_val == 1.0 else -1.0
         if res == "0-1": return 1.0 if turn_val == 0.0 else -1.0
-        return 0.0 # Draw
+        return 0.0

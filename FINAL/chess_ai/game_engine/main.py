@@ -211,7 +211,7 @@ def run_training_phase(iteration):
 def run_arena_batch(worker_id, result_queue, num_games):
     setup_child_logging()
     try:
-        arena = Arena(CANDIDATE_MODEL, BEST_MODEL, simulations=EVAL_SIMULATIONS)
+        arena = Arena(CANDIDATE_MODEL, BEST_MODEL, simulations=EVAL_SIMULATIONS, max_moves=MAX_MOVES_PER_GAME)
         print(f"   [Eval Worker {worker_id}] Playing {num_games} games (Cand vs Champ)...")
         chunk_win_rate = arena.play_match(num_games=num_games)
         result_queue.put(chunk_win_rate)
