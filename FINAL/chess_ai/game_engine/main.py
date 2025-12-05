@@ -43,7 +43,7 @@ STOCKFISH_GAMES = 10       # Accurate Elo tracking
 
 # --- PATHS ---
 STOCKFISH_PATH = "/usr/games/stockfish" 
-LOG_FILE = "game_engine/logs/training_log.txt"
+LOG_FILE = "training_log.txt"
 MODEL_DIR = "game_engine/model"
 DATA_DIR = "data/self_play"
 BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
