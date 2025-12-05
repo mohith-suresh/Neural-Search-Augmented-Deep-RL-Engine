@@ -12,7 +12,7 @@ from datetime import datetime
 # Ensure imports work
 sys.path.append(os.getcwd())
 
-from FINAL.chess_ai.game_engine.cnn_old import ChessCNN
+from game_engine.cnn import ChessCNN
 from game_engine.chess_env import ChessGame
 from game_engine.mcts import Node  # Reuse the Node logic
 

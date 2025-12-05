@@ -4,7 +4,7 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
-from FINAL.chess_ai.game_engine.cnn_old import ChessCNN
+from game_engine.cnn import ChessCNN
 from game_engine.chess_env import ChessGame
 
 MODEL_PATH = "game_engine/model/best_model.pth"

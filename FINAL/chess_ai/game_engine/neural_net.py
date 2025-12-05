@@ -2,7 +2,7 @@ import torch
 import torch.multiprocessing as mp
 import time
 import numpy as np
-from FINAL.chess_ai.game_engine.cnn_old import ChessCNN
+from game_engine.cnn import ChessCNN
 
 class InferenceServer:
     def __init__(self, model_path, batch_size=256, timeout=0.01):

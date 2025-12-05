@@ -10,7 +10,7 @@ import sys
 # Ensure we can import from the parent directory
 sys.path.append(os.getcwd())
 
-from FINAL.chess_ai.game_engine.cnn_old import ChessCNN
+from game_engine.cnn import ChessCNN
 
 class ChessDataset(Dataset):
     def __init__(self, data_dir):
