@@ -29,7 +29,7 @@ NUM_WORKERS = 2 * (max(1, mp.cpu_count() - 2))
 
 # Generation
 GAMES_PER_WORKER = 5       # Lower batch size per worker for higher parallelism
-                           # Total Games/Iter = 30 workers * 10 = 150 games
+                           # Total Games/Iter = ~60 workers * 5 = 300 games
 
 # --- QUALITY ---
 SIMULATIONS = 400          # High quality search (Standard "strong" setting)
