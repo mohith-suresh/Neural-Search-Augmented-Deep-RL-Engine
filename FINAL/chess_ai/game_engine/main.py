@@ -25,11 +25,11 @@ ITERATIONS = 1000             # Just 1 loop to verify the high-quality settings
 
 # Auto-detect CPUs: Leave 2 cores free for OS & GPU Server
 # On a 32-core cloud VM, this gives 30 workers.
-NUM_WORKERS = max(1, mp.cpu_count() - 2)
+NUM_WORKERS = 50
 
 # Generation
-GAMES_PER_WORKER = 5       # Lower batch size per worker for higher parallelism
-                           # Total Games/Iter = 30 workers * 10 = 150 games
+GAMES_PER_WORKER = 10       # Lower batch size per worker for higher parallelism
+                           # Total Games/Iter = 50 workers * 10 = 500 games
 
 # --- QUALITY ---
 SIMULATIONS = 400          # High quality search (Standard "strong" setting)
@@ -43,7 +43,7 @@ STOCKFISH_GAMES = 10       # Accurate Elo tracking
 
 # --- PATHS ---
 STOCKFISH_PATH = "/usr/games/stockfish" 
-LOG_FILE = "training_log.txt"
+LOG_FILE = "gme_engine/logs/training_log.txt"
 MODEL_DIR = "game_engine/model"
 DATA_DIR = "data/self_play"
 BEST_MODEL = f"{MODEL_DIR}/best_model.pth"

@@ -75,7 +75,7 @@ def train_model(data_path="data/self_play",
                 input_model_path="game_engine/model/best_model.pth", 
                 output_model_path="game_engine/model/candidate.pth", 
                 epochs=1, 
-                batch_size=256, 
+                batch_size=128, 
                 lr=0.00002):
     """
     Trains the model on data from data_path.
