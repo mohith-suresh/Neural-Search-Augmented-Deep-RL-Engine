@@ -49,3 +49,4 @@ gdown "1MM3YepePOI599dGRjNMkiQ5FHWNRAwX8" -O game_engine/model/best_model.pth
 # Run training
 nohup python3 -u game_engine/main.py > /dev/null 2>&1 &
 tail -f training_log.txt
+watch -n 1 nvidia-smi
