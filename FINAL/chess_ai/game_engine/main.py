@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import shutil
+import gc
 import torch
 import numpy as np
 
@@ -18,13 +19,13 @@ from game_engine.evaluation import Arena, StockfishEvaluator, MetricsLogger
 from game_engine.cnn import ChessCNN
 
 # ==========================================
-#        SAFE PRODUCTION CONFIG (MONITORED)
+#        MEMORY-SAFE PRODUCTION CONFIG
 # ==========================================
 
 # --- EXECUTION ---
 ITERATIONS = 1000
 
-# 15 Workers is the "Safe Zone" for your RAM.
+# 15 Workers is the Safe Zone.
 NUM_WORKERS = 15
 
 # Generation
@@ -32,6 +33,11 @@ GAMES_PER_WORKER = 5
 
 # --- QUALITY ---
 SIMULATIONS = 1200          
+
+# --- SAFETY ---
+# Cap at 120 Plies (60 Full Moves).
+# This covers 99% of real games but kills "shuffling" games fast to save RAM.
+MAX_MOVES_PER_GAME = 120   
 
 # Training
 TRAIN_EPOCHS = 2           
@@ -76,49 +82,49 @@ def setup_child_logging():
 # ==========================================
 
 def queue_monitor_thread(queue):
-    """
-    Runs in the background of the Server process.
-    Checks how many requests are waiting for the GPU.
-    """
     while True:
         try:
-            # qsize() is approximate but good enough for monitoring
             size = queue.qsize()
             if size > 0:
-                # Only print if there is actually traffic, to reduce log spam
                 print(f"   [Server Monitor] Pending Requests in Queue: {size}")
             time.sleep(2.0)
-        except NotImplementedError:
-            print("   [Server Monitor] Queue size not supported on this OS.")
-            break
-        except Exception:
+        except:
             break
 
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
-    # --- CPU AFFINITY (PINNING) ---
+    # --- CPU AFFINITY ---
     if hasattr(os, 'sched_setaffinity'):
         try:
             os.sched_setaffinity(0, {worker_id})
-        except Exception:
+        except:
             pass
 
     setup_child_logging()
     time.sleep(worker_id * 0.2) 
 
-    print(f"   [Worker {worker_id}] Starting batch of {game_limit} HQ games ({SIMULATIONS} sims)...")
-    worker = MCTSWorker(worker_id, input_queue, output_queue, simulations=SIMULATIONS)
+    # Note: We do NOT create the worker here anymore.
+    # We create it INSIDE the loop to force memory reset.
     
     os.makedirs(DATA_DIR, exist_ok=True)
     
     for i in range(game_limit):
+        # 1. PARANOID MEMORY RESET
+        # Re-initializing the worker destroys the old MCTS tree completely.
+        print(f"   [Worker {worker_id}] Starting Game {i+1} (Fresh Memory)...")
+        worker = MCTSWorker(worker_id, input_queue, output_queue, simulations=SIMULATIONS)
+        
         game_start = time.time()
         game = ChessGame()
         game_data = []
         
         while not game.is_over:
+            # 2. RAM SAFETY CAP
+            # If game drags too long, the MCTS tree gets too big. Force a draw.
+            if len(game.moves) >= MAX_MOVES_PER_GAME:
+                print(f"   [Worker {worker_id}] Game hit {MAX_MOVES_PER_GAME} moves limit! Forcing Draw to save RAM.")
+                break 
+
             move_start = time.time()
-            
-            # Temperature Schedule
             current_temp = 1.0 if len(game.moves) < 30 else 0.1
             
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
@@ -135,7 +141,12 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
             game.push(best_move)
         
         # Save Game
-        result = game.result
+        # If we broke due to limit, game.result might not be set, so we default to Draw (0.0)
+        if len(game.moves) >= MAX_MOVES_PER_GAME:
+            result = "1/2-1/2"
+        else:
+            result = game.result
+
         final_winner = 0.0
         if result == "1-0": final_winner = 1.0
         elif result == "0-1": final_winner = 0.0
@@ -154,33 +165,37 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
                             values=np.array(values, dtype=np.float32))
         
         duration = time.time() - game_start
-        if worker_id < 5:
-            print(f"   [Worker {worker_id}] Finished Game {i+1}/{game_limit} ({len(game.moves)} moves) in {duration:.1f}s")
+        print(f"   [Worker {worker_id}] Finished Game {i+1}/{game_limit} in {duration:.1f}s. RAM Cleaning...")
+
+        # 3. EXPLICIT CLEANUP
+        # Delete heavy objects and force Python to release memory NOW.
+        del worker
+        del game
+        del game_data
+        gc.collect()
         
     print(f"   [Worker {worker_id}] Batch Complete.")
 
 def run_server_wrapper(server):
-    # --- PIN SERVER ---
     if hasattr(os, 'sched_setaffinity'):
         try:
             total_cores = os.cpu_count()
             server_cores = {i for i in range(16, total_cores)}
             if server_cores:
                 os.sched_setaffinity(0, server_cores)
-        except Exception:
+        except:
             pass
 
     setup_child_logging()
     
-    # --- START MONITOR THREAD ---
     monitor = threading.Thread(target=queue_monitor_thread, args=(server.input_queue,))
-    monitor.daemon = True # Dies when main process dies
+    monitor.daemon = True 
     monitor.start()
 
     server.loop()
 
 def run_self_play_phase(iteration):
-    print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Safe & Monitored) ===")
+    print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Memory Safe) ===")
     
     server = InferenceServer(BEST_MODEL)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
@@ -244,7 +259,7 @@ if __name__ == "__main__":
     logger = MetricsLogger()
     
     print("=================================================")
-    print(f"STARTING MONITORED RUN (1 Iteration)")
+    print(f"STARTING MEMORY SAFE RUN (1 Iteration)")
     print(f"Workers: {NUM_WORKERS} | Sims: {SIMULATIONS}")
     print("=================================================")
 
