@@ -190,9 +190,13 @@ class StockfishEvaluator:
         os.makedirs(self.analysis_dir, exist_ok=True)
 
     def evaluate(self, model_path, num_games=10, stockfish_elo=1500):
+        """
+        Evaluates the agent against Stockfish and returns the adjusted win rate.
+        """
         if not os.path.exists(self.stockfish_path):
             print(f"Skipping Stockfish eval: Binary not found at {self.stockfish_path}")
-            return None
+            # Return a special value to indicate skip/failure
+            return {'win_rate': 0.0, 'adjusted_win_rate': 0.5} 
 
         print(f"--- STOCKFISH EVAL: {num_games} games vs Stockfish (Elo {stockfish_elo}) ---")
         agent = EvalMCTS(model_path, self.simulations)
@@ -230,18 +234,23 @@ class StockfishEvaluator:
 
         except Exception as e:
             print(f"Stockfish Engine Error: {e}")
-            return None
+            return {'win_rate': 0.0, 'adjusted_win_rate': 0.5}
             
         win_rate = score / num_games
+        
+        # --- Elo Adjustment (Bayesian smoothing) ---
+        # The 1.0/2.0 additions are for Bayesian smoothing (adding 2 pseudo-games, 1 win, 1 loss)
         adjusted_score = score + 1.0
         adjusted_games = num_games + 2.0
         adjusted_win_rate = adjusted_score / adjusted_games
-        elo_diff = -400 * np.log10(1 / adjusted_win_rate - 1)
-        estimated_elo = stockfish_elo + elo_diff
-            
+        
         print(f"Win Rate vs Stockfish {stockfish_elo}: {win_rate*100:.1f}%")
-        print(f"Estimated Agent Elo: {int(estimated_elo)}")
-        return int(estimated_elo)
+        
+        # Return the win rates, Elo calculation moves to main.py
+        return {
+            'win_rate': win_rate, 
+            'adjusted_win_rate': adjusted_win_rate
+        }
 
 class MetricsLogger:
     def __init__(self, metrics_file="game_engine/model/metrics.json"):
