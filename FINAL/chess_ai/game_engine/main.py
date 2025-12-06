@@ -21,7 +21,7 @@ from game_engine.evaluation import Arena, StockfishEvaluator, MetricsLogger
 from game_engine.cnn import ChessCNN
 
 # ==========================================
-#        HIGH-PERFORMANCE GCP CONFIG
+#        HIGH-DENSITY GCP CONFIG
 # ==========================================
 
 # --- CUDA ---
@@ -30,11 +30,8 @@ CUDA_STREAMS = 4
 
 # --- EXECUTION ---
 ITERATIONS = 1000
-
-# HARDWARE TUNING (48 vCPUs)
-# We use 46 workers, leaving 2 vCPUs for the Inference Server and OS overhead.
-NUM_WORKERS = 46            
-WORKER_BATCH_SIZE = 8       # Batch 8 avoids Queue Contention while keeping GPU busy
+NUM_WORKERS = 75            
+WORKER_BATCH_SIZE = 8       # Keep at 8 to allow fast context switching on shared cores
 GAMES_PER_WORKER = 2        
 
 # --- QUALITY ---
@@ -42,7 +39,7 @@ SIMULATIONS = 800
 EVAL_SIMULATIONS = 400      
 
 # --- EVALUATION CONFIG ---
-EVAL_WORKERS = 5           
+EVAL_WORKERS = 4           
 GAMES_PER_EVAL_WORKER = 4   
 STOCKFISH_GAMES = 20
 SF_WORKERS = 5              
@@ -92,22 +89,26 @@ def queue_monitor_thread(queue):
         try:
             size = queue.qsize()
             if size > 100:
-                if size > 300: # Increased threshold for high-worker count
+                # With 75 workers, the queue will naturally sit higher
+                if size > 500: 
                     print(f"   [Server Monitor] High Load: {size} requests pending")
             time.sleep(2.0)
         except: break
 
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
-    # CPU Affinity: Spread 46 workers across 48 vCPUs
+    # --- ROUND ROBIN PINNING (46 CORES) ---
+    # We pin workers 0-74 onto cores 0-45.
+    # Worker 0 -> Core 0
+    # Worker 45 -> Core 45
+    # Worker 46 -> Core 0 (Sharing with Worker 0)
     if hasattr(os, 'sched_setaffinity'):
         try:
-            # Simple round-robin pinning
-            core_id = worker_id % 48
+            core_id = worker_id % 46
             os.sched_setaffinity(0, {core_id})
         except: pass
 
     setup_child_logging()
-    # Stagger start times to prevent initial queue spike
+    # Increased stagger to prevent 75 processes hitting the queue instantly
     time.sleep(worker_id * 0.05)
     os.makedirs(DATA_DIR, exist_ok=True)
     
@@ -176,9 +177,9 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
 
 def run_server_wrapper(server):
     setup_child_logging()
-    # Pin server to the last core to avoid contention
+    # Pin server to the reserved cores (46 and 47) to ensure responsiveness
     if hasattr(os, 'sched_setaffinity'):
-        try: os.sched_setaffinity(0, {47})
+        try: os.sched_setaffinity(0, {46, 47})
         except: pass
         
     monitor = threading.Thread(target=queue_monitor_thread, args=(server.input_queue,))
@@ -252,8 +253,8 @@ def run_stockfish_worker(worker_id, queue, num_games):
 
 def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Batched MCTS) ===")
-    # Optimization: Increased Server Batch Size to 512 to ingest data from 46 workers efficiently
-    server = InferenceServer(BEST_MODEL, batch_size=512, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
+    # Server Batch Size 1024 to accommodate 75 workers * 8 items = 600 potential items
+    server = InferenceServer(BEST_MODEL, batch_size=1024, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
     
     server_process = mp.Process(target=run_server_wrapper, args=(server,))
