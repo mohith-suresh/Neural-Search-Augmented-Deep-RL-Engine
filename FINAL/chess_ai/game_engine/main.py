@@ -53,7 +53,7 @@ DRAW_PENALTY = -0.25
 
 # Training
 TRAIN_EPOCHS = 1 
-TRAIN_WINDOW = 20           
+TRAIN_WINDOW = 30           
 TRAIN_BATCH_SIZE = 256      
 TRAIN_LR = 0.0001           
 
@@ -275,6 +275,7 @@ def run_training_phase(iteration):
                 batch_size=TRAIN_BATCH_SIZE,
                 lr=TRAIN_LR,
                 window_size=TRAIN_WINDOW)
+    
     return p_loss, v_loss
 
 def run_evaluation_phase(iteration, logger, p_loss, v_loss):
