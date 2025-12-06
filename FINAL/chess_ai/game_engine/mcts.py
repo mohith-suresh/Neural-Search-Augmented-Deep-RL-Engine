@@ -6,7 +6,7 @@ import numpy as np
 # --- Constants ---
 VIRTUAL_LOSS = 3.0  
 
-# Dynamic PUCT Constants
+# PUCT Constants
 CPUCT_BASE = 19652
 CPUCT_INIT = 1.25
 
@@ -64,7 +64,8 @@ class Node:
         for action, child in self.children.items():
             child_visits = child.visit_count + child.virtual_loss
             
-            q_value = child.value()
+            q_value = -child.value()
+            
             u_value = cpuct * child.prior * sqrt_parent_visits / (1 + child_visits)
             score = q_value + u_value
             
@@ -156,11 +157,7 @@ class MCTSWorker:
                     node.value_sum -= VIRTUAL_LOSS 
                 
                 # --- PDF FIX: Check for Repetition/Draw Claims ---
-                # python-chess is_game_over() misses 3-fold repetition.
-                # We must explicitly check can_claim_draw() for accurate evaluation.
                 if node.state.is_over or node.state.board.can_claim_draw():
-                    # If game is over, result() returns 1-0, 0-1, or 1/2-1/2
-                    # If can_claim_draw() is true (but not game over), we treat as 0.0 (Draw)
                     if node.state.is_over:
                         reward = node.state.get_reward_for_turn(node.state.turn_player)
                     else:
@@ -189,7 +186,7 @@ class MCTSWorker:
 
     def backpropagate(self, path, value, leaf_turn_player, is_terminal):
         for node in reversed(path):
-            if not is_terminal:
+            if node != path[0]:
                 node.virtual_loss -= VIRTUAL_LOSS 
                 node.value_sum += VIRTUAL_LOSS 
             
