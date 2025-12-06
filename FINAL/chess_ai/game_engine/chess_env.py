@@ -58,10 +58,15 @@ class ChessGame:
 
     def to_tensor(self):
         """
-        Optimized tensor conversion. 
-        Iterates only occupied squares instead of all 64 squares.
+        Tensor representation: 16 x 8 x 8
+        Planes 0-5: White Pieces [P, N, B, R, Q, K]
+        Planes 6-11: Black Pieces [P, N, B, R, Q, K]
+        Plane 12: Turn (1.0 if Black's turn, else 0.0)
+        Plane 13: Repetition (1.0 if position has occurred >= 1 time before)
+        Plane 14: Total Move Count (Normalized: count / 200.0)
+        Plane 15: No Progress Count (Normalized: halfmoves / 100.0)
         """
-        tensor = np.zeros((13, 8, 8), dtype=np.float32)
+        tensor = np.zeros((16, 8, 8), dtype=np.float32)
         
         # Optimization: Map types directly to indices
         piece_map = {
@@ -82,6 +87,20 @@ class ChessGame:
                 
         if self.board.turn == chess.BLACK:
              tensor[12, :, :] = 1.0
+             
+        # Plane 13: Repetition Warning
+        if self.board.is_repetition(2):
+            tensor[13, :, :] = 1.0
+
+        # Plane 14: Total Move Count (Normalized 0-1)
+        # We cap at 200 moves (400 plies) to keep range 0.0 - 1.0
+        move_count_norm = min(self.board.fullmove_number, 200) / 200.0
+        tensor[14, :, :] = move_count_norm
+
+        # Plane 15: No Progress Count (Normalized 0-1)
+        # 50-move rule = 100 halfmoves.
+        no_progress_norm = min(self.board.halfmove_clock, 100) / 100.0
+        tensor[15, :, :] = no_progress_norm
              
         return tensor
 

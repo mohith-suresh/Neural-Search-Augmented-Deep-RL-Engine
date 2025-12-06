@@ -41,8 +41,9 @@ class ResidualBlock(nn.Module):
 class ChessCNN(nn.Module):
     def __init__(self):
         super().__init__()
-        # UPDATED CONFIG: 14 Input Channels (Added Repetition Plane)
-        input_channels = 14
+        # UPDATED CONFIG: 16 Input Channels 
+        # (Added Total Moves + No Progress Planes)
+        input_channels = 16
         filters = 128
         
         self.input_conv = nn.Sequential(

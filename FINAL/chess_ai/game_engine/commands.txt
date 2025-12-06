@@ -67,3 +67,6 @@ ps -ef | grep python
 # Absolute PATH
 
 /home/krishmod/EE542-Project/FINAL/chess_ai/training_log.txt
+
+git config --global user.email "krish.modi.2000@gmail.com"
+git config --global user.name "Krish Modi"
