@@ -10,7 +10,8 @@ class InferenceServer:
         self.model_path = model_path
         self.batch_size = batch_size
         self.timeout = timeout
-
+        # We do NOT create the device or streams here to avoid pickling errors.
+        # They will be created inside the process that actually uses them (in loop()).
         self.num_streams = streams
         
         # Communication queues
