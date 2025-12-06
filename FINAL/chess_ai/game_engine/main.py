@@ -30,9 +30,9 @@ CUDA_STREAMS = 4
 
 # --- EXECUTION ---
 ITERATIONS = 1000
-NUM_WORKERS = 75            
+NUM_WORKERS = 40            
 WORKER_BATCH_SIZE = 8       # Keep at 8 to allow fast context switching on shared cores
-GAMES_PER_WORKER = 2        
+GAMES_PER_WORKER = 4        
 
 # --- QUALITY ---
 SIMULATIONS = 800           
