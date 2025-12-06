@@ -25,7 +25,7 @@ from game_engine.cnn import ChessCNN
 
 # --- CUDA ---
 
-CUDA_TIMEOUT_INFERENCE = 0.01
+CUDA_TIMEOUT_INFERENCE = 1
 CUDA_STREAMS = 4  # INCREASED to 4 to maximize GPU pipeline saturation
 
 # --- EXECUTION ---
