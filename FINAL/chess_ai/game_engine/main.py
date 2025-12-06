@@ -119,13 +119,16 @@ def get_start_iteration(data_dir):
     except ValueError:
         return 1
 
+def cleanup_memory():
+    """Forces garbage collection and clears CUDA cache to prevent OOM"""
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration):
-    # CRITICAL FIX: Seed the random number generator uniquely for each worker process
     np.random.seed(int(time.time()) + worker_id)
-    
     if hasattr(os, 'sched_setaffinity'):
-        try:
-            os.sched_setaffinity(0, {worker_id})
+        try: os.sched_setaffinity(0, {worker_id})
         except: pass
 
     setup_child_logging()
@@ -140,21 +143,19 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
     
     for i in range(game_limit):
         print(f"   [Worker {worker_id}] Starting Game {i+1}...")
-        
         game_start = time.time()
         game = ChessGame()
         game_data = []
         
+        forced_draw = False
         while not game.is_over:
-            if len(game.moves) >= MAX_MOVES_PER_GAME:
+            if len(game.moves) >= MAX_MOVES_PER_GAME: 
+                forced_draw = True
                 break 
 
             move_start = time.time()
-            
-            if len(game.moves) < 30:
-                current_temp = 1.0 
-            else:
-                current_temp = 0.1 
+            if len(game.moves) < 30: current_temp = 1.0 
+            else: current_temp = 0.1 
             
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
             
@@ -170,8 +171,12 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
             })
             game.push(best_move)
         
-        if len(game.moves) >= MAX_MOVES_PER_GAME: result = "1/2-1/2"
-        else: result = game.result
+        # LOG FORCED DRAWS
+        if forced_draw:
+            print(f"   [Worker {worker_id}] Game {i+1} ended in FORCED DRAW (Max moves {MAX_MOVES_PER_GAME})")
+            result = "1/2-1/2"
+        else:
+            result = game.result
 
         final_winner = 0.0
         if result == "1-0": final_winner = 1.0
@@ -180,12 +185,9 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
         
         values = []
         for g in game_data:
-            if final_winner == 0.5: 
-                values.append(DRAW_PENALTY)
-            elif g["turn"] == final_winner: 
-                values.append(1.0)
-            else: 
-                values.append(-1.0)
+            if final_winner == 0.5: values.append(DRAW_PENALTY)
+            elif g["turn"] == final_winner: values.append(1.0)
+            else: values.append(-1.0)
             
         timestamp = int(time.time())
         filename = f"{iter_dir}/w{worker_id}_g{i}_{timestamp}.npz"
@@ -212,20 +214,36 @@ def run_server_wrapper(server):
 
 def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model, sims, max_moves):
     setup_child_logging()
-    arena = Arena(cand_model, champ_model, sims, max_moves)
-    w, d, l = arena.play_match(num_games)
-    queue.put({"wins": w, "draws": d, "losses": l})
+    try:
+        arena = Arena(cand_model, champ_model, sims, max_moves)
+        w, d, l = arena.play_match(num_games)
+        
+        # We create a simple result string for logging
+        result_str = f"Worker {worker_id}: {w}W - {d}D - {l}L"
+        print(f"   [Arena] {result_str}")
+        
+        queue.put({"wins": w, "draws": d, "losses": l})
+    except Exception as e:
+        print(f"Arena Worker {worker_id} Failed: {e}")
+        queue.put({"wins": 0, "draws": 0, "losses": 0})
 
 def run_stockfish_batch_worker(worker_id, queue, num_games, model_path, sims, sf_elo, sf_path, max_moves):
     setup_child_logging()
-    sf_eval = StockfishEvaluator(sf_path, sims)
-    score, games = sf_eval.evaluate(model_path, num_games, sf_elo)
-    queue.put({"score": score, "games": games})
+    try:
+        sf_eval = StockfishEvaluator(sf_path, sims)
+        # Pass max_moves here
+        score, games = sf_eval.evaluate(model_path, num_games, sf_elo, max_moves)
+        queue.put({"score": score, "games": games})
+    except Exception as e:
+        print(f"SF Worker {worker_id} Failed: {e}")
+        queue.put({"score": 0, "games": 0})
 
 # --- PHASES ---
 
 def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Batched MCTS) ===")
+    cleanup_memory() # Clear RAM before starting
+    
     server = InferenceServer(BEST_MODEL, batch_size=1024, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
     
@@ -248,6 +266,8 @@ def run_self_play_phase(iteration):
 
 def run_training_phase(iteration):
     print(f"\n=== ITERATION {iteration}: TRAINING PHASE ===")
+    cleanup_memory() # Clear VRAM before training
+    
     p_loss, v_loss = train_model(data_path=DATA_DIR, 
                 input_model_path=BEST_MODEL, 
                 output_model_path=CANDIDATE_MODEL,
@@ -259,6 +279,7 @@ def run_training_phase(iteration):
 
 def run_evaluation_phase(iteration, logger, p_loss, v_loss):
     print(f"\n=== ITERATION {iteration}: EVALUATION PHASE ===")
+    cleanup_memory() # Clear VRAM before launching multiple evaluation workers
     
     # 1. ARENA EVALUATION
     print(f" [Arena] Playing {EVAL_WORKERS * GAMES_PER_EVAL_WORKER} games...")
@@ -286,7 +307,7 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
     total_games = total_wins + total_draws + total_losses
     win_rate = (total_wins + 0.5 * total_draws) / total_games if total_games > 0 else 0
     
-    print(f" [Arena] Result: {win_rate*100:.1f}% Win Rate ({total_wins}W - {total_draws}D - {total_losses}L)")
+    print(f" [Arena] Final Result: {win_rate*100:.1f}% Win Rate ({total_wins}W - {total_draws}D - {total_losses}L)")
     
     est_elo = None
     
@@ -297,6 +318,7 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
         
         # 3. STOCKFISH EVALUATION
         print(f" [Stockfish] Playing {SF_WORKERS * SF_GAMES_PER_WORKER} games vs Elo {STOCKFISH_ELO}...")
+        cleanup_memory() # Clear again before Stockfish
         sf_queue = ctx.Queue()
         sf_workers = []
         

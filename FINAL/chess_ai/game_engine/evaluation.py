@@ -87,25 +87,35 @@ class Arena:
             # Alternate colors
             cand_is_white = (i % 2 == 0)
             
+            p1_label = "Cand" if cand_is_white else "Champ"
+            p2_label = "Champ" if cand_is_white else "Cand"
+
             while not game.is_over and len(game.moves) < self.max_moves:
-                is_cand_turn = (game.board.turn == chess.WHITE and cand_is_white) or \
-                               (game.board.turn == chess.BLACK and not cand_is_white)
-                
-                if is_cand_turn:
-                    move = cand.search(game)
+                if game.board.turn == chess.WHITE:
+                    move = cand.search(game, temperature=0.0) if cand_is_white else champ.search(game, temperature=0.0)
                 else:
-                    move = champ.search(game)
+                    move = champ.search(game, temperature=0.0) if cand_is_white else cand.search(game, temperature=0.0)
                 game.push(move)
             
-            res = game.result
-            if res == "1-0":
+            # Check for forced draw
+            if not game.is_over and len(game.moves) >= self.max_moves:
+                 print(f"   [Arena] Game {i+1} ended in FORCED DRAW (Max moves {self.max_moves})")
+                 # Result will be '*' or similar, falling into the else (draw) block below effectively, 
+                 # but we rely on game.result parsing usually.
+                 # To ensure it counts as draw:
+            
+            result = game.result
+            if result == "1-0":
                 if cand_is_white: wins += 1
                 else: losses += 1
-            elif res == "0-1":
+            elif result == "0-1":
                 if cand_is_white: losses += 1
                 else: wins += 1
             else:
                 draws += 1
+            
+            # Optional: Print result of each game
+            print(f"Arena Game {i+1}: {result} ({p1_label} vs {p2_label})")
                 
         return wins, draws, losses
 
@@ -114,7 +124,7 @@ class StockfishEvaluator:
         self.stockfish_path = stockfish_path
         self.simulations = simulations
 
-    def evaluate(self, model_path, num_games=10, stockfish_elo=1350):
+    def evaluate(self, model_path, num_games=10, stockfish_elo=1350, max_moves=200):
         agent = EvalMCTS(model_path, self.simulations)
         score = 0.0
         
@@ -129,7 +139,7 @@ class StockfishEvaluator:
                     game = ChessGame()
                     agent_is_white = (i % 2 == 0)
                     
-                    while not game.is_over:
+                    while not game.is_over and len(game.moves) < max_moves:
                         is_agent = (game.board.turn == chess.WHITE and agent_is_white) or \
                                    (game.board.turn == chess.BLACK and not agent_is_white)
                         
@@ -141,7 +151,10 @@ class StockfishEvaluator:
                                 move = res.move.uci()
                             except: break
                         game.push(move)
-                        
+                    
+                    if not game.is_over and len(game.moves) >= max_moves:
+                        print(f"   [Stockfish] Game {i+1} ended in FORCED DRAW (Max moves {max_moves})")
+
                     res = game.result
                     if res == "1-0": score += 1.0 if agent_is_white else 0.0
                     elif res == "0-1": score += 0.0 if agent_is_white else 1.0
