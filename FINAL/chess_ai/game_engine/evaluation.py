@@ -43,7 +43,8 @@ class EvalMCTS:
             node = root
             path = [node]
             while node.is_expanded():
-                _, node = node.select_child(self.cpu)
+                # FIX: Removed self.cpu argument to match updated Node.select_child()
+                _, node = node.select_child() 
                 path.append(node)
             
             if node.state.is_over:
