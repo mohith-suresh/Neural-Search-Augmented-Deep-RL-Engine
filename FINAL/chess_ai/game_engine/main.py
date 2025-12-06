@@ -9,6 +9,7 @@ import torch
 import numpy as np
 import math
 import chess 
+import signal 
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
@@ -65,6 +66,17 @@ BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
 
 # ==========================================
+class GracefulKiller:
+    """Catches SIGTERM/SIGINT signals for graceful cloud shutdown"""
+    def __init__(self):
+        self.kill_now = False
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+
+    def exit_gracefully(self, signum, frame):
+        print("\n\n[Cloud Run] Received termination signal. Finishing current step...")
+        self.kill_now = True
+
 class Logger(object):
     def __init__(self):
         self.terminal = sys.stdout
@@ -93,10 +105,24 @@ def queue_monitor_thread(queue):
             time.sleep(2.0)
         except: break
 
-def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
-    # --- PINNING STRATEGY (46 CORES) ---
-    # With 42 workers, we can give every worker its own core (0-41)
-    # leaving cores 42-47 free for the Server, OS, and Queue management.
+def get_start_iteration(data_dir):
+    if not os.path.exists(data_dir):
+        return 1
+    
+    subdirs = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d)) and d.startswith("iter_")]
+    if not subdirs:
+        return 1
+        
+    try:
+        nums = [int(d.split("_")[1]) for d in subdirs]
+        return max(nums) + 1
+    except ValueError:
+        return 1
+
+def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration):
+    # CRITICAL FIX: Seed the random number generator uniquely for each worker process
+    np.random.seed(int(time.time()) + worker_id)
+    
     if hasattr(os, 'sched_setaffinity'):
         try:
             os.sched_setaffinity(0, {worker_id})
@@ -104,7 +130,9 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
 
     setup_child_logging()
     time.sleep(worker_id * 0.05)
-    os.makedirs(DATA_DIR, exist_ok=True)
+    
+    iter_dir = os.path.join(DATA_DIR, f"iter_{iteration}")
+    os.makedirs(iter_dir, exist_ok=True)
     
     worker = MCTSWorker(worker_id, input_queue, output_queue, 
                         simulations=SIMULATIONS, 
@@ -160,7 +188,7 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
                 values.append(-1.0)
             
         timestamp = int(time.time())
-        filename = f"{DATA_DIR}/iter_{timestamp}_w{worker_id}_{i}.npz"
+        filename = f"{iter_dir}/w{worker_id}_g{i}_{timestamp}.npz"
         np.savez_compressed(filename, 
                             states=np.array([g["state"] for g in game_data]), 
                             policies=np.array([g["policy"] for g in game_data]), 
@@ -180,73 +208,24 @@ def run_server_wrapper(server):
     monitor.start()
     server.loop()
 
-# --- EVALUATION WORKERS ---
+# --- DRY WORKER WRAPPERS ---
 
-def run_arena_worker(worker_id, queue, num_games):
+def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model, sims, max_moves):
     setup_child_logging()
-    from game_engine.evaluation import EvalMCTS
-    candidate = EvalMCTS(CANDIDATE_MODEL, simulations=EVAL_SIMULATIONS)
-    champion = EvalMCTS(BEST_MODEL, simulations=EVAL_SIMULATIONS)
-    wins, draws, losses = 0, 0, 0
-    for i in range(num_games):
-        game = ChessGame()
-        cand_is_white = (i % 2 == 0)
-        while not game.is_over and len(game.moves) < MAX_MOVES_PER_GAME:
-            if game.board.turn == chess.WHITE:
-                move = candidate.search(game) if cand_is_white else champion.search(game)
-            else:
-                move = champion.search(game) if cand_is_white else candidate.search(game)
-            game.push(move)
-        res = game.result
-        if res == "1-0":
-            if cand_is_white: wins += 1
-            else: losses += 1
-        elif res == "0-1":
-            if cand_is_white: losses += 1
-            else: wins += 1
-        else: draws += 1
-    queue.put({"wins": wins, "draws": draws, "losses": losses, "games": num_games})
+    arena = Arena(cand_model, champ_model, sims, max_moves)
+    w, d, l = arena.play_match(num_games)
+    queue.put({"wins": w, "draws": d, "losses": l})
 
-def run_stockfish_worker(worker_id, queue, num_games):
+def run_stockfish_batch_worker(worker_id, queue, num_games, model_path, sims, sf_elo, sf_path, max_moves):
     setup_child_logging()
-    from game_engine.evaluation import EvalMCTS
-    import chess.engine
-    agent = EvalMCTS(CANDIDATE_MODEL, simulations=EVAL_SIMULATIONS)
-    score = 0.0
-    if not os.path.exists(STOCKFISH_PATH):
-        queue.put({"score": 0, "games": 0})
-        return
-    try:
-        engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
-        engine.configure({"UCI_LimitStrength": True, "UCI_Elo": STOCKFISH_ELO})
-    except:
-        queue.put({"score": 0, "games": 0})
-        return
-    for i in range(num_games):
-        game = ChessGame()
-        agent_is_white = (i % 2 == 0)
-        while not game.is_over and len(game.moves) < MAX_MOVES_PER_GAME:
-            is_agent_turn = (game.board.turn == chess.WHITE and agent_is_white) or \
-                            (game.board.turn == chess.BLACK and not agent_is_white)
-            if is_agent_turn: move = agent.search(game)
-            else:
-                try:
-                    result = engine.play(game.board, chess.engine.Limit(time=0.05))
-                    move = result.move.uci()
-                except: break
-            game.push(move)
-        res = game.result
-        if res == "1-0": score += 1.0 if agent_is_white else 0.0
-        elif res == "0-1": score += 0.0 if agent_is_white else 1.0
-        else: score += 0.5
-    engine.quit()
-    queue.put({"score": score, "games": num_games})
+    sf_eval = StockfishEvaluator(sf_path, sims)
+    score, games = sf_eval.evaluate(model_path, num_games, sf_elo)
+    queue.put({"score": score, "games": games})
 
 # --- PHASES ---
 
 def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Batched MCTS) ===")
-
     server = InferenceServer(BEST_MODEL, batch_size=1024, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
     
@@ -257,7 +236,7 @@ def run_self_play_phase(iteration):
     workers = []
     for i in range(NUM_WORKERS):
         p = mp.Process(target=run_worker_batch, 
-                       args=(i, server.input_queue, worker_queues[i], GAMES_PER_WORKER))
+                       args=(i, server.input_queue, worker_queues[i], GAMES_PER_WORKER, iteration))
         p.start()
         workers.append(p)
         
@@ -269,67 +248,85 @@ def run_self_play_phase(iteration):
 
 def run_training_phase(iteration):
     print(f"\n=== ITERATION {iteration}: TRAINING PHASE ===")
-    train_model(data_path=DATA_DIR, 
+    p_loss, v_loss = train_model(data_path=DATA_DIR, 
                 input_model_path=BEST_MODEL, 
                 output_model_path=CANDIDATE_MODEL,
                 epochs=TRAIN_EPOCHS,
                 batch_size=TRAIN_BATCH_SIZE,
                 lr=TRAIN_LR,
                 window_size=TRAIN_WINDOW)
+    return p_loss, v_loss
 
-def run_evaluation_phase(iteration, logger):
+def run_evaluation_phase(iteration, logger, p_loss, v_loss):
     print(f"\n=== ITERATION {iteration}: EVALUATION PHASE ===")
-    ctx = mp.get_context('spawn')
     
-    print(f"   [Arena] Playing {EVAL_WORKERS * GAMES_PER_EVAL_WORKER} games (Candidate vs Best)...")
+    # 1. ARENA EVALUATION
+    print(f" [Arena] Playing {EVAL_WORKERS * GAMES_PER_EVAL_WORKER} games...")
+    ctx = mp.get_context('spawn')
     arena_queue = ctx.Queue()
-    workers = []
+    arena_workers = []
+    
     for i in range(EVAL_WORKERS):
-        p = ctx.Process(target=run_arena_worker, args=(i, arena_queue, GAMES_PER_EVAL_WORKER))
+        p = ctx.Process(
+            target=run_arena_batch_worker,
+            args=(i, arena_queue, GAMES_PER_EVAL_WORKER, CANDIDATE_MODEL, BEST_MODEL, EVAL_SIMULATIONS, MAX_MOVES_PER_GAME)
+        )
         p.start()
-        workers.append(p)
-    for p in workers: p.join()
-        
+        arena_workers.append(p)
+    
+    for p in arena_workers: p.join()
+    
     total_wins, total_draws, total_losses = 0, 0, 0
     while not arena_queue.empty():
         res = arena_queue.get()
         total_wins += res['wins']
         total_draws += res['draws']
         total_losses += res['losses']
-        
+    
     total_games = total_wins + total_draws + total_losses
     win_rate = (total_wins + 0.5 * total_draws) / total_games if total_games > 0 else 0
     
-    print(f"   [Arena] Result: {win_rate*100:.1f}% Win Rate ({total_wins}W - {total_draws}D - {total_losses}L)")
+    print(f" [Arena] Result: {win_rate*100:.1f}% Win Rate ({total_wins}W - {total_draws}D - {total_losses}L)")
+    
     est_elo = None
-
+    
+    # 2. PROMOTION LOGIC
     if win_rate >= 0.55:
-        print(f"   [Arena] \u2b50 Candidate PROMOTED! (WR > 55%) \u2b50")
+        print(f" [Arena] \u2b50 Candidate PROMOTED! (WR > 55%) \u2b50")
         shutil.copyfile(CANDIDATE_MODEL, BEST_MODEL)
         
-        print(f"   [Stockfish] Playing {SF_WORKERS * SF_GAMES_PER_WORKER} games vs Elo {STOCKFISH_ELO}...")
+        # 3. STOCKFISH EVALUATION
+        print(f" [Stockfish] Playing {SF_WORKERS * SF_GAMES_PER_WORKER} games vs Elo {STOCKFISH_ELO}...")
         sf_queue = ctx.Queue()
         sf_workers = []
+        
         for i in range(SF_WORKERS):
-            p = ctx.Process(target=run_stockfish_worker, args=(i, sf_queue, SF_GAMES_PER_WORKER))
+            p = ctx.Process(
+                target=run_stockfish_batch_worker,
+                args=(i, sf_queue, SF_GAMES_PER_WORKER, BEST_MODEL, EVAL_SIMULATIONS, STOCKFISH_ELO, STOCKFISH_PATH, MAX_MOVES_PER_GAME)
+            )
             p.start()
             sf_workers.append(p)
+        
         for p in sf_workers: p.join()
-            
-        sf_score, sf_total = 0, 0
+        
+        total_sf_score = 0.0
+        total_sf_games = 0
         while not sf_queue.empty():
             res = sf_queue.get()
-            sf_score += res['score']
-            sf_total += res['games']
-            
-        sf_wr = sf_score / sf_total if sf_total > 0 else 0
-        safe_wr = max(0.01, min(0.99, sf_wr))
-        est_elo = STOCKFISH_ELO - 400 * math.log10(1/safe_wr - 1)
-        print(f"   [Stockfish] Score: {sf_score}/{sf_total} ({sf_wr*100:.1f}%) | Est. Elo: {est_elo:.0f}")
-    else:
-        print(f"   [Arena] Candidate rejected. Skipping Stockfish evaluation.")
+            total_sf_score += res['score']
+            total_sf_games += res['games']
+        
+        if total_sf_games > 0:
+            sf_wr = total_sf_score / total_sf_games
+            safe_wr = max(0.01, min(0.99, sf_wr))
+            est_elo = STOCKFISH_ELO - 400 * math.log10(1/safe_wr - 1)
+            print(f" [Stockfish] Score: {total_sf_score}/{total_sf_games} ({sf_wr*100:.1f}%) | Est. Elo: {est_elo:.0f}")
     
-    logger.log(iteration, 0.0, 0.0, win_rate, est_elo)
+    else:
+        print(f" [Arena] Candidate rejected. Skipping Stockfish evaluation.")
+    
+    logger.log(iteration, p_loss, v_loss, win_rate, est_elo)
 
 if __name__ == "__main__":
     setup_child_logging()
@@ -339,15 +336,26 @@ if __name__ == "__main__":
         print("Initializing random model...")
         torch.save(ChessCNN().state_dict(), BEST_MODEL)
 
+    # RESUMPTION LOGIC
+    start_iter = get_start_iteration(DATA_DIR)
+    
     print("=================================================")
     print(f"STARTING RUN")
+    print(f"Resuming from Iteration: {start_iter}")
     print(f"Workers: {NUM_WORKERS} | Sims: {SIMULATIONS} | Batch: {WORKER_BATCH_SIZE}")
     print("=================================================")
 
+    killer = GracefulKiller()
+    
     try:
-        for it in range(1, ITERATIONS + 1):
+        for it in range(start_iter, ITERATIONS + 1):
+            if killer.kill_now:
+                print("Graceful exit detected. Stopping loop.")
+                break
+                
             run_self_play_phase(it)
-            run_training_phase(it)
-            run_evaluation_phase(it, MetricsLogger())
+            p_loss, v_loss = run_training_phase(it)
+            run_evaluation_phase(it, MetricsLogger(), p_loss, v_loss)
+            
     except KeyboardInterrupt:
         print("\n\n--- LOOP STOPPED BY USER ---")

@@ -41,8 +41,8 @@ class ResidualBlock(nn.Module):
 class ChessCNN(nn.Module):
     def __init__(self):
         super().__init__()
-        # HARDCODED CONFIG TO MATCH TRAINING
-        input_channels = 13
+        # UPDATED CONFIG: 14 Input Channels (Added Repetition Plane)
+        input_channels = 14
         filters = 128
         
         self.input_conv = nn.Sequential(

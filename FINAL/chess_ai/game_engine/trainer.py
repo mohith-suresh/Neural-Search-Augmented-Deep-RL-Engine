@@ -24,39 +24,39 @@ class ChessDataset(Dataset):
         self.file_map = []  # Stores (file_path, start_index, end_index)
         self.total_positions = 0
         
-        # Get all .npz files
-        all_files = glob.glob(os.path.join(data_dir, "*.npz"))
-        if not all_files:
+        if not os.path.exists(data_dir):
             print(f"Warning: No data found in {data_dir}")
             return
 
-        # --- SLIDING WINDOW LOGIC ---
-        # We only want the most recent data to prevent training on old, bad strategies.
-        # Files are named: iter_{timestamp}_w{worker_id}_{i}.npz
-        # We sort by timestamp (newest first)
-        def get_timestamp(fname):
-            match = re.search(r'iter_(\d+)_', fname)
-            return int(match.group(1)) if match else 0
+        # --- FOLDER-BASED SLIDING WINDOW LOGIC ---
+        # 1. Identify all 'iter_X' folders
+        subdirs = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d)) and d.startswith("iter_")]
+        
+        # 2. Sort by iteration number (ascending)
+        try:
+            sorted_subdirs = sorted(subdirs, key=lambda x: int(x.split("_")[1]))
+        except ValueError:
+            print("Warning: Could not parse iteration folders.")
+            sorted_subdirs = []
 
-        # Sort descending (newest first)
-        sorted_files = sorted(all_files, key=get_timestamp, reverse=True)
+        # 3. Select the last N folders (Sliding Window)
+        active_folders = sorted_subdirs[-window_size:] if sorted_subdirs else []
         
-        # Estimate files per iteration (approx NUM_WORKERS * GAMES_PER_WORKER)
-        # We don't know the exact count per iteration dynamically, so we can use a heuristic
-        # or just take the top N files if we assume constant generation.
-        # Better heuristic: Count distinct timestamps.
-        
-        distinct_timestamps = sorted(list(set(get_timestamp(f) for f in sorted_files)), reverse=True)
-        active_timestamps = distinct_timestamps[:window_size]
-        
-        # Filter files that belong to the active window
-        active_files = [f for f in sorted_files if get_timestamp(f) in active_timestamps]
-        
-        print(f"Data Window: Using {len(active_files)} files from last {len(active_timestamps)} iterations.")
+        if not active_folders:
+            print("No iteration data folders found.")
+            return
 
-        print(f"Mapping data files...")
+        print(f"Data Window: Training on last {len(active_folders)} iterations: {active_folders[0]} to {active_folders[-1]}")
+
+        # 4. Collect all .npz files inside these folders
+        all_files = []
+        for folder in active_folders:
+            full_path = os.path.join(data_dir, folder)
+            all_files.extend(glob.glob(os.path.join(full_path, "*.npz")))
+
+        print(f"Mapping {len(all_files)} data files...")
         
-        for f in active_files:
+        for f in all_files:
             try:
                 # Use np.load with mmap_mode to quickly check shape without loading data
                 with np.load(f, allow_pickle=True) as data:
@@ -68,11 +68,11 @@ class ChessDataset(Dataset):
 
                     # Validation: Check shapes
                     if len(s_shape) != 4 or s_shape[1:] != (13, 8, 8):
-                        print(f"Skipping corrupt file {f}: State shape {s_shape}")
+                        # print(f"Skipping corrupt file {f}: State shape {s_shape}")
                         continue
                         
                     if len(p_shape) != 2 or p_shape[1] != 8192:
-                        print(f"Skipping corrupt file {f}: Policy shape {p_shape}")
+                        # print(f"Skipping corrupt file {f}: Policy shape {p_shape}")
                         continue
                     
                     if num_positions > 0:
@@ -144,6 +144,7 @@ def train_model(data_path="data/self_play",
                 window_size=20):
     """
     Trains the model on data from data_path.
+    Returns: (avg_policy_loss, avg_value_loss)
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on {device}...")
@@ -152,7 +153,7 @@ def train_model(data_path="data/self_play",
     dataset = ChessDataset(data_path, window_size=window_size)
     if len(dataset) == 0:
         print("Skipping training (No Data).")
-        return
+        return 0.0, 0.0
 
     # Optimization: num_workers > 0 and pin_memory=True for faster GPU transfer
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, 
@@ -186,6 +187,9 @@ def train_model(data_path="data/self_play",
     
     # --- AMP Scaler ---
     scaler = GradScaler()
+
+    last_p_loss = 0.0
+    last_v_loss = 0.0
 
     # 4. Training Loop
     for epoch in range(epochs):
@@ -225,8 +229,11 @@ def train_model(data_path="data/self_play",
             p_loss_total += p_loss.item()
             v_loss_total += v_loss.item()
             batch_count += 1
-            
-        print(f"Epoch {epoch+1}/{epochs} | Loss: {total_loss/batch_count:.4f} (Pol: {p_loss_total/batch_count:.4f} Val: {v_loss_total/batch_count:.4f})")
+        
+        if batch_count > 0:
+            last_p_loss = p_loss_total / batch_count
+            last_v_loss = v_loss_total / batch_count
+            print(f"Epoch {epoch+1}/{epochs} | Loss: {total_loss/batch_count:.4f} (Pol: {last_p_loss:.4f} Val: {last_v_loss:.4f})")
 
     # 5. Save Model
     os.makedirs(os.path.dirname(output_model_path), exist_ok=True)
@@ -235,6 +242,8 @@ def train_model(data_path="data/self_play",
         'optimizer_state_dict': optimizer.state_dict(),
     }, output_model_path)
     print(f"New model saved to {output_model_path}")
+    
+    return last_p_loss, last_v_loss
 
 if __name__ == "__main__":
     train_model(epochs=10)

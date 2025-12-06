@@ -63,3 +63,7 @@ nvtop
 ps -ef | grep python
 pkill -u krishmod python3
 ps -ef | grep python
+
+# Absolute PATH
+
+/home/krishmod/EE542-Project/FINAL/chess_ai/training_log.txt
