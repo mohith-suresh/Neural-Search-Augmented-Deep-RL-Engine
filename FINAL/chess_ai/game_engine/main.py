@@ -28,8 +28,8 @@ ITERATIONS = 1000
 
 # NEW SCALED UP CONFIG (48 vCPUs / 208 GB RAM)
 # NOTE: NUM_WORKERS is scaled for performance but limited for RAM safety.
-NUM_WORKERS = 100
-GAMES_PER_WORKER = 2        # Total Games = 100 * 2 = 200 per iteration.
+NUM_WORKERS = 64 # Use 64 workers (1.33x oversubscription)
+GAMES_PER_WORKER = 2        # Total Games = 64 * 2 = 128 per iteration.
 # Reserve last few cores for the Inference Server
 RESERVED_SERVER_CORES = 4
 TOTAL_VCPUS = 48 # Configuration assumption
@@ -79,7 +79,7 @@ class Logger(object):
 
 def setup_child_logging():
     sys.stdout = Logger()
-    sys.stderr = Logger()
+    sys.stderr = sys.stderr
 
 # ==========================================
 #        HELPER: QUEUE MONITOR
@@ -125,7 +125,6 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
         
         while not game.is_over:
             if len(game.moves) >= MAX_MOVES_PER_GAME:
-                # FIXED: Consistent log message
                 print(f"   [Worker {worker_id}] Hit limit ({MAX_MOVES_PER_GAME} plies). Adjudicating Draw.")
                 break 
 
