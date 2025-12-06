@@ -62,17 +62,16 @@ class ChessDataset(Dataset):
                 with np.load(f, allow_pickle=True) as data:
                     s_shape = data['states'].shape
                     p_shape = data['policies'].shape
-                    v_shape = data['values'].shape
-                
+                    
                     num_positions = s_shape[0]
 
                     # Validation: Check shapes
-                    if len(s_shape) != 4 or s_shape[1:] != (13, 8, 8):
-                        # print(f"Skipping corrupt file {f}: State shape {s_shape}")
+                    if len(s_shape) != 4 or s_shape[1:] != (16, 8, 8):
+                        print(f"Skipping corrupt file {f}: State shape {s_shape} != (16, 8, 8)")
                         continue
                         
                     if len(p_shape) != 2 or p_shape[1] != 8192:
-                        # print(f"Skipping corrupt file {f}: Policy shape {p_shape}")
+                        print(f"Skipping corrupt file {f}: Policy shape {p_shape}")
                         continue
                     
                     if num_positions > 0:
