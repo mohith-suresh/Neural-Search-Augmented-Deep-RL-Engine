@@ -181,6 +181,7 @@ data/played_games/
 *.zst
 *.pgn
 *.pgn.gz
+*.npz
 
 # Model checkpoints and weights
 model/checkpoints/
