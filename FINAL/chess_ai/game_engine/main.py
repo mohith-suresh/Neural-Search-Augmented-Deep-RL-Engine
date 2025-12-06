@@ -26,27 +26,27 @@ from game_engine.cnn import ChessCNN
 # --- EXECUTION ---
 ITERATIONS = 1000
 
-# NEW SCALED UP CONFIG (48 vCPUs / 24 Cores / 224 GB RAM)
+# NEW SCALED UP CONFIG (48 vCPUs / 208 GB RAM)
+# NOTE: NUM_WORKERS is scaled for performance but limited for RAM safety.
 NUM_WORKERS = 100
 GAMES_PER_WORKER = 2        # Total Games = 100 * 2 = 200 per iteration.
 # Reserve last few cores for the Inference Server
 RESERVED_SERVER_CORES = 4
-TOTAL_VCPUS = 48 # Assuming 48 vCPUs (threads) available for pinning
+TOTAL_VCPUS = 48 # Configuration assumption
 
 # --- QUALITY ---
 SIMULATIONS = 1200          # Deep Training
 EVAL_SIMULATIONS = 400      # Fast Evaluation
 
-# --- EVALUATION CONFIG ---
-EVAL_WORKERS = 10           
-GAMES_PER_EVAL_WORKER = 2
+# --- EVALUATION CONFIG (VRAM SAFE) --
+EVAL_WORKERS = 5           
+GAMES_PER_EVAL_WORKER = 4
 STOCKFISH_GAMES = 20
-SF_WORKERS = 10
-SF_GAMES_PER_WORKER = 2
-STOCKFISH_ELO = 1350 # Base Elo to evaluate against
+SF_WORKERS = 5              # Reduced Stockfish workers for VRAM safety
+SF_GAMES_PER_WORKER = 4     # 5 * 4 = 20 total games (20 total games are essential for good statistics)
+STOCKFISH_ELO = 1350        # Base Elo to evaluate against
 
 # --- AGGRESSIVE RULES ---
-# Deathmatch Mode: Win fast or get penalized.
 MAX_MOVES_PER_GAME = 100   
 DRAW_PENALTY = -0.2
 
@@ -79,7 +79,7 @@ class Logger(object):
 
 def setup_child_logging():
     sys.stdout = Logger()
-    sys.stderr = sys.stdout
+    sys.stderr = sys.stderr
 
 # ==========================================
 #        HELPER: QUEUE MONITOR
@@ -100,25 +100,18 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
     # --- WORKER PINNING ---
     if hasattr(os, 'sched_setaffinity'):
         try:
-            # 1. Determine available worker cores
             total_cores = os.cpu_count()
             worker_core_count = total_cores - RESERVED_SERVER_CORES
             
-            # 2. Map worker_id (0-99) to an available core_id (0 to worker_core_count-1)
-            # This implements a round-robin distribution.
             if worker_core_count > 0:
                 core_id = worker_id % worker_core_count
                 os.sched_setaffinity(0, {core_id})
-                
-                # Check for high contention (more than 2 workers per core)
-                if NUM_WORKERS > total_cores * 2:
-                     print(f"   [Worker {worker_id}] Warning: High worker/core ratio ({NUM_WORKERS}/{total_cores}).")
         except Exception as e:
-            # Pinning is best-effort. Log error but proceed.
             print(f"   [Worker {worker_id}] Pinning error: {e}") 
 
     setup_child_logging()
-    time.sleep(worker_id * 0.05) # Reduced stagger time due to higher worker count
+    # Reduced startup delay for massive worker count
+    time.sleep(worker_id * 0.01)
     
     os.makedirs(DATA_DIR, exist_ok=True)
     
@@ -132,7 +125,8 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
         
         while not game.is_over:
             if len(game.moves) >= MAX_MOVES_PER_GAME:
-                print(f"   [Worker {worker_id}] Hit aggressive limit ({MAX_MOVES_PER_GAME} plies). Adjudicating Draw.")
+                # FIXED: Consistent log message
+                print(f"   [Worker {worker_id}] Hit limit ({MAX_MOVES_PER_GAME} plies). Adjudicating Draw.")
                 break 
 
             move_start = time.time()
@@ -154,7 +148,7 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
         else: result = game.result
 
         # --- REWARD CALCULATION (WITH PENALTY) ---
-        final_winner = 0.0 # 0.0 is Black, 1.0 is White in logic below
+        final_winner = 0.0
         if result == "1-0": final_winner = 1.0
         elif result == "0-1": final_winner = 0.0
         
@@ -184,8 +178,6 @@ def run_server_wrapper(server):
             total_cores = os.cpu_count()
             server_start_core = total_cores - RESERVED_SERVER_CORES
             
-            # --- SERVER PINNING ADJUSTMENT (Reserve last N cores) ---
-            # Server gets the cores from server_start_core up to total_cores-1
             if server_start_core < total_cores:
                 server_cores = {i for i in range(server_start_core, total_cores)}
                 os.sched_setaffinity(0, server_cores)
@@ -202,9 +194,8 @@ def run_server_wrapper(server):
 def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE ===")
     
-    # Check if we need to adjust TOTAL_VCPUS based on runtime
     if TOTAL_VCPUS > os.cpu_count():
-        print(f"WARNING: TOTAL_VCPUS is configured as {TOTAL_VCPUS}, but only {os.cpu_count()} detected.")
+        print(f"WARNING: Configured VCPUS ({TOTAL_VCPUS}) > Detected ({os.cpu_count()}). Pinning limited.")
 
     server = InferenceServer(BEST_MODEL)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
@@ -241,17 +232,15 @@ def run_training_phase(iteration):
 # ==========================================
 
 def calculate_elo(base_elo, total_adjusted_win_rate):
-    """Calculates Elo difference based on the win rate (E-R formula)."""
-    # E-R Formula: $E_A = E_B - 400 * \log_{10}(\frac{1}{W_A} - 1)$
-    # $E_A$ is the estimated Elo, $E_B$ is the base Elo (Stockfish)
-    # $W_A$ is the adjusted win rate (Bayesian smoothing applied)
-    # This formula holds only if $W_A$ is not 0 or 1.
+    """Calculates Elo difference based on the adjusted win rate."""
+    if total_adjusted_win_rate is None or total_adjusted_win_rate <= 0.0 or total_adjusted_win_rate >= 1.0:
+        return None 
     
-    if total_adjusted_win_rate >= 1.0: return int(base_elo + 1000) # Arbitrarily high
-    if total_adjusted_win_rate <= 0.0: return int(base_elo - 1000) # Arbitrarily low
-
+    # Standard Elo difference formula based on winning probability
     elo_diff = -400 * math.log10(1 / total_adjusted_win_rate - 1)
-    return int(base_elo + elo_diff)
+        
+    estimated_elo = base_elo + elo_diff
+    return int(estimated_elo)
 
 def run_arena_batch(worker_id, result_queue, num_games):
     setup_child_logging()
@@ -268,18 +257,16 @@ def run_arena_batch(worker_id, result_queue, num_games):
 def run_stockfish_batch(worker_id, result_queue, num_games):
     setup_child_logging()
     try:
-        print(f"   [SF Worker {worker_id}] Playing {num_games} games vs Stockfish...")
         sf_eval = StockfishEvaluator(STOCKFISH_PATH, simulations=EVAL_SIMULATIONS)
-        # evaluation.py now returns {win_rate, adjusted_win_rate}
+        
+        # StockfishEvaluator returns a dict {'win_rate':..., 'adjusted_win_rate':...}
         results = sf_eval.evaluate(BEST_MODEL, num_games=num_games, stockfish_elo=STOCKFISH_ELO)
         
-        # We only pass the adjusted win rate back to main.py
-        result_queue.put(results.get('adjusted_win_rate', 0.5))
-        print(f"   [SF Worker {worker_id}] Batch Complete. Adj Win Rate: {results.get('adjusted_win_rate', 0.5):.2f}")
+        result_queue.put(results)
+        print(f"   [SF Worker {worker_id}] Batch Complete. Adj Win Rate: {results.get('adjusted_win_rate', 0.5):.3f}")
     except Exception as e:
         print(f"   [SF Worker {worker_id}] Error: {e}")
-        # Return 0.5 (neutral win rate) on error
-        result_queue.put(0.5) 
+        result_queue.put({'win_rate': 0.5, 'adjusted_win_rate': 0.5}) 
 
 def run_evaluation_phase(iteration, logger):
     print(f"\n=== ITERATION {iteration}: PARALLEL EVALUATION PHASE ===")
@@ -315,17 +302,17 @@ def run_evaluation_phase(iteration, logger):
         if os.path.exists(CANDIDATE_MODEL):
             os.remove(CANDIDATE_MODEL)
         
-        # Candidate model did not beat champion, skip Stockfish evaluation (Your change 1)
+        # Skip Stockfish (Your implemented optimization)
         should_run_stockfish = False
 
-    # --- 2. PARALLEL STOCKFISH (If promoted) ---    
     final_elo = None
+    
     if should_run_stockfish:
+        # --- 2. PARALLEL STOCKFISH (Accurate Centralized Elo) ---
         print(f"\nStarting Stockfish Elo Eval (Model promoted): {SF_WORKERS} Workers x {SF_GAMES_PER_WORKER} Games")
         sf_queue = mp.Queue()
         sf_workers = []
         
-        # NOTE: Only the Champion (now the promoted Candidate) is evaluated against SF.
         for i in range(SF_WORKERS):
             p = mp.Process(target=run_stockfish_batch, args=(i, sf_queue, SF_GAMES_PER_WORKER))
             p.start()
@@ -334,33 +321,38 @@ def run_evaluation_phase(iteration, logger):
         for p in sf_workers:
             p.join()
             
-        # Aggregate Adjusted Win Rates (Your change 2)
-        adjusted_win_rates = []
+        # Aggregate ALL raw scores and calculate ONE final Elo
+        total_adjusted_score_sum = 0
+        total_adjusted_games_sum = 0
+        
         while not sf_queue.empty():
-            adjusted_win_rates.append(sf_queue.get())
+            results = sf_queue.get() 
+            
+            # --- Aggregation logic MUST be done in main.py ---
+            # Total adjusted games = games_per_worker + 2 (pseudo-games for smoothing)
+            total_adjusted_games_in_batch = SF_GAMES_PER_WORKER + 2.0
+            
+            adjusted_win_rate = results.get('adjusted_win_rate', 0.5)
+            adjusted_score_in_batch = adjusted_win_rate * total_adjusted_games_in_batch
+            
+            total_adjusted_score_sum += adjusted_score_in_batch
+            total_adjusted_games_sum += total_adjusted_games_in_batch
             
         # Calculate TOTAL adjusted win rate
-        total_games = SF_WORKERS * SF_GAMES_PER_WORKER
-        total_adjusted_games = total_games + (SF_WORKERS * 2.0) # Total 2 pseudo games per worker batch
-        
-        # Since each worker returns the averaged *adjusted* win rate for their batch, 
-        # we calculate the overall adjusted score (total adjusted wins)
-        total_adjusted_score = sum(rate * (SF_GAMES_PER_WORKER + 2.0) for rate in adjusted_win_rates)
-        
-        # Correct total adjusted win rate calculation
-        if total_adjusted_games > 0:
-            total_adjusted_win_rate = total_adjusted_score / total_adjusted_games
+        if total_adjusted_games_sum > 0:
+            final_adjusted_win_rate = total_adjusted_score_sum / total_adjusted_games_sum
         else:
-            total_adjusted_win_rate = 0.5
+            final_adjusted_win_rate = 0.5
+            
+        final_elo = calculate_elo(STOCKFISH_ELO, final_adjusted_win_rate)
 
-        final_elo = calculate_elo(STOCKFISH_ELO, total_adjusted_win_rate)
-        print(f"--- ELO CALCULATION ---")
-        print(f"Total Games Played vs SF: {total_games}")
-        print(f"Total Adjusted Win Rate: {total_adjusted_win_rate:.3f}")
-        print(f"Estimated Elo: {final_elo}")
+        print(f"--- STOCKFISH AGGREGATE RESULTS ---")
+        print(f"Total Games Played vs SF: {SF_WORKERS * SF_GAMES_PER_WORKER}")
+        print(f"Total Adjusted Win Rate: {final_adjusted_win_rate:.3f}")
+        print(f"Estimated Agent Elo: {final_elo}")
 
     else:
-        print("Stockfish evaluation skipped (Candidate not promoted).")
+        print("Stockfish evaluation skipped as Candidate was REJECTED.")
 
     logger.log(iteration, policy_loss=0.0, value_loss=0.0, arena_win_rate=final_win_rate, elo=final_elo)
 
@@ -376,8 +368,8 @@ if __name__ == "__main__":
     logger = MetricsLogger()
     
     print("=================================================")
-    print(f"STARTING RUN")
-    print(f"Workers: {NUM_WORKERS} | Sims: {SIMULATIONS} | Total VCPUs: {TOTAL_VCPUS}")
+    print(f"STARTING AGGRESSIVE RUN")
+    print(f"Workers: {NUM_WORKERS} | Sims: {SIMULATIONS} | Penalty: {DRAW_PENALTY}")
     print("=================================================")
 
     try:

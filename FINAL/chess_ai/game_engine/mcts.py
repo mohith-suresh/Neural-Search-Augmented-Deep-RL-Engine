@@ -6,25 +6,41 @@ import numpy as np
 def move_to_index(move_str):
     """
     Fast conversion of UCI move string to policy index (0-8191).
+    Ensures that promotion types map to distinct policy channels starting at 4096.
+    
+    Layout:
+    0-4095: Non-Promotion moves (64 src * 64 dst)
+    4096-4159: Queen Promotions (64 destinations)
+    4160-4223: Rook Promotions (64 destinations)
+    4224-4287: Bishop Promotions (64 destinations)
+    4288-4351: Knight Promotions (64 destinations)
+    (The rest of the 8192 vector is unused, which is standard in AZ/Lc0.)
     """
-    # 97 is ord('a'), 49 is ord('1')
-    # src_col = ord(move_str[0]) - 97
-    # src_row = ord(move_str[1]) - 49
+    
+    # 1. Base Index (Non-Promotion Moves: 64*64 = 4096 indices)
     src = (ord(move_str[0]) - 97) + (ord(move_str[1]) - 49) * 8
     dst = (ord(move_str[2]) - 97) + (ord(move_str[3]) - 49) * 8
-    idx = src * 64 + dst
-    
-    # Promotion Logic
+    idx = src * 64 + dst # 0-4095
+
+    # 2. Promotion Logic (Maps to distinct channels starting at 4096)
     if len(move_str) == 5:
         promotion = move_str[4]
-        if promotion == 'n': idx += 4096
-        elif promotion == 'r': idx += 4096 * 2 # Just an example offset strategy, keeping your logic
-        elif promotion == 'b': idx += 4096 * 3 
-        # Note: Your original code used `idx += 4096` for all promotions. 
-        # I kept your original logic below to ensure compatibility with weights.
-        if promotion in ['n', 'r', 'b']:
-            return src * 64 + dst + 4096
-            
+        
+        # Determine the offset based on promotion type: 64 squares per type
+        if promotion == 'q':
+            promotion_offset = 4096 + 0 * 64 
+        elif promotion == 'r': 
+            promotion_offset = 4096 + 1 * 64 
+        elif promotion == 'b': 
+            promotion_offset = 4096 + 2 * 64
+        elif promotion == 'n': 
+            promotion_offset = 4096 + 3 * 64
+        else:
+            return idx # Should not happen
+
+        # The index within the promotion block is just the destination square (0-63)
+        idx = promotion_offset + dst
+        
     return idx
 
 class Node:
@@ -66,14 +82,8 @@ class Node:
         policy_sum = 0
         
         for move_str in valid_moves:
-            # Use the optimized index calculation logic inline or via helper
-            # Inline is faster for Python loops
-            src = (ord(move_str[0]) - 97) + (int(move_str[1]) - 1) * 8
-            dst = (ord(move_str[2]) - 97) + (int(move_str[3]) - 1) * 8
-            idx = src * 64 + dst
-            
-            if len(move_str) == 5 and move_str[4] in ['n', 'r', 'b']:
-                idx += 4096
+            # FIX: Use the centralized helper function to ensure correct indexing
+            idx = move_to_index(move_str)
             
             if idx < len(policy_logits):
                 logit = policy_logits[idx]
@@ -90,7 +100,7 @@ class Node:
             else:
                 normalized_prior = 1.0 / len(valid_moves)
             
-            next_state = self.state.copy() # Use .copy() instead of deepcopy for speed
+            next_state = self.state.copy() 
             next_state.push(move)
             
             self.children[move] = Node(next_state, parent=self, action_taken=move, prior=normalized_prior)
@@ -128,11 +138,9 @@ class MCTSWorker:
         if visit_sum == 0: return policy_vector
             
         for action_uci, child in root.children.items():
-            src = (ord(action_uci[0]) - 97) + (int(action_uci[1]) - 1) * 8
-            dst = (ord(action_uci[2]) - 97) + (int(action_uci[3]) - 1) * 8
-            idx = src * 64 + dst
-            if len(action_uci) == 5 and action_uci[4] in ['n', 'r', 'b']:
-                idx += 4096
+            # FIX: Use the centralized helper function to ensure correct indexing
+            idx = move_to_index(action_uci)
+            
             if idx < 8192:
                 policy_vector[idx] = child.visit_count / visit_sum
                 
@@ -142,9 +150,12 @@ class MCTSWorker:
         root = Node(root_state)
         
         # 1. Evaluate Root
-        tensor = torch.from_numpy(root.state.to_tensor()) # Faster than torch.tensor(..., dtype)
+        tensor = torch.from_numpy(root.state.to_tensor()) 
         self.input_queue.put((self.worker_id, tensor))
+        
+        # FIX: Use self.output_queue
         policy, value = self.output_queue.get()
+        
         valid_moves = root.state.legal_moves()
         root.expand(valid_moves, policy)
         
@@ -167,7 +178,9 @@ class MCTSWorker:
             # Efficient tensor creation
             tensor = torch.from_numpy(node.state.to_tensor())
             self.input_queue.put((self.worker_id, tensor))
-            policy, value = self.output_queue.get()
+            
+            # FIX: Use self.output_queue
+            policy, value = self.output_queue.get() 
             
             valid_moves = node.state.legal_moves()
             node.expand(valid_moves, policy)

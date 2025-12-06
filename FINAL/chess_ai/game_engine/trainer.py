@@ -6,17 +6,20 @@ import numpy as np
 import os
 import glob
 import sys
+import collections
 
 # Ensure we can import from the parent directory
 sys.path.append(os.getcwd())
 
 from game_engine.cnn import ChessCNN
 
+# Named tuple to store the file boundaries
+FileIndex = collections.namedtuple('FileIndex', ['file_path', 'start_idx', 'end_idx'])
+
 class ChessDataset(Dataset):
     def __init__(self, data_dir):
-        self.states = []
-        self.policies = []
-        self.values = []
+        self.file_map = []  # Stores (file_path, start_index, end_index)
+        self.total_positions = 0
         
         # Get all .npz files
         files = glob.glob(os.path.join(data_dir, "*.npz"))
@@ -24,51 +27,85 @@ class ChessDataset(Dataset):
             print(f"Warning: No data found in {data_dir}")
             return
 
-        print(f"Loading {len(files)} data files...")
+        print(f"Mapping {len(files)} data files...")
         
-        valid_files = 0
         for f in files:
             try:
-                data = np.load(f)
-                s = data['states']
-                p = data['policies']
-                v = data['values']
+                # Use np.load with mmap_mode to quickly check shape without loading data
+                with np.load(f, allow_pickle=True) as data:
+                    s_shape = data['states'].shape
+                    p_shape = data['policies'].shape
+                    v_shape = data['values'].shape
                 
-                # Validation: Check shapes
-                # Expect state: (N, 13, 8, 8)
-                if len(s.shape) != 4 or s.shape[1:] != (13, 8, 8):
-                    print(f"Skipping corrupt file {f}: State shape {s.shape}")
-                    continue
+                    num_positions = s_shape[0]
+
+                    # Validation: Check shapes
+                    if len(s_shape) != 4 or s_shape[1:] != (13, 8, 8):
+                        print(f"Skipping corrupt file {f}: State shape {s_shape}")
+                        continue
+                        
+                    if len(p_shape) != 2 or p_shape[1] != 8192:
+                        print(f"Skipping corrupt file {f}: Policy shape {p_shape}")
+                        continue
                     
-                # Expect policy: (N, 8192)
-                if len(p.shape) != 2 or p.shape[1] != 8192:
-                    print(f"Skipping corrupt file {f}: Policy shape {p.shape}")
-                    continue
-                
-                self.states.append(s)
-                self.policies.append(p)
-                self.values.append(v)
-                valid_files += 1
+                    if num_positions > 0:
+                        start_idx = self.total_positions
+                        end_idx = self.total_positions + num_positions - 1
+                        
+                        self.file_map.append(FileIndex(f, start_idx, end_idx))
+                        self.total_positions += num_positions
+                        
             except Exception as e:
-                print(f"Error loading {f}: {e}")
+                print(f"Error checking {f}: {e}")
                 continue
 
-        if valid_files > 0:
-            self.states = np.concatenate(self.states)
-            self.policies = np.concatenate(self.policies)
-            self.values = np.concatenate(self.values)
-            print(f"Dataset Loaded: {len(self.states)} positions.")
-        else:
-            print("CRITICAL: No valid data loaded.")
+        # Cache for the currently loaded file
+        self._current_file = None
+        self._current_data = None
+        
+        print(f"Dataset Mapped: {self.total_positions} positions across {len(self.file_map)} files.")
 
     def __len__(self):
-        return len(self.states)
+        return self.total_positions
+
+    def _load_file_for_index(self, idx):
+        # Determine which file the global index 'idx' belongs to
+        
+        # Binary search or simple iteration (simple iteration is fine for typical file counts)
+        target_file = None
+        local_idx = 0
+        
+        for file_info in self.file_map:
+            if file_info.start_idx <= idx <= file_info.end_idx:
+                target_file = file_info.file_path
+                local_idx = idx - file_info.start_idx
+                break
+
+        if target_file is None:
+            raise IndexError(f"Index {idx} out of range for file map.")
+            
+        # Check if the file is already cached
+        if target_file != self._current_file:
+            print(f"Loading new data file: {target_file}")
+            data = np.load(target_file, allow_pickle=True)
+            self._current_data = {
+                'states': torch.from_numpy(data['states']),
+                'policies': torch.from_numpy(data['policies']),
+                'values': torch.from_numpy(data['values']),
+            }
+            self._current_file = target_file
+            
+        return self._current_data, local_idx
+
 
     def __getitem__(self, idx):
+        # FIX E: Load data lazily based on index
+        data, local_idx = self._load_file_for_index(idx)
+        
         return {
-            'state': torch.tensor(self.states[idx], dtype=torch.float32),
-            'policy': torch.tensor(self.policies[idx], dtype=torch.float32),
-            'value': torch.tensor(self.values[idx], dtype=torch.float32)
+            'state': data['states'][local_idx].float(),
+            'policy': data['policies'][local_idx].float(),
+            'value': data['values'][local_idx].float()
         }
 
 def train_model(data_path="data/self_play", 
@@ -102,6 +139,7 @@ def train_model(data_path="data/self_play",
         print(f"Loading training base from {input_model_path}")
         try:
             checkpoint = torch.load(input_model_path, map_location=device)
+            # FIX: Robust Dictionary Loading
             if 'model_state_dict' in checkpoint:
                 model.load_state_dict(checkpoint['model_state_dict'])
             elif 'state_dict' in checkpoint:

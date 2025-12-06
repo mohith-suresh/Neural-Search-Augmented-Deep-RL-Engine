@@ -40,7 +40,6 @@ class InferenceServer:
         model.eval()
         print(f"Server: Model loaded on {self.device}. Listening...")
         
-        # ... rest of the loop remains the same ...
 
         while True:
             batch = []
