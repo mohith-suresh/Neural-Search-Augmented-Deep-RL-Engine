@@ -5,7 +5,7 @@ import numpy as np
 from game_engine.cnn import ChessCNN
 
 class InferenceServer:
-    def __init__(self, model_path, batch_size=256, timeout=0.01):
+    def __init__(self, model_path, batch_size=16, timeout=0.01):
         self.model_path = model_path
         self.batch_size = batch_size
         self.timeout = timeout
