@@ -6,7 +6,7 @@ import numpy as np
 # --- Constants ---
 # Virtual Loss adds "fake" visits to nodes currently being processed by the GPU.
 # This discourages other threads in the SAME batch from picking the exact same path.
-VIRTUAL_LOSS = 3.0  
+VIRTUAL_LOSS = 5.0  
 
 def move_to_index(move_str):
     """

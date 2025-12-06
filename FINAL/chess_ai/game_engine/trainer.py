@@ -2,11 +2,14 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+# Import AMP for Mixed Precision Training
+from torch.cuda.amp import GradScaler, autocast
 import numpy as np
 import os
 import glob
 import sys
 import collections
+import re
 
 # Ensure we can import from the parent directory
 sys.path.append(os.getcwd())
@@ -17,19 +20,43 @@ from game_engine.cnn import ChessCNN
 FileIndex = collections.namedtuple('FileIndex', ['file_path', 'start_idx', 'end_idx'])
 
 class ChessDataset(Dataset):
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, window_size=20):
         self.file_map = []  # Stores (file_path, start_index, end_index)
         self.total_positions = 0
         
         # Get all .npz files
-        files = glob.glob(os.path.join(data_dir, "*.npz"))
-        if not files:
+        all_files = glob.glob(os.path.join(data_dir, "*.npz"))
+        if not all_files:
             print(f"Warning: No data found in {data_dir}")
             return
 
-        print(f"Mapping {len(files)} data files...")
+        # --- SLIDING WINDOW LOGIC ---
+        # We only want the most recent data to prevent training on old, bad strategies.
+        # Files are named: iter_{timestamp}_w{worker_id}_{i}.npz
+        # We sort by timestamp (newest first)
+        def get_timestamp(fname):
+            match = re.search(r'iter_(\d+)_', fname)
+            return int(match.group(1)) if match else 0
+
+        # Sort descending (newest first)
+        sorted_files = sorted(all_files, key=get_timestamp, reverse=True)
         
-        for f in files:
+        # Estimate files per iteration (approx NUM_WORKERS * GAMES_PER_WORKER)
+        # We don't know the exact count per iteration dynamically, so we can use a heuristic
+        # or just take the top N files if we assume constant generation.
+        # Better heuristic: Count distinct timestamps.
+        
+        distinct_timestamps = sorted(list(set(get_timestamp(f) for f in sorted_files)), reverse=True)
+        active_timestamps = distinct_timestamps[:window_size]
+        
+        # Filter files that belong to the active window
+        active_files = [f for f in sorted_files if get_timestamp(f) in active_timestamps]
+        
+        print(f"Data Window: Using {len(active_files)} files from last {len(active_timestamps)} iterations.")
+
+        print(f"Mapping data files...")
+        
+        for f in active_files:
             try:
                 # Use np.load with mmap_mode to quickly check shape without loading data
                 with np.load(f, allow_pickle=True) as data:
@@ -63,7 +90,7 @@ class ChessDataset(Dataset):
         self._current_file = None
         self._current_data = None
         
-        print(f"Dataset Mapped: {self.total_positions} positions across {len(self.file_map)} files.")
+        print(f"Dataset Mapped: {self.total_positions} positions.")
 
     def __len__(self):
         return self.total_positions
@@ -86,7 +113,7 @@ class ChessDataset(Dataset):
             
         # Check if the file is already cached
         if target_file != self._current_file:
-            print(f"Loading new data file: {target_file}")
+            # print(f"Loading new data file: {target_file}")
             data = np.load(target_file, allow_pickle=True)
             self._current_data = {
                 'states': torch.from_numpy(data['states']),
@@ -112,24 +139,24 @@ def train_model(data_path="data/self_play",
                 input_model_path="game_engine/model/best_model.pth", 
                 output_model_path="game_engine/model/candidate.pth", 
                 epochs=1, 
-                batch_size=128, 
-                lr=0.00002):
+                batch_size=256, 
+                lr=0.0001,
+                window_size=20):
     """
     Trains the model on data from data_path.
-    1. Loads weights from input_model_path (The 'Champion').
-    2. Trains for N epochs.
-    3. Saves result to output_model_path (The 'Challenger').
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on {device}...")
 
-    # 1. Prepare Data
-    dataset = ChessDataset(data_path)
+    # 1. Prepare Data with Sliding Window
+    dataset = ChessDataset(data_path, window_size=window_size)
     if len(dataset) == 0:
         print("Skipping training (No Data).")
         return
 
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    # Optimization: num_workers > 0 and pin_memory=True for faster GPU transfer
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, 
+                            num_workers=4, pin_memory=True)
 
     # 2. Load Model
     model = ChessCNN().to(device)
@@ -139,7 +166,7 @@ def train_model(data_path="data/self_play",
         print(f"Loading training base from {input_model_path}")
         try:
             checkpoint = torch.load(input_model_path, map_location=device)
-            # FIX: Robust Dictionary Loading
+            # Robust Dictionary Loading
             if 'model_state_dict' in checkpoint:
                 model.load_state_dict(checkpoint['model_state_dict'])
             elif 'state_dict' in checkpoint:
@@ -157,6 +184,9 @@ def train_model(data_path="data/self_play",
     # 3. Loss Functions
     mse_loss = nn.MSELoss()
     
+    # --- AMP Scaler ---
+    scaler = GradScaler()
+
     # 4. Training Loop
     for epoch in range(epochs):
         total_loss = 0
@@ -165,32 +195,31 @@ def train_model(data_path="data/self_play",
         batch_count = 0
         
         for batch in dataloader:
-            states = batch['state'].to(device)
-            target_policies = batch['policy'].to(device)
-            target_values = batch['value'].to(device)
+            states = batch['state'].to(device, non_blocking=True)
+            target_policies = batch['policy'].to(device, non_blocking=True)
+            target_values = batch['value'].to(device, non_blocking=True)
             
             optimizer.zero_grad()
             
-            # Forward pass
-            # cnn returns (policy_logits, value)
-            pred_policies, pred_values = model(states)
+            # --- Mixed Precision Forward Pass ---
+            with autocast():
+                # cnn returns (policy_logits, value)
+                pred_policies, pred_values = model(states)
+                
+                # --- Value Loss (MSE) ---
+                v_loss = mse_loss(pred_values.squeeze(), target_values)
+                
+                # --- Policy Loss (Cross Entropy) ---
+                log_probs = torch.log_softmax(pred_policies, dim=1)
+                p_loss = -(target_policies * log_probs).sum(dim=1).mean()
+                
+                # Total Loss
+                loss = v_loss + p_loss
             
-            # --- Value Loss (MSE) ---
-            # pred_values shape is (Batch, 1), target is (Batch,)
-            # We squeeze prediction to match target
-            v_loss = mse_loss(pred_values.squeeze(), target_values)
-            
-            # --- Policy Loss (Cross Entropy) ---
-            # AlphaZero Loss: -Sum(Target * Log(Softmax(Prediction)))
-            # This pushes the network logits towards the MCTS probability distribution
-            log_probs = torch.log_softmax(pred_policies, dim=1)
-            p_loss = -(target_policies * log_probs).sum(dim=1).mean()
-            
-            # Total Loss
-            loss = v_loss + p_loss
-            
-            loss.backward()
-            optimizer.step()
+            # --- Scaled Backward Pass ---
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
             
             total_loss += loss.item()
             p_loss_total += p_loss.item()
@@ -200,7 +229,6 @@ def train_model(data_path="data/self_play",
         print(f"Epoch {epoch+1}/{epochs} | Loss: {total_loss/batch_count:.4f} (Pol: {p_loss_total/batch_count:.4f} Val: {v_loss_total/batch_count:.4f})")
 
     # 5. Save Model
-    # We save to the OUTPUT path (Candidate), never overwriting the Input (Champion) directly
     os.makedirs(os.path.dirname(output_model_path), exist_ok=True)
     torch.save({
         'model_state_dict': model.state_dict(),
@@ -209,6 +237,4 @@ def train_model(data_path="data/self_play",
     print(f"New model saved to {output_model_path}")
 
 if __name__ == "__main__":
-    # Test Run
-    # This will load 'best_model.pth' and save to 'candidate.pth'
     train_model(epochs=10)

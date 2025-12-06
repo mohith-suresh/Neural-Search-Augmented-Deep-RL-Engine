@@ -8,6 +8,7 @@ import gc
 import torch
 import numpy as np
 import math
+import chess 
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
@@ -30,7 +31,7 @@ CUDA_STREAMS = 4
 # --- EXECUTION ---
 ITERATIONS = 1000
 NUM_WORKERS = 50            # Reduced slightly as each worker is now 8x more demanding
-WORKER_BATCH_SIZE = 8       # <--- NEW: Number of parallel paths per worker
+WORKER_BATCH_SIZE = 16       # Number of parallel paths per worker
 GAMES_PER_WORKER = 2        
 
 # --- QUALITY ---
@@ -39,15 +40,15 @@ EVAL_SIMULATIONS = 400
 
 # --- EVALUATION CONFIG ---
 EVAL_WORKERS = 4           
-GAMES_PER_EVAL_WORKER = 4
+GAMES_PER_EVAL_WORKER = 4   # 4 Workers * 4 Games = 16 Games Total
 STOCKFISH_GAMES = 20
 SF_WORKERS = 5              
-SF_GAMES_PER_WORKER = 4     
+SF_GAMES_PER_WORKER = 4     # 5 Workers * 4 Games = 20 Games Total
 STOCKFISH_ELO = 1350        
 
 # --- RULES ---
 MAX_MOVES_PER_GAME = 100   
-DRAW_PENALTY = -0.5         # Increased penalty to discourage stalling
+DRAW_PENALTY = -0.25         # Increased penalty to discourage stalling
 
 # Training
 TRAIN_EPOCHS = 1           
@@ -178,6 +179,89 @@ def run_server_wrapper(server):
     monitor.start()
     server.loop()
 
+# --- EVALUATION WORKERS ---
+
+def run_arena_worker(worker_id, queue, num_games):
+    """Plays Candidate (New) vs Champion (Best)"""
+    setup_child_logging()
+    from game_engine.evaluation import EvalMCTS
+    
+    # Load separate instances for thread safety
+    candidate = EvalMCTS(CANDIDATE_MODEL, simulations=EVAL_SIMULATIONS)
+    champion = EvalMCTS(BEST_MODEL, simulations=EVAL_SIMULATIONS)
+    
+    wins, draws, losses = 0, 0, 0
+    
+    for i in range(num_games):
+        game = ChessGame()
+        cand_is_white = (i % 2 == 0)
+        
+        while not game.is_over and len(game.moves) < MAX_MOVES_PER_GAME:
+            if game.board.turn == chess.WHITE:
+                move = candidate.search(game) if cand_is_white else champion.search(game)
+            else:
+                move = champion.search(game) if cand_is_white else candidate.search(game)
+            game.push(move)
+            
+        res = game.result
+        if res == "1-0":
+            if cand_is_white: wins += 1
+            else: losses += 1
+        elif res == "0-1":
+            if cand_is_white: losses += 1
+            else: wins += 1
+        else:
+            draws += 1
+            
+    queue.put({"wins": wins, "draws": draws, "losses": losses, "games": num_games})
+
+def run_stockfish_worker(worker_id, queue, num_games):
+    """Plays Candidate vs Stockfish to estimate Elo"""
+    setup_child_logging()
+    from game_engine.evaluation import EvalMCTS
+    import chess.engine
+    
+    agent = EvalMCTS(CANDIDATE_MODEL, simulations=EVAL_SIMULATIONS)
+    score = 0.0
+    
+    if not os.path.exists(STOCKFISH_PATH):
+        queue.put({"score": 0, "games": 0})
+        return
+
+    try:
+        engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
+        engine.configure({"UCI_LimitStrength": True, "UCI_Elo": STOCKFISH_ELO})
+    except:
+        queue.put({"score": 0, "games": 0})
+        return
+
+    for i in range(num_games):
+        game = ChessGame()
+        agent_is_white = (i % 2 == 0)
+        
+        while not game.is_over and len(game.moves) < MAX_MOVES_PER_GAME:
+            is_agent_turn = (game.board.turn == chess.WHITE and agent_is_white) or \
+                            (game.board.turn == chess.BLACK and not agent_is_white)
+            
+            if is_agent_turn:
+                move = agent.search(game)
+            else:
+                try:
+                    result = engine.play(game.board, chess.engine.Limit(time=0.05))
+                    move = result.move.uci()
+                except: break
+            game.push(move)
+            
+        res = game.result
+        if res == "1-0": score += 1.0 if agent_is_white else 0.0
+        elif res == "0-1": score += 0.0 if agent_is_white else 1.0
+        else: score += 0.5
+        
+    engine.quit()
+    queue.put({"score": score, "games": num_games})
+
+# --- PHASES ---
+
 def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Batched MCTS) ===")
 
@@ -209,8 +293,66 @@ def run_training_phase(iteration):
                 epochs=TRAIN_EPOCHS)
 
 def run_evaluation_phase(iteration, logger):
-    print(f"\n=== ITERATION {iteration}: EVALUATION SKIPPED FOR SPEED TEST ===")
-    pass
+    print(f"\n=== ITERATION {iteration}: EVALUATION PHASE ===")
+    ctx = mp.get_context('spawn')
+    
+    # 1. ARENA: Candidate vs Champion
+    print(f"   [Arena] Playing {EVAL_WORKERS * GAMES_PER_EVAL_WORKER} games (Candidate vs Best)...")
+    arena_queue = ctx.Queue()
+    workers = []
+    
+    for i in range(EVAL_WORKERS):
+        p = ctx.Process(target=run_arena_worker, args=(i, arena_queue, GAMES_PER_EVAL_WORKER))
+        p.start()
+        workers.append(p)
+    for p in workers: p.join()
+        
+    total_wins, total_draws, total_losses = 0, 0, 0
+    while not arena_queue.empty():
+        res = arena_queue.get()
+        total_wins += res['wins']
+        total_draws += res['draws']
+        total_losses += res['losses']
+        
+    total_games = total_wins + total_draws + total_losses
+    win_rate = (total_wins + 0.5 * total_draws) / total_games if total_games > 0 else 0
+    
+    print(f"   [Arena] Result: {win_rate*100:.1f}% Win Rate ({total_wins}W - {total_draws}D - {total_losses}L)")
+    
+    est_elo = None
+
+    # 2. PROMOTION & STOCKFISH CHECK
+    if win_rate >= 0.55:
+        print(f"   [Arena] \u2b50 Candidate PROMOTED! (WR > 55%) \u2b50")
+        shutil.copyfile(CANDIDATE_MODEL, BEST_MODEL)
+        
+        # 3. STOCKFISH BENCHMARK (Only if Promoted)
+        print(f"   [Stockfish] Playing {SF_WORKERS * SF_GAMES_PER_WORKER} games vs Elo {STOCKFISH_ELO}...")
+        sf_queue = ctx.Queue()
+        sf_workers = []
+        
+        for i in range(SF_WORKERS):
+            p = ctx.Process(target=run_stockfish_worker, args=(i, sf_queue, SF_GAMES_PER_WORKER))
+            p.start()
+            sf_workers.append(p)
+        for p in sf_workers: p.join()
+            
+        sf_score, sf_total = 0, 0
+        while not sf_queue.empty():
+            res = sf_queue.get()
+            sf_score += res['score']
+            sf_total += res['games']
+            
+        sf_wr = sf_score / sf_total if sf_total > 0 else 0
+        safe_wr = max(0.01, min(0.99, sf_wr))
+        est_elo = STOCKFISH_ELO - 400 * math.log10(1/safe_wr - 1)
+        
+        print(f"   [Stockfish] Score: {sf_score}/{sf_total} ({sf_wr*100:.1f}%) | Est. Elo: {est_elo:.0f}")
+
+    else:
+        print(f"   [Arena] Candidate rejected. Skipping Stockfish evaluation.")
+    
+    logger.log(iteration, 0.0, 0.0, win_rate, est_elo)
 
 if __name__ == "__main__":
     setup_child_logging()
