@@ -47,6 +47,7 @@ __pypackages__/
 # VIRTUAL ENVIRONMENTS
 # ============================================================================
 
+chess_env
 .venv
 env/
 venv/
