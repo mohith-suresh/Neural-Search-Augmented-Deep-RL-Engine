@@ -13,7 +13,7 @@ logging.basicConfig(
 logger = logging.getLogger("InferenceServer")
 
 class InferenceServer:
-    def __init__(self, model_path, batch_size=256, timeout=0.5):
+    def __init__(self, model_path, batch_size=256, timeout=0.005):
         self.model_path = model_path
         self.batch_size = batch_size
         self.timeout = timeout
