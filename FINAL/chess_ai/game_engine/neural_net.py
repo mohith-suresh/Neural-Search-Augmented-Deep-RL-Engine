@@ -6,7 +6,7 @@ import concurrent.futures
 from game_engine.cnn import ChessCNN
 
 class InferenceServer:
-    def __init__(self, model_path, batch_size=128, timeout=0.01, streams=4):
+    def __init__(self, model_path, batch_size=512, timeout=0.01, streams=4):
         self.model_path = model_path
         self.batch_size = batch_size
         self.timeout = timeout
@@ -20,51 +20,34 @@ class InferenceServer:
         return self.output_queues[worker_id]
 
     def process_batch(self, batch_data, stream, model, device):
-        """
-        batch_data: list of (worker_id, tensor)
-        tensor can be shape (13, 8, 8) [Single] OR (N, 13, 8, 8) [Batch]
-        """
         if not batch_data: return
 
         worker_ids = [item[0] for item in batch_data]
         raw_tensors = [item[1] for item in batch_data]
         
-        # Track original sizes to split results later
-        # If tensor is 3D (13,8,8), size is 1. If 4D (N,13,8,8), size is N.
+        # Track sizes (Most will be 8, but we must handle single/variable sizes safely)
         sizes = [t.shape[0] if t.ndim == 4 else 1 for t in raw_tensors]
         
         with torch.cuda.stream(stream):
-            # 1. Normalize all inputs to 4D tensors
-            processed_tensors = []
-            for t in raw_tensors:
-                if t.ndim == 3:
-                    processed_tensors.append(t.unsqueeze(0))
-                else:
-                    processed_tensors.append(t)
+            # Fast normalization
+            processed_tensors = [t if t.ndim == 4 else t.unsqueeze(0) for t in raw_tensors]
             
-            # 2. Combine into one Mega-Batch
+            # Massive Batch
             mega_batch = torch.cat(processed_tensors, dim=0).to(device, non_blocking=True)
             
-            # 3. Inference
             with torch.no_grad():
                 policies, values = model(mega_batch)
             
-            # 4. Move back to CPU
             policies = policies.cpu().numpy()
             values = values.cpu().numpy()
 
-        # 5. Distribute results back to workers
         cursor = 0
         for i, wid in enumerate(worker_ids):
             size = sizes[i]
-            
-            # Slice the results for this worker
             p_slice = policies[cursor : cursor + size]
             v_slice = values[cursor : cursor + size]
             cursor += size
             
-            # If it was a single item request, unwrap it (for compatibility)
-            # If it was a batch request, send array
             if size == 1 and raw_tensors[i].ndim == 3:
                 self.output_queues[wid].put((p_slice[0], v_slice[0]))
             else:
@@ -86,18 +69,17 @@ class InferenceServer:
             print(f"Server Warning: {e}")
             
         model.eval()
-        model.share_memory() # Required for some MP start methods
+        model.share_memory() 
         
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.num_streams)
-        print(f"Server Ready: Batch={self.batch_size}, Streams={self.num_streams}")
+        print(f"Server Ready: Batch={self.batch_size}, Streams={self.num_streams}, Device={self.device}")
 
         while True:
             batch_data = []
             current_batch_count = 0
-            
             start_time = time.time()
             
-            # Aggressive Batch Collection
+            # Collect data until batch is full or timeout
             while current_batch_count < self.batch_size:
                 if not self.input_queue.empty():
                     try:
@@ -106,17 +88,14 @@ class InferenceServer:
                             executor.shutdown()
                             return
                         
-                        # Check size of incoming item to avoid overflowing batch
                         tensor = item[1]
                         item_size = tensor.shape[0] if tensor.ndim == 4 else 1
                         
                         batch_data.append(item)
                         current_batch_count += item_size
-                    except:
-                        break
+                    except: break
                 
-                # Dynamic timeout based on how full we are
-                # If we have data, wait less. If empty, wait a tiny bit more.
+                # Dynamic timeout
                 if current_batch_count > 0:
                     if (time.time() - start_time > self.timeout): break
                 else:

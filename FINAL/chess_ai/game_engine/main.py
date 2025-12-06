@@ -21,37 +21,43 @@ from game_engine.evaluation import Arena, StockfishEvaluator, MetricsLogger
 from game_engine.cnn import ChessCNN
 
 # ==========================================
-#        AGGRESSIVE PRODUCTION CONFIG
+#        HIGH-PERFORMANCE GCP CONFIG
 # ==========================================
 
 # --- CUDA ---
-CUDA_TIMEOUT_INFERENCE = 0.01 # Tighter timeout for responsiveness
+CUDA_TIMEOUT_INFERENCE = 0.01 
 CUDA_STREAMS = 4 
 
 # --- EXECUTION ---
 ITERATIONS = 1000
-NUM_WORKERS = 50            # Reduced slightly as each worker is now 8x more demanding
-WORKER_BATCH_SIZE = 8       # Number of parallel paths per worker
-GAMES_PER_WORKER = 3        
+
+# HARDWARE TUNING (48 vCPUs)
+# We use 46 workers, leaving 2 vCPUs for the Inference Server and OS overhead.
+NUM_WORKERS = 46            
+WORKER_BATCH_SIZE = 8       # Batch 8 avoids Queue Contention while keeping GPU busy
+GAMES_PER_WORKER = 2        
 
 # --- QUALITY ---
-SIMULATIONS = 800           # 800 Sims / 8 Batch = 100 IPC Calls (Very Fast)
+SIMULATIONS = 800           
 EVAL_SIMULATIONS = 400      
 
 # --- EVALUATION CONFIG ---
-EVAL_WORKERS = 4           
-GAMES_PER_EVAL_WORKER = 4   # 4 Workers * 4 Games = 16 Games Total
+EVAL_WORKERS = 5           
+GAMES_PER_EVAL_WORKER = 4   
 STOCKFISH_GAMES = 20
 SF_WORKERS = 5              
-SF_GAMES_PER_WORKER = 4     # 5 Workers * 4 Games = 20 Games Total
+SF_GAMES_PER_WORKER = 4     
 STOCKFISH_ELO = 1350        
 
 # --- RULES ---
-MAX_MOVES_PER_GAME = 100   
-DRAW_PENALTY = -0.25         # Increased penalty to discourage stalling
+MAX_MOVES_PER_GAME = 250   
+DRAW_PENALTY = -0.25        
 
 # Training
-TRAIN_EPOCHS = 1           
+TRAIN_EPOCHS = 1 
+TRAIN_WINDOW = 20           
+TRAIN_BATCH_SIZE = 256      
+TRAIN_LR = 0.0001           
 
 # --- PATHS ---
 STOCKFISH_PATH = "/usr/games/stockfish" 
@@ -86,27 +92,25 @@ def queue_monitor_thread(queue):
         try:
             size = queue.qsize()
             if size > 100:
-                # Only log if really high to avoid spamming
-                if size > 200:
+                if size > 300: # Increased threshold for high-worker count
                     print(f"   [Server Monitor] High Load: {size} requests pending")
             time.sleep(2.0)
         except: break
 
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
-    # Robust Affinity Setting
+    # CPU Affinity: Spread 46 workers across 48 vCPUs
     if hasattr(os, 'sched_setaffinity'):
         try:
-            core_count = os.cpu_count() or 1
-            core_id = worker_id % core_count
+            # Simple round-robin pinning
+            core_id = worker_id % 48
             os.sched_setaffinity(0, {core_id})
         except: pass
 
     setup_child_logging()
-    # Stagger start times slightly to prevent Thundering Herd on the queue
+    # Stagger start times to prevent initial queue spike
     time.sleep(worker_id * 0.05)
     os.makedirs(DATA_DIR, exist_ok=True)
     
-    # Initialize Worker with Batching
     worker = MCTSWorker(worker_id, input_queue, output_queue, 
                         simulations=SIMULATIONS, 
                         batch_size=WORKER_BATCH_SIZE)
@@ -124,7 +128,6 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
 
             move_start = time.time()
             
-            # Temperature Schedule
             if len(game.moves) < 30:
                 current_temp = 1.0 
             else:
@@ -144,7 +147,6 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
             })
             game.push(best_move)
         
-        # Save Game Logic
         if len(game.moves) >= MAX_MOVES_PER_GAME: result = "1/2-1/2"
         else: result = game.result
 
@@ -174,6 +176,11 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
 
 def run_server_wrapper(server):
     setup_child_logging()
+    # Pin server to the last core to avoid contention
+    if hasattr(os, 'sched_setaffinity'):
+        try: os.sched_setaffinity(0, {47})
+        except: pass
+        
     monitor = threading.Thread(target=queue_monitor_thread, args=(server.input_queue,))
     monitor.daemon = True 
     monitor.start()
@@ -182,27 +189,20 @@ def run_server_wrapper(server):
 # --- EVALUATION WORKERS ---
 
 def run_arena_worker(worker_id, queue, num_games):
-    """Plays Candidate (New) vs Champion (Best)"""
     setup_child_logging()
     from game_engine.evaluation import EvalMCTS
-    
-    # Load separate instances for thread safety
     candidate = EvalMCTS(CANDIDATE_MODEL, simulations=EVAL_SIMULATIONS)
     champion = EvalMCTS(BEST_MODEL, simulations=EVAL_SIMULATIONS)
-    
     wins, draws, losses = 0, 0, 0
-    
     for i in range(num_games):
         game = ChessGame()
         cand_is_white = (i % 2 == 0)
-        
         while not game.is_over and len(game.moves) < MAX_MOVES_PER_GAME:
             if game.board.turn == chess.WHITE:
                 move = candidate.search(game) if cand_is_white else champion.search(game)
             else:
                 move = champion.search(game) if cand_is_white else candidate.search(game)
             game.push(move)
-            
         res = game.result
         if res == "1-0":
             if cand_is_white: wins += 1
@@ -210,53 +210,41 @@ def run_arena_worker(worker_id, queue, num_games):
         elif res == "0-1":
             if cand_is_white: losses += 1
             else: wins += 1
-        else:
-            draws += 1
-            
+        else: draws += 1
     queue.put({"wins": wins, "draws": draws, "losses": losses, "games": num_games})
 
 def run_stockfish_worker(worker_id, queue, num_games):
-    """Plays Candidate vs Stockfish to estimate Elo"""
     setup_child_logging()
     from game_engine.evaluation import EvalMCTS
     import chess.engine
-    
     agent = EvalMCTS(CANDIDATE_MODEL, simulations=EVAL_SIMULATIONS)
     score = 0.0
-    
     if not os.path.exists(STOCKFISH_PATH):
         queue.put({"score": 0, "games": 0})
         return
-
     try:
         engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
         engine.configure({"UCI_LimitStrength": True, "UCI_Elo": STOCKFISH_ELO})
     except:
         queue.put({"score": 0, "games": 0})
         return
-
     for i in range(num_games):
         game = ChessGame()
         agent_is_white = (i % 2 == 0)
-        
         while not game.is_over and len(game.moves) < MAX_MOVES_PER_GAME:
             is_agent_turn = (game.board.turn == chess.WHITE and agent_is_white) or \
                             (game.board.turn == chess.BLACK and not agent_is_white)
-            
-            if is_agent_turn:
-                move = agent.search(game)
+            if is_agent_turn: move = agent.search(game)
             else:
                 try:
                     result = engine.play(game.board, chess.engine.Limit(time=0.05))
                     move = result.move.uci()
                 except: break
             game.push(move)
-            
         res = game.result
         if res == "1-0": score += 1.0 if agent_is_white else 0.0
         elif res == "0-1": score += 0.0 if agent_is_white else 1.0
         else: score += 0.5
-        
     engine.quit()
     queue.put({"score": score, "games": num_games})
 
@@ -264,8 +252,8 @@ def run_stockfish_worker(worker_id, queue, num_games):
 
 def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Batched MCTS) ===")
-
-    server = InferenceServer(BEST_MODEL, batch_size=128, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
+    # Optimization: Increased Server Batch Size to 512 to ingest data from 46 workers efficiently
+    server = InferenceServer(BEST_MODEL, batch_size=512, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
     
     server_process = mp.Process(target=run_server_wrapper, args=(server,))
@@ -290,17 +278,18 @@ def run_training_phase(iteration):
     train_model(data_path=DATA_DIR, 
                 input_model_path=BEST_MODEL, 
                 output_model_path=CANDIDATE_MODEL,
-                epochs=TRAIN_EPOCHS)
+                epochs=TRAIN_EPOCHS,
+                batch_size=TRAIN_BATCH_SIZE,
+                lr=TRAIN_LR,
+                window_size=TRAIN_WINDOW)
 
 def run_evaluation_phase(iteration, logger):
     print(f"\n=== ITERATION {iteration}: EVALUATION PHASE ===")
     ctx = mp.get_context('spawn')
     
-    # 1. ARENA: Candidate vs Champion
     print(f"   [Arena] Playing {EVAL_WORKERS * GAMES_PER_EVAL_WORKER} games (Candidate vs Best)...")
     arena_queue = ctx.Queue()
     workers = []
-    
     for i in range(EVAL_WORKERS):
         p = ctx.Process(target=run_arena_worker, args=(i, arena_queue, GAMES_PER_EVAL_WORKER))
         p.start()
@@ -318,19 +307,15 @@ def run_evaluation_phase(iteration, logger):
     win_rate = (total_wins + 0.5 * total_draws) / total_games if total_games > 0 else 0
     
     print(f"   [Arena] Result: {win_rate*100:.1f}% Win Rate ({total_wins}W - {total_draws}D - {total_losses}L)")
-    
     est_elo = None
 
-    # 2. PROMOTION & STOCKFISH CHECK
     if win_rate >= 0.55:
         print(f"   [Arena] \u2b50 Candidate PROMOTED! (WR > 55%) \u2b50")
         shutil.copyfile(CANDIDATE_MODEL, BEST_MODEL)
         
-        # 3. STOCKFISH BENCHMARK (Only if Promoted)
         print(f"   [Stockfish] Playing {SF_WORKERS * SF_GAMES_PER_WORKER} games vs Elo {STOCKFISH_ELO}...")
         sf_queue = ctx.Queue()
         sf_workers = []
-        
         for i in range(SF_WORKERS):
             p = ctx.Process(target=run_stockfish_worker, args=(i, sf_queue, SF_GAMES_PER_WORKER))
             p.start()
@@ -346,9 +331,7 @@ def run_evaluation_phase(iteration, logger):
         sf_wr = sf_score / sf_total if sf_total > 0 else 0
         safe_wr = max(0.01, min(0.99, sf_wr))
         est_elo = STOCKFISH_ELO - 400 * math.log10(1/safe_wr - 1)
-        
         print(f"   [Stockfish] Score: {sf_score}/{sf_total} ({sf_wr*100:.1f}%) | Est. Elo: {est_elo:.0f}")
-
     else:
         print(f"   [Arena] Candidate rejected. Skipping Stockfish evaluation.")
     
@@ -356,7 +339,6 @@ def run_evaluation_phase(iteration, logger):
 
 if __name__ == "__main__":
     setup_child_logging()
-    # Force 'spawn' to avoid CUDA initialization errors in forked processes
     mp.set_start_method('spawn', force=True)
     os.makedirs(MODEL_DIR, exist_ok=True)
     if not os.path.exists(BEST_MODEL):
@@ -364,7 +346,7 @@ if __name__ == "__main__":
         torch.save(ChessCNN().state_dict(), BEST_MODEL)
 
     print("=================================================")
-    print(f"STARTING BATCHED RUN")
+    print(f"STARTING RUN")
     print(f"Workers: {NUM_WORKERS} | Sims: {SIMULATIONS} | Batch: {WORKER_BATCH_SIZE}")
     print("=================================================")
 
