@@ -79,7 +79,7 @@ class Logger(object):
 
 def setup_child_logging():
     sys.stdout = Logger()
-    sys.stderr = sys.stderr
+    sys.stderr = Logger()
 
 # ==========================================
 #        HELPER: QUEUE MONITOR
