@@ -3,71 +3,58 @@ import math
 import copy
 import numpy as np
 
+# --- Constants ---
+VIRTUAL_LOSS = 3.0  # Temporarily discourages threads from visiting the same node
+
 def move_to_index(move_str):
     """
     Fast conversion of UCI move string to policy index (0-8191).
-    Ensures that promotion types map to distinct policy channels starting at 4096.
-    
-    Layout:
-    0-4095: Non-Promotion moves (64 src * 64 dst)
-    4096-4159: Queen Promotions (64 destinations)
-    4160-4223: Rook Promotions (64 destinations)
-    4224-4287: Bishop Promotions (64 destinations)
-    4288-4351: Knight Promotions (64 destinations)
-    (The rest of the 8192 vector is unused, which is standard in AZ/Lc0.)
     """
-    
-    # 1. Base Index (Non-Promotion Moves: 64*64 = 4096 indices)
     src = (ord(move_str[0]) - 97) + (ord(move_str[1]) - 49) * 8
     dst = (ord(move_str[2]) - 97) + (ord(move_str[3]) - 49) * 8
-    idx = src * 64 + dst # 0-4095
-
-    # 2. Promotion Logic (Maps to distinct channels starting at 4096)
+    idx = src * 64 + dst
+    
+    # Promotion Logic
     if len(move_str) == 5:
         promotion = move_str[4]
-        
-        # Determine the offset based on promotion type: 64 squares per type
-        if promotion == 'q':
-            promotion_offset = 4096 + 0 * 64 
-        elif promotion == 'r': 
-            promotion_offset = 4096 + 1 * 64 
-        elif promotion == 'b': 
-            promotion_offset = 4096 + 2 * 64
-        elif promotion == 'n': 
-            promotion_offset = 4096 + 3 * 64
-        else:
-            return idx # Should not happen
-
-        # The index within the promotion block is just the destination square (0-63)
-        idx = promotion_offset + dst
-        
-    return idx
+        if promotion == 'q': idx += 4096 
+        elif promotion == 'r': idx += 4096 + 64
+        elif promotion == 'b': idx += 4096 + 128
+        elif promotion == 'n': idx += 4096 + 192
+    
+    return idx if idx < 8192 else 0
 
 class Node:
-    def __init__(self, state, parent=None, action_taken=None, prior=0):
+    def __init__(self, state, parent=None, prior=0):
         self.state = state
-        self.parent = parent
-        self.action_taken = action_taken
-        
         self.children = {}  
         self.visit_count = 0
         self.value_sum = 0
         self.prior = prior  
+        self.virtual_loss = 0 # Added for Batching
         
     def is_expanded(self):
         return len(self.children) > 0
+
+    def value(self):
+        # Calculate Q-value including Virtual Loss
+        # This makes the node look "worse" temporarily so other threads explore elsewhere
+        visits = self.visit_count + self.virtual_loss
+        if visits == 0: return 0
+        return self.value_sum / visits
 
     def select_child(self, cpuct):
         best_score = -float('inf')
         best_action = None
         best_child = None
         
-        # Optimization: Pre-calculate constant part
-        sqrt_total_visits = math.sqrt(self.visit_count)
+        # AlphaZero PUCT Formula
+        # We use self.visit_count + self.virtual_loss for the parent count too
+        sqrt_total_visits = math.sqrt(max(1, self.visit_count + self.virtual_loss))
         
         for action, child in self.children.items():
-            q_value = child.value_sum / child.visit_count if child.visit_count > 0 else 0
-            u_value = cpuct * child.prior * sqrt_total_visits / (1 + child.visit_count)
+            q_value = child.value()
+            u_value = cpuct * child.prior * sqrt_total_visits / (1 + child.visit_count + child.virtual_loss)
             score = q_value + u_value
             
             if score > best_score:
@@ -81,16 +68,12 @@ class Node:
         move_probs = {}
         policy_sum = 0
         
+        # Softmax over valid moves only
         for move_str in valid_moves:
-            # FIX: Use the centralized helper function to ensure correct indexing
             idx = move_to_index(move_str)
-            
-            if idx < len(policy_logits):
-                logit = policy_logits[idx]
-            else:
-                logit = -10.0 
-
-            prob = math.exp(logit) 
+            # Safety check for index bounds
+            logit = policy_logits[idx] if idx < len(policy_logits) else -10.0
+            prob = math.exp(logit)
             move_probs[move_str] = prob
             policy_sum += prob
             
@@ -99,13 +82,13 @@ class Node:
                 normalized_prior = move_probs[move] / policy_sum
             else:
                 normalized_prior = 1.0 / len(valid_moves)
-            
-            next_state = self.state.copy() 
+                
+            next_state = self.state.copy()
             next_state.push(move)
-            
-            self.children[move] = Node(next_state, parent=self, action_taken=move, prior=normalized_prior)
+            self.children[move] = Node(next_state, parent=self, prior=normalized_prior)
 
     def best_action(self):
+        # Select purely by visit count (most robust metric)
         most_visits = -1
         best_action = None
         for action, child in self.children.items():
@@ -115,104 +98,131 @@ class Node:
         return best_action
 
 class MCTSWorker:
-    def __init__(self, worker_id, input_queue, output_queue, simulations=50):
+    def __init__(self, worker_id, input_queue, output_queue, simulations=800, batch_size=8):
         self.worker_id = worker_id
         self.input_queue = input_queue
         self.output_queue = output_queue
         self.simulations = simulations
+        self.batch_size = batch_size 
         self.cpu = 1.0 
-    
-    def add_exploration_noise(self, node):
-        actions = list(node.children.keys())
-        if not actions: return
-        noise = np.random.dirichlet([0.3] * len(actions))
-        frac = 0.25 
-        
-        for i, action in enumerate(actions):
-            node.children[action].prior = node.children[action].prior * (1 - frac) + noise[i] * frac
 
     def get_policy_vector(self, root):
         policy_vector = np.zeros(8192, dtype=np.float32)
         visit_sum = sum(child.visit_count for child in root.children.values())
-        
         if visit_sum == 0: return policy_vector
-            
         for action_uci, child in root.children.items():
-            # FIX: Use the centralized helper function to ensure correct indexing
             idx = move_to_index(action_uci)
-            
-            if idx < 8192:
-                policy_vector[idx] = child.visit_count / visit_sum
-                
+            if idx < 8192: policy_vector[idx] = child.visit_count / visit_sum
         return policy_vector
 
     def search(self, root_state, temperature=1.0):
         root = Node(root_state)
         
-        # 1. Evaluate Root
-        tensor = torch.from_numpy(root.state.to_tensor()) 
-        self.input_queue.put((self.worker_id, tensor))
-        
-        # FIX: Use self.output_queue
+        # 1. Expand Root (Single request to bootstrap)
+        tensor = torch.from_numpy(root.state.to_tensor())
+        self.input_queue.put((self.worker_id, tensor)) 
         policy, value = self.output_queue.get()
+        root.expand(root.state.legal_moves(), policy)
         
-        valid_moves = root.state.legal_moves()
-        root.expand(valid_moves, policy)
-        
+        # Add Dirichlet Noise to Root (Standard AlphaZero feature)
         self.add_exploration_noise(root)
         
-        # 2. Simulations
-        for _ in range(self.simulations):
-            node = root
-            search_path = [node]
-            
-            while node.is_expanded():
-                action, node = node.select_child(self.cpu)
-                search_path.append(node)
-                
-            if node.state.is_over:
-                reward = node.state.get_reward_for_turn(node.state.turn_player)
-                self.backpropagate(search_path, reward, node.state.turn_player)
-                continue
-                
-            # Efficient tensor creation
-            tensor = torch.from_numpy(node.state.to_tensor())
-            self.input_queue.put((self.worker_id, tensor))
-            
-            # FIX: Use self.output_queue
-            policy, value = self.output_queue.get() 
-            
-            valid_moves = node.state.legal_moves()
-            node.expand(valid_moves, policy)
-            self.backpropagate(search_path, value, node.state.turn_player)
-            
-        policy_vector = self.get_policy_vector(root)
+        # 2. Main Loop: Run N simulations in batches
+        # e.g., 800 sims / 8 batch_size = 100 iterations
+        num_iterations = max(1, self.simulations // self.batch_size)
         
-        # 3. Select Action
-        if temperature == 0:
-            return root.best_action(), policy_vector
-        else:
-            actions = list(root.children.keys())
-            if not actions: return None, policy_vector
+        for _ in range(num_iterations):
+            leaves = []
+            paths = []
+            tensors = []
+            
+            # --- SELECTION PHASE (Parallel-ish) ---
+            for _ in range(self.batch_size):
+                node = root
+                path = [node]
+                
+                # Traverse tree
+                while node.is_expanded():
+                    action, node = node.select_child(self.cpu)
+                    path.append(node)
+                    
+                    # Apply Virtual Loss immediately
+                    # This prevents the next selection in this loop from picking the same path
+                    node.virtual_loss += VIRTUAL_LOSS
+                    node.value_sum -= VIRTUAL_LOSS 
+                
+                # Check Terminal State (Optimized from Tic-Tac-Toe logic)
+                if node.state.is_over:
+                    # Resolve locally, do not send to GPU
+                    reward = node.state.get_reward_for_turn(node.state.turn_player)
+                    self.backpropagate(path, reward, node.state.turn_player, is_terminal=True)
+                else:
+                    leaves.append(node)
+                    paths.append(path)
+                    tensors.append(node.state.to_tensor())
 
-            visits = np.array([root.children[a].visit_count for a in actions], dtype=np.float32)
-            
-            if temperature != 1.0:
-                visits = np.power(visits, 1.0 / temperature)
-            
-            visit_sum = np.sum(visits)
-            if visit_sum == 0:
-                probs = np.ones(len(visits)) / len(visits)
-            else:
-                probs = visits / visit_sum
-            
-            chosen_action = np.random.choice(actions, p=probs)
-            return chosen_action, policy_vector
+            if not leaves:
+                continue
 
-    def backpropagate(self, path, value, turn_perspective):
+            # --- BATCH INFERENCE PHASE ---
+            # Stack all collected states into one tensor (Batch, 13, 8, 8)
+            batch_tensor = torch.from_numpy(np.array(tensors))
+            
+            # Send ONE request for all leaves
+            self.input_queue.put((self.worker_id, batch_tensor))
+            
+            # Wait for ONE response
+            policies, values = self.output_queue.get()
+            
+            # --- EXPANSION & BACKPROP PHASE ---
+            for i, node in enumerate(leaves):
+                path = paths[i]
+                policy = policies[i]
+                value = values[i]
+                
+                # Expand
+                node.expand(node.state.legal_moves(), policy)
+                
+                # Backpropagate (and revert Virtual Loss)
+                self.backpropagate(path, value, node.state.turn_player, is_terminal=False)
+
+        # 3. Final Selection
+        return self.get_result(root, temperature)
+
+    def backpropagate(self, path, value, turn_perspective, is_terminal):
         for node in reversed(path):
+            # If it wasn't terminal, we applied virtual loss, so we must remove it
+            if not is_terminal:
+                node.visit_count -= VIRTUAL_LOSS 
+                node.value_sum += VIRTUAL_LOSS # Revert the subtraction
+
+            # Update with real data
             node.visit_count += 1
             if node.state.turn_player == turn_perspective:
                 node.value_sum += value
             else:
                 node.value_sum -= value
+
+    def add_exploration_noise(self, node):
+        actions = list(node.children.keys())
+        if not actions: return
+        noise = np.random.dirichlet([0.3] * len(actions))
+        frac = 0.25 
+        for i, action in enumerate(actions):
+            node.children[action].prior = node.children[action].prior * (1 - frac) + noise[i] * frac
+
+    def get_result(self, root, temperature):
+        if temperature == 0: 
+            return root.best_action(), self.get_policy_vector(root)
+            
+        actions = list(root.children.keys())
+        if not actions: return None, self.get_policy_vector(root)
+
+        visits = np.array([root.children[a].visit_count for a in actions], dtype=np.float32)
+        
+        if temperature != 1.0:
+            visits = np.power(visits, 1.0 / temperature)
+        
+        probs = visits / np.sum(visits) if np.sum(visits) > 0 else np.ones(len(visits))/len(visits)
+        chosen_action = np.random.choice(actions, p=probs)
+        return chosen_action, self.get_policy_vector(root)

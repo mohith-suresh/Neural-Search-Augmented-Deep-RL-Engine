@@ -10,11 +10,8 @@ class InferenceServer:
         self.model_path = model_path
         self.batch_size = batch_size
         self.timeout = timeout
-        # We do NOT create the device or streams here to avoid pickling errors.
-        # They will be created inside the process that actually uses them (in loop()).
         self.num_streams = streams
         
-        # Communication queues
         self.input_queue = mp.Queue()
         self.output_queues = {} 
 
@@ -22,81 +19,110 @@ class InferenceServer:
         self.output_queues[worker_id] = mp.Queue()
         return self.output_queues[worker_id]
 
-    def process_batch(self, batch, worker_ids, stream, model, device):
-        if not batch: return
+    def process_batch(self, batch_data, stream, model, device):
+        """
+        batch_data: list of (worker_id, tensor)
+        tensor can be shape (13, 8, 8) [Single] OR (N, 13, 8, 8) [Batch]
+        """
+        if not batch_data: return
 
+        worker_ids = [item[0] for item in batch_data]
+        raw_tensors = [item[1] for item in batch_data]
+        
+        # Track original sizes to split results later
+        # If tensor is 3D (13,8,8), size is 1. If 4D (N,13,8,8), size is N.
+        sizes = [t.shape[0] if t.ndim == 4 else 1 for t in raw_tensors]
+        
         with torch.cuda.stream(stream):
-            # Move to device (GPU)
-            batch_tensor = torch.stack(batch).to(device, non_blocking=True)
+            # 1. Normalize all inputs to 4D tensors
+            processed_tensors = []
+            for t in raw_tensors:
+                if t.ndim == 3:
+                    processed_tensors.append(t.unsqueeze(0))
+                else:
+                    processed_tensors.append(t)
             
+            # 2. Combine into one Mega-Batch
+            mega_batch = torch.cat(processed_tensors, dim=0).to(device, non_blocking=True)
+            
+            # 3. Inference
             with torch.no_grad():
-                policies, values = model(batch_tensor)
+                policies, values = model(mega_batch)
             
+            # 4. Move back to CPU
             policies = policies.cpu().numpy()
             values = values.cpu().numpy()
 
+        # 5. Distribute results back to workers
+        cursor = 0
         for i, wid in enumerate(worker_ids):
-            try:
-                self.output_queues[wid].put((policies[i], values[i]))
-            except:
-                pass
+            size = sizes[i]
+            
+            # Slice the results for this worker
+            p_slice = policies[cursor : cursor + size]
+            v_slice = values[cursor : cursor + size]
+            cursor += size
+            
+            # If it was a single item request, unwrap it (for compatibility)
+            # If it was a batch request, send array
+            if size == 1 and raw_tensors[i].ndim == 3:
+                self.output_queues[wid].put((p_slice[0], v_slice[0]))
+            else:
+                self.output_queues[wid].put((p_slice, v_slice))
 
     def loop(self):
-        # --- INITIALIZATION INSIDE THE PROCESS ---
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = ChessCNN().to(self.device)
-        
-        # Initialize Streams HERE (Local to this process)
         self.streams = [torch.cuda.Stream() for _ in range(self.num_streams)]
         self.current_stream_idx = 0
         
-        print(f"Server: Loading checkpoint from {self.model_path}...")
+        print(f"Server: Loading model from {self.model_path}")
         try:
             checkpoint = torch.load(self.model_path, map_location=self.device)
-            if 'model_state_dict' in checkpoint:
-                model.load_state_dict(checkpoint['model_state_dict'])
-            elif 'state_dict' in checkpoint:
-                model.load_state_dict(checkpoint['state_dict'])
-            else:
-                model.load_state_dict(checkpoint)
+            if 'model_state_dict' in checkpoint: model.load_state_dict(checkpoint['model_state_dict'])
+            elif 'state_dict' in checkpoint: model.load_state_dict(checkpoint['state_dict'])
+            else: model.load_state_dict(checkpoint)
         except Exception as e:
-            print(f"Server: Warning - Could not load checkpoint: {e}")
+            print(f"Server Warning: {e}")
             
         model.eval()
-        model.share_memory() 
-        print(f"Server: Model loaded on {self.device}. {self.num_streams}-Stream Pipeline Active.")
-
-        # Thread pool matches number of streams
+        model.share_memory() # Required for some MP start methods
+        
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.num_streams)
+        print(f"Server Ready: Batch={self.batch_size}, Streams={self.num_streams}")
 
         while True:
-            batch = []
-            worker_ids = []
+            batch_data = []
+            current_batch_count = 0
             
             start_time = time.time()
-            while len(batch) < self.batch_size:
+            
+            # Aggressive Batch Collection
+            while current_batch_count < self.batch_size:
                 if not self.input_queue.empty():
                     try:
                         item = self.input_queue.get_nowait()
                         if item == "STOP": 
                             executor.shutdown()
                             return
-                        wid, state_tensor = item
-                        batch.append(state_tensor)
-                        worker_ids.append(wid)
+                        
+                        # Check size of incoming item to avoid overflowing batch
+                        tensor = item[1]
+                        item_size = tensor.shape[0] if tensor.ndim == 4 else 1
+                        
+                        batch_data.append(item)
+                        current_batch_count += item_size
                     except:
                         break
                 
-                if len(batch) > 0 and (time.time() - start_time > self.timeout):
-                    break
-                
-                if len(batch) == 0:
+                # Dynamic timeout based on how full we are
+                # If we have data, wait less. If empty, wait a tiny bit more.
+                if current_batch_count > 0:
+                    if (time.time() - start_time > self.timeout): break
+                else:
                     time.sleep(0.0001)
 
-            if batch:
-                # Round-robin selection of streams
+            if batch_data:
                 stream = self.streams[self.current_stream_idx]
                 self.current_stream_idx = (self.current_stream_idx + 1) % self.num_streams
-                
-                # We must pass 'self.device' explicitly because 'self' might have a stale device ref from __init__
-                executor.submit(self.process_batch, batch, worker_ids, stream, model, self.device)
+                executor.submit(self.process_batch, batch_data, stream, model, self.device)
