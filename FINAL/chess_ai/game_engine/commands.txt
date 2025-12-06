@@ -47,12 +47,11 @@ https://drive.google.com/file/d//view?usp=drive_link
 # Download your model
 gdown "1MM3YepePOI599dGRjNMkiQ5FHWNRAwX8" -O game_engine/model/best_model.pth
 
+python3 game_engine/migrate_model.py
+
 # Run training
 nohup python3 -u game_engine/main.py > /dev/null 2>&1 &
 tail -f training_log.txt
-
-# Update package list
-sudo apt update
 
 # Install nvtop
 sudo apt install nvtop
