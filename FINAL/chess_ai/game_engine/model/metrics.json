@@ -33,5 +33,12 @@
         "value_loss": 0.0,
         "arena_win_rate": 0.5,
         "elo": 1038.0
+    },
+    {
+        "iteration": 1,
+        "policy_loss": 0.0,
+        "value_loss": 0.0,
+        "arena_win_rate": 0.5,
+        "elo": null
     }
 ]
