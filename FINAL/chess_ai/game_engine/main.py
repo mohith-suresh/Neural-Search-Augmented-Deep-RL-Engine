@@ -28,7 +28,7 @@ ITERATIONS = 1000
 
 # NEW SCALED UP CONFIG (48 vCPUs / 208 GB RAM)
 # NOTE: NUM_WORKERS is scaled for performance but limited for RAM safety.
-NUM_WORKERS = 64 # Use 64 workers (1.33x oversubscription)
+NUM_WORKERS = 100 # Use 64 workers (1.33x oversubscription)
 GAMES_PER_WORKER = 2        # Total Games = 64 * 2 = 128 per iteration.
 # Reserve last few cores for the Inference Server
 RESERVED_SERVER_CORES = 4

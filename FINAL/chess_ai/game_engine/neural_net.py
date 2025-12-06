@@ -7,7 +7,7 @@ from game_engine.cnn import ChessCNN
 class InferenceServer:
     # FINAL OPTIMIZATION: Aggressive timeout (1.0s) to maximize collected batch size 
     # (closer to 100) and dramatically reduce kernel launch overhead/latency.
-    def __init__(self, model_path, batch_size=256, timeout=1.0):
+    def __init__(self, model_path, batch_size=256, timeout=0.01):
         self.model_path = model_path
         # Revert to max batch size (256) to ensure the server processes the full capacity.
         self.batch_size = batch_size 
