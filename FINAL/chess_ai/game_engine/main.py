@@ -31,8 +31,8 @@ CUDA_STREAMS = 4
 # --- EXECUTION ---
 ITERATIONS = 1000
 NUM_WORKERS = 50            # Reduced slightly as each worker is now 8x more demanding
-WORKER_BATCH_SIZE = 16       # Number of parallel paths per worker
-GAMES_PER_WORKER = 2        
+WORKER_BATCH_SIZE = 8       # Number of parallel paths per worker
+GAMES_PER_WORKER = 3        
 
 # --- QUALITY ---
 SIMULATIONS = 800           # 800 Sims / 8 Batch = 100 IPC Calls (Very Fast)
