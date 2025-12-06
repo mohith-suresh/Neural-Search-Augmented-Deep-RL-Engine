@@ -10,26 +10,23 @@ class InferenceServer:
         self.model_path = model_path
         self.batch_size = batch_size
         self.timeout = timeout
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.num_streams = streams
         
+        # Communication queues
         self.input_queue = mp.Queue()
         self.output_queues = {} 
-
-        # --- UPDATED: CUDA Streams ---
-        # Use the passed 'streams' parameter dynamically
-        self.num_streams = streams
-        self.streams = [torch.cuda.Stream() for _ in range(self.num_streams)]
-        self.current_stream_idx = 0
 
     def register_worker(self, worker_id):
         self.output_queues[worker_id] = mp.Queue()
         return self.output_queues[worker_id]
 
-    def process_batch(self, batch, worker_ids, stream, model):
+    def process_batch(self, batch, worker_ids, stream, model, device):
         if not batch: return
 
         with torch.cuda.stream(stream):
-            batch_tensor = torch.stack(batch).to(self.device, non_blocking=True)
+            # Move to device (GPU)
+            batch_tensor = torch.stack(batch).to(device, non_blocking=True)
             
             with torch.no_grad():
                 policies, values = model(batch_tensor)
@@ -44,7 +41,13 @@ class InferenceServer:
                 pass
 
     def loop(self):
+        # --- INITIALIZATION INSIDE THE PROCESS ---
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = ChessCNN().to(self.device)
+        
+        # Initialize Streams HERE (Local to this process)
+        self.streams = [torch.cuda.Stream() for _ in range(self.num_streams)]
+        self.current_stream_idx = 0
         
         print(f"Server: Loading checkpoint from {self.model_path}...")
         try:
@@ -62,7 +65,7 @@ class InferenceServer:
         model.share_memory() 
         print(f"Server: Model loaded on {self.device}. {self.num_streams}-Stream Pipeline Active.")
 
-        # Thread pool matches number of streams for maximum concurrency
+        # Thread pool matches number of streams
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.num_streams)
 
         while True:
@@ -94,4 +97,5 @@ class InferenceServer:
                 stream = self.streams[self.current_stream_idx]
                 self.current_stream_idx = (self.current_stream_idx + 1) % self.num_streams
                 
-                executor.submit(self.process_batch, batch, worker_ids, stream, model)
+                # We must pass 'self.device' explicitly because 'self' might have a stale device ref from __init__
+                executor.submit(self.process_batch, batch, worker_ids, stream, model, self.device)
