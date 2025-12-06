@@ -4,7 +4,9 @@ import copy
 import numpy as np
 
 # --- Constants ---
-VIRTUAL_LOSS = 3.0  # Temporarily discourages threads from visiting the same node
+# Virtual Loss adds "fake" visits to nodes currently being processed by the GPU.
+# This discourages other threads in the SAME batch from picking the exact same path.
+VIRTUAL_LOSS = 3.0  
 
 def move_to_index(move_str):
     """
@@ -31,16 +33,18 @@ class Node:
         self.visit_count = 0
         self.value_sum = 0
         self.prior = prior  
-        self.virtual_loss = 0 # Added for Batching
+        
+        # Virtual loss is tracked separately from visit_count
+        self.virtual_loss = 0 
         
     def is_expanded(self):
         return len(self.children) > 0
 
     def value(self):
         # Calculate Q-value including Virtual Loss
-        # This makes the node look "worse" temporarily so other threads explore elsewhere
+        # We add virtual_loss to the denominator to lower the Q-value temporarily
         visits = self.visit_count + self.virtual_loss
-        if visits == 0: return 0
+        if visits <= 0: return 0
         return self.value_sum / visits
 
     def select_child(self, cpuct):
@@ -48,13 +52,18 @@ class Node:
         best_action = None
         best_child = None
         
-        # AlphaZero PUCT Formula
-        # We use self.visit_count + self.virtual_loss for the parent count too
-        sqrt_total_visits = math.sqrt(max(1, self.visit_count + self.virtual_loss))
+        # Parent visits also include its own virtual loss
+        parent_visits = self.visit_count + self.virtual_loss
+        sqrt_parent_visits = math.sqrt(max(1, parent_visits))
         
         for action, child in self.children.items():
+            # Child visits include its specific virtual loss
+            child_visits = child.visit_count + child.virtual_loss
+            
             q_value = child.value()
-            u_value = cpuct * child.prior * sqrt_total_visits / (1 + child.visit_count + child.virtual_loss)
+            
+            # AlphaZero PUCT Formula
+            u_value = cpuct * child.prior * sqrt_parent_visits / (1 + child_visits)
             score = q_value + u_value
             
             if score > best_score:
@@ -71,7 +80,6 @@ class Node:
         # Softmax over valid moves only
         for move_str in valid_moves:
             idx = move_to_index(move_str)
-            # Safety check for index bounds
             logit = policy_logits[idx] if idx < len(policy_logits) else -10.0
             prob = math.exp(logit)
             move_probs[move_str] = prob
@@ -88,7 +96,7 @@ class Node:
             self.children[move] = Node(next_state, parent=self, prior=normalized_prior)
 
     def best_action(self):
-        # Select purely by visit count (most robust metric)
+        # Select purely by real visit count
         most_visits = -1
         best_action = None
         for action, child in self.children.items():
@@ -121,14 +129,14 @@ class MCTSWorker:
         # 1. Expand Root (Single request to bootstrap)
         tensor = torch.from_numpy(root.state.to_tensor())
         self.input_queue.put((self.worker_id, tensor)) 
+        
+        # Root request returns single items, not arrays
         policy, value = self.output_queue.get()
         root.expand(root.state.legal_moves(), policy)
         
-        # Add Dirichlet Noise to Root (Standard AlphaZero feature)
         self.add_exploration_noise(root)
         
         # 2. Main Loop: Run N simulations in batches
-        # e.g., 800 sims / 8 batch_size = 100 iterations
         num_iterations = max(1, self.simulations // self.batch_size)
         
         for _ in range(num_iterations):
@@ -136,7 +144,7 @@ class MCTSWorker:
             paths = []
             tensors = []
             
-            # --- SELECTION PHASE (Parallel-ish) ---
+            # --- SELECTION PHASE ---
             for _ in range(self.batch_size):
                 node = root
                 path = [node]
@@ -146,12 +154,13 @@ class MCTSWorker:
                     action, node = node.select_child(self.cpu)
                     path.append(node)
                     
-                    # Apply Virtual Loss immediately
-                    # This prevents the next selection in this loop from picking the same path
+                    # Apply Virtual Loss to this path immediately
+                    # This modifies the node state so the next iteration 
+                    # in this loop sees these nodes as "visited"
                     node.virtual_loss += VIRTUAL_LOSS
                     node.value_sum -= VIRTUAL_LOSS 
                 
-                # Check Terminal State (Optimized from Tic-Tac-Toe logic)
+                # Check Terminal State
                 if node.state.is_over:
                     # Resolve locally, do not send to GPU
                     reward = node.state.get_reward_for_turn(node.state.turn_player)
@@ -165,13 +174,10 @@ class MCTSWorker:
                 continue
 
             # --- BATCH INFERENCE PHASE ---
-            # Stack all collected states into one tensor (Batch, 13, 8, 8)
             batch_tensor = torch.from_numpy(np.array(tensors))
-            
-            # Send ONE request for all leaves
             self.input_queue.put((self.worker_id, batch_tensor))
             
-            # Wait for ONE response
+            # Wait for response (Arrays of policies and values)
             policies, values = self.output_queue.get()
             
             # --- EXPANSION & BACKPROP PHASE ---
@@ -180,7 +186,6 @@ class MCTSWorker:
                 policy = policies[i]
                 value = values[i]
                 
-                # Expand
                 node.expand(node.state.legal_moves(), policy)
                 
                 # Backpropagate (and revert Virtual Loss)
@@ -191,10 +196,10 @@ class MCTSWorker:
 
     def backpropagate(self, path, value, turn_perspective, is_terminal):
         for node in reversed(path):
-            # If it wasn't terminal, we applied virtual loss, so we must remove it
+            # CRITICAL FIX: Revert VIRTUAL_LOSS from virtual_loss variable, NOT visit_count
             if not is_terminal:
-                node.visit_count -= VIRTUAL_LOSS 
-                node.value_sum += VIRTUAL_LOSS # Revert the subtraction
+                node.virtual_loss -= VIRTUAL_LOSS 
+                node.value_sum += VIRTUAL_LOSS 
 
             # Update with real data
             node.visit_count += 1

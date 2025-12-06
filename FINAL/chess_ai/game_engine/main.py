@@ -30,7 +30,7 @@ CUDA_STREAMS = 4
 # --- EXECUTION ---
 ITERATIONS = 1000
 NUM_WORKERS = 50            # Reduced slightly as each worker is now 8x more demanding
-WORKER_BATCH_SIZE = 8       # Number of parallel paths per worker
+WORKER_BATCH_SIZE = 8       # <--- NEW: Number of parallel paths per worker
 GAMES_PER_WORKER = 2        
 
 # --- QUALITY ---
@@ -85,19 +85,24 @@ def queue_monitor_thread(queue):
         try:
             size = queue.qsize()
             if size > 100:
-                print(f"   [Server Monitor] High Load: {size} requests pending")
+                # Only log if really high to avoid spamming
+                if size > 200:
+                    print(f"   [Server Monitor] High Load: {size} requests pending")
             time.sleep(2.0)
         except: break
 
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
+    # Robust Affinity Setting
     if hasattr(os, 'sched_setaffinity'):
         try:
-            core_id = worker_id % os.cpu_count()
+            core_count = os.cpu_count() or 1
+            core_id = worker_id % core_count
             os.sched_setaffinity(0, {core_id})
         except: pass
 
     setup_child_logging()
-    time.sleep(worker_id * 0.1)
+    # Stagger start times slightly to prevent Thundering Herd on the queue
+    time.sleep(worker_id * 0.05)
     os.makedirs(DATA_DIR, exist_ok=True)
     
     # Initialize Worker with Batching
@@ -118,17 +123,18 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit):
 
             move_start = time.time()
             
-            # Temperature Schedule (Adapted from Tic-Tac-Toe)
+            # Temperature Schedule
             if len(game.moves) < 30:
                 current_temp = 1.0 
             else:
-                current_temp = 0.1 # Deterministic later
+                current_temp = 0.1 
             
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
             
             if worker_id == 0:
                 dur = time.time() - move_start
-                print(f"   [Worker 0] Move {len(game.moves)+1}: {best_move} ({dur:.2f}s | {SIMULATIONS/dur:.0f} n/s)")
+                nps = SIMULATIONS / dur if dur > 0 else 0
+                print(f"   [Worker 0] Move {len(game.moves)+1}: {best_move} ({dur:.2f}s | {nps:.0f} n/s)")
             
             game_data.append({
                 "state": game.to_tensor(),
@@ -203,13 +209,12 @@ def run_training_phase(iteration):
                 epochs=TRAIN_EPOCHS)
 
 def run_evaluation_phase(iteration, logger):
-    # (Evaluation code remains largely similar, omitted for brevity but logic stands)
     print(f"\n=== ITERATION {iteration}: EVALUATION SKIPPED FOR SPEED TEST ===")
-    # You can re-enable this, but for now let's focus on Self-Play speed
     pass
 
 if __name__ == "__main__":
     setup_child_logging()
+    # Force 'spawn' to avoid CUDA initialization errors in forked processes
     mp.set_start_method('spawn', force=True)
     os.makedirs(MODEL_DIR, exist_ok=True)
     if not os.path.exists(BEST_MODEL):
