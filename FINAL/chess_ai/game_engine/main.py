@@ -162,7 +162,7 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
             if (worker_id % 10) == 0:
                 dur = time.time() - move_start
                 nps = SIMULATIONS / dur if dur > 0 else 0
-                print(f"   [Worker 0] Move {len(game.moves)+1}: {best_move} ({dur:.2f}s | {nps:.0f} n/s)")
+                print(f"   [Worker {worker_id}] Move {len(game.moves)+1}: {best_move} ({dur:.2f}s | {nps:.0f} n/s)")
             
             game_data.append({
                 "state": game.to_tensor(),
