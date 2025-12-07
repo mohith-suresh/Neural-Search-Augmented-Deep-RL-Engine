@@ -31,7 +31,7 @@ CUDA_STREAMS = 8
 
 # --- EXECUTION ---
 ITERATIONS = 1000
-NUM_WORKERS = 42            
+NUM_WORKERS = 56            
 WORKER_BATCH_SIZE = 8       
 GAMES_PER_WORKER = 5        
 
