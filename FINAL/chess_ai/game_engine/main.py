@@ -159,7 +159,7 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
             
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
             
-            if (worker_id % NUM_WORKERS) == 0:
+            if (worker_id % 10) == 0:
                 dur = time.time() - move_start
                 nps = SIMULATIONS / dur if dur > 0 else 0
                 print(f"   [Worker 0] Move {len(game.moves)+1}: {best_move} ({dur:.2f}s | {nps:.0f} n/s)")
