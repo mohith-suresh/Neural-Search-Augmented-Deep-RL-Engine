@@ -44,7 +44,7 @@ class ChessCNN(nn.Module):
         # UPDATED CONFIG: 16 Input Channels 
         # (Added Total Moves + No Progress Planes)
         input_channels = 16
-        filters = 192
+        filters = 256
         
         self.input_conv = nn.Sequential(
             nn.Conv2d(input_channels, filters, 3, padding=1, bias=False),

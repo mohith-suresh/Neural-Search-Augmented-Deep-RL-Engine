@@ -381,10 +381,16 @@ if __name__ == "__main__":
             if killer.kill_now:
                 print("Graceful exit detected. Stopping loop.")
                 break
-                
+            
+            iter_start = time.time()
+
             run_self_play_phase(it)
             p_loss, v_loss = run_training_phase(it)
             run_evaluation_phase(it, MetricsLogger(), p_loss, v_loss)
             
+            iter_end = time.time()
+            elapsed = iter_end - iter_start
+            print(f"\n=== ITERATION {it} TOTAL TIME: {elapsed/60:.2f} minutes ({elapsed:.1f} seconds) ===\n")
+
     except KeyboardInterrupt:
         print("\n\n--- LOOP STOPPED BY USER ---")
