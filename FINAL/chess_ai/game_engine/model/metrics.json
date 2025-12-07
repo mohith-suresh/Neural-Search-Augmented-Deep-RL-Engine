@@ -94,37 +94,5 @@
         "value_loss": 0.24775780694825308,
         "arena_win_rate": 0.25,
         "elo": null
-    },
-    {
-        "iteration": 16,
-        "timestamp": "2025-12-07T19:16:26.516460",
-        "policy_loss": 2.8608338420089208,
-        "value_loss": 0.2476403510308697,
-        "arena_win_rate": 0.0,
-        "elo": null
-    },
-    {
-        "iteration": 17,
-        "timestamp": "2025-12-07T19:44:24.740584",
-        "policy_loss": 2.88772290883605,
-        "value_loss": 0.2577491782836078,
-        "arena_win_rate": 0.0,
-        "elo": null
-    },
-    {
-        "iteration": 17,
-        "timestamp": "2025-12-07T20:55:53.994361",
-        "policy_loss": 2.885531409900991,
-        "value_loss": 0.2483478565910953,
-        "arena_win_rate": 0.0,
-        "elo": null
-    },
-    {
-        "iteration": 19,
-        "timestamp": "2025-12-07T21:40:12.814247",
-        "policy_loss": 2.883635023730484,
-        "value_loss": 0.2554629358214949,
-        "arena_win_rate": 0.0,
-        "elo": null
     }
 ]
