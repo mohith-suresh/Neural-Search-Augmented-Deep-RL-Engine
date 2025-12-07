@@ -33,11 +33,11 @@ CUDA_STREAMS = 4
 ITERATIONS = 1000
 NUM_WORKERS = 42            
 WORKER_BATCH_SIZE = 8       
-GAMES_PER_WORKER = 4        
+GAMES_PER_WORKER = 5        
 
 # --- QUALITY ---
 SIMULATIONS = 800           
-EVAL_SIMULATIONS = 400      
+EVAL_SIMULATIONS = 800      
 
 # --- EVALUATION CONFIG ---
 EVAL_WORKERS = 5           
@@ -49,12 +49,12 @@ STOCKFISH_ELO = 1350
 
 # --- RULES ---
 MAX_MOVES_PER_GAME = 120   
-DRAW_PENALTY = -0.25        
+DRAW_PENALTY = -0.35        
 
 # Training
 TRAIN_EPOCHS = 1 
-TRAIN_WINDOW = 30           
-TRAIN_BATCH_SIZE = 512      
+TRAIN_WINDOW = 20           
+TRAIN_BATCH_SIZE = 1024      
 TRAIN_LR = 0.0001           
 
 # --- PATHS ---
@@ -154,7 +154,7 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
                 break 
 
             move_start = time.time()
-            if len(game.moves) < 30: current_temp = 1.0 
+            if len(game.moves) < 40: current_temp = 1.0 
             else: current_temp = 0.1 
             
             best_move, mcts_policy = worker.search(game, temperature=current_temp)

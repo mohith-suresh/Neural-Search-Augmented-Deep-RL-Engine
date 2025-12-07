@@ -8,7 +8,7 @@ VIRTUAL_LOSS = 3.0
 
 # PUCT Constants
 CPUCT_BASE = 19652
-CPUCT_INIT = 1.25
+CPUCT_INIT = 0.8
 
 def move_to_index(move_str):
     """
@@ -135,7 +135,7 @@ class MCTSWorker:
         policy, value = self.output_queue.get()
         root.expand(root.state.legal_moves(), policy)
         
-        self.add_exploration_noise(root)
+        self._add_noise_recursive(root, depth=0)
         
         # 2. Simulation Loop
         num_iterations = max(1, self.simulations // self.batch_size)
@@ -196,13 +196,28 @@ class MCTSWorker:
             else:
                 node.value_sum -= value
 
-    def add_exploration_noise(self, node):
+    def _add_noise_recursive(self, node, depth=0):
+        '''Recursively add Dirichlet noise to exploration tree'''
+        self.add_exploration_noise(node, depth)
+        if depth < 3:  # Up to 3 plies deep
+            for child in node.children.values():
+                self._add_noise_recursive(child, depth + 1)
+
+    def add_exploration_noise(self, node, depth=0):
+        '''Add Dirichlet noise with depth-aware scaling'''
         actions = list(node.children.keys())
         if not actions: return
-        noise = np.random.dirichlet([0.3] * len(actions))
-        frac = 0.25 
+        
+        # Stronger at root, weaker mid-game
+        alpha = 0.3 if depth == 0 else 0.1
+        frac = 0.25 if depth == 0 else 0.05
+        
+        noise = np.random.dirichlet([alpha] * len(actions))
         for i, action in enumerate(actions):
-            node.children[action].prior = node.children[action].prior * (1 - frac) + noise[i] * frac
+            node.children[action].prior = (
+                node.children[action].prior * (1 - frac) + 
+                noise[i] * frac
+            )
 
     def get_result(self, root, temperature):
         if temperature == 0: 

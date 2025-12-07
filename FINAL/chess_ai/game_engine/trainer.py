@@ -179,7 +179,7 @@ def train_model(data_path="data/self_play",
         print(f"No existing model at {input_model_path}, starting from random weights.")
 
     model.train()
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-3)
     
     # 3. Loss Functions
     mse_loss = nn.MSELoss()
