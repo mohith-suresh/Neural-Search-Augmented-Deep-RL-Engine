@@ -27,11 +27,11 @@ from game_engine.cnn import ChessCNN
 
 # --- CUDA ---
 CUDA_TIMEOUT_INFERENCE = 0.01 
-CUDA_STREAMS = 12 
+CUDA_STREAMS = 8 
 
 # --- EXECUTION ---
 ITERATIONS = 1000
-NUM_WORKERS = 56            
+NUM_WORKERS = 64            
 WORKER_BATCH_SIZE = 8       
 GAMES_PER_WORKER = 5        
 
