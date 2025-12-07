@@ -9,7 +9,7 @@ import os
 import glob
 import sys
 import collections
-import re
+from tqdm import tqdm
 
 # Ensure we can import from the parent directory
 sys.path.append(os.getcwd())
@@ -197,6 +197,8 @@ def train_model(data_path="data/self_play",
         v_loss_total = 0
         batch_count = 0
         
+        progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{epochs}", unit="batch")
+
         for batch in dataloader:
             states = batch['state'].to(device, non_blocking=True)
             target_policies = batch['policy'].to(device, non_blocking=True)
@@ -232,6 +234,14 @@ def train_model(data_path="data/self_play",
         if batch_count > 0:
             last_p_loss = p_loss_total / batch_count
             last_v_loss = v_loss_total / batch_count
+
+
+            progress_bar.set_postfix({
+                        'Loss': f"{total_loss/batch_count:.4f}",
+                        'Pol': f"{last_p_loss:.4f}",
+                        'Val': f"{last_v_loss:.4f}"
+                    })
+
             print(f"Epoch {epoch+1}/{epochs} | Loss: {total_loss/batch_count:.4f} (Pol: {last_p_loss:.4f} Val: {last_v_loss:.4f})")
 
     # 5. Save Model
