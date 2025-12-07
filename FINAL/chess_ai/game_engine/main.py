@@ -214,6 +214,9 @@ def run_server_wrapper(server):
 
 def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model, sims, max_moves):
     setup_child_logging()
+    np.random.seed(worker_id + int(time.time()) % 10000)
+    torch.manual_seed(worker_id + int(time.time()) % 10000)
+        
     try:
         arena = Arena(cand_model, champ_model, sims, max_moves)
         w, d, l = arena.play_match(num_games)
@@ -229,6 +232,9 @@ def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model,
 
 def run_stockfish_batch_worker(worker_id, queue, num_games, model_path, sims, sf_elo, sf_path, max_moves):
     setup_child_logging()
+    np.random.seed(worker_id + int(time.time()) % 10000)
+    torch.manual_seed(worker_id + int(time.time()) % 10000)
+
     try:
         sf_eval = StockfishEvaluator(sf_path, sims)
         # Pass max_moves here
