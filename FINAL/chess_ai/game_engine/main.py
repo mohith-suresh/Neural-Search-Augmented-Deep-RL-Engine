@@ -27,7 +27,7 @@ from game_engine.cnn import ChessCNN
 
 # --- CUDA ---
 CUDA_TIMEOUT_INFERENCE = 0.01 
-CUDA_STREAMS = 4 
+CUDA_STREAMS = 6 
 
 # --- EXECUTION ---
 ITERATIONS = 1000
@@ -216,7 +216,7 @@ def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model,
     setup_child_logging()
     np.random.seed(worker_id + int(time.time()) % 10000)
     torch.manual_seed(worker_id + int(time.time()) % 10000)
-        
+
     try:
         arena = Arena(cand_model, champ_model, sims, max_moves)
         w, d, l = arena.play_match(num_games)
