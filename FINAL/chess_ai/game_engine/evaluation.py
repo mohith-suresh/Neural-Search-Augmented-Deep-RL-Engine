@@ -140,6 +140,10 @@ class StockfishEvaluator:
                     game = ChessGame()
                     agent_is_white = (i % 2 == 0)
                     
+                    # Human-readable labels for Stockfish games
+                    p1_label = "Agent" if agent_is_white else "Stockfish"
+                    p2_label = "Stockfish" if agent_is_white else "Agent"
+
                     while not game.is_over and len(game.moves) < max_moves:
                         is_agent = (game.board.turn == chess.WHITE and agent_is_white) or \
                                    (game.board.turn == chess.BLACK and not agent_is_white)
@@ -153,13 +157,22 @@ class StockfishEvaluator:
                             except: break
                         game.push(move)
                     
+                    # Check for forced draw
                     if not game.is_over and len(game.moves) >= max_moves:
                         print(f"   [Stockfish] Game {i+1} ended in FORCED DRAW (Max moves {max_moves})")
-
+                    
+                    # Get result and score
                     res = game.result
-                    if res == "1-0": score += 1.0 if agent_is_white else 0.0
-                    elif res == "0-1": score += 0.0 if agent_is_white else 1.0
-                    else: score += 0.5
+                    
+                    if res == "1-0":
+                        score += 1.0 if agent_is_white else 0.0
+                    elif res == "0-1":
+                        score += 0.0 if agent_is_white else 1.0
+                    else:
+                        score += 0.5
+                    
+                    # Print result of each game (matches Arena format)
+                    print(f"Stockfish Game {i+1}: {res} ({p1_label} vs {p2_label})")
                     
         except Exception as e:
             print(f"Stockfish Error: {e}")

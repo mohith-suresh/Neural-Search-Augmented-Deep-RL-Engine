@@ -54,7 +54,7 @@ DRAW_PENALTY = -0.25
 # Training
 TRAIN_EPOCHS = 1 
 TRAIN_WINDOW = 30           
-TRAIN_BATCH_SIZE = 256      
+TRAIN_BATCH_SIZE = 512      
 TRAIN_LR = 0.0001           
 
 # --- PATHS ---
