@@ -46,5 +46,53 @@
         "value_loss": 0.33678196345557687,
         "arena_win_rate": 0.75,
         "elo": 968.30299622427
+    },
+    {
+        "iteration": 10,
+        "timestamp": "2025-12-07T04:51:39.508675",
+        "policy_loss": 2.8487880005430215,
+        "value_loss": 0.21483233784880873,
+        "arena_win_rate": 0.5,
+        "elo": null
+    },
+    {
+        "iteration": 11,
+        "timestamp": "2025-12-07T07:26:33.637298",
+        "policy_loss": 2.862354102789187,
+        "value_loss": 0.2230948612386105,
+        "arena_win_rate": 0.25,
+        "elo": null
+    },
+    {
+        "iteration": 12,
+        "timestamp": "2025-12-07T10:02:55.982909",
+        "policy_loss": 2.8626433771786806,
+        "value_loss": 0.22910419616938463,
+        "arena_win_rate": 0.25,
+        "elo": null
+    },
+    {
+        "iteration": 13,
+        "timestamp": "2025-12-07T12:44:27.186702",
+        "policy_loss": 2.863968061880902,
+        "value_loss": 0.2447647913315586,
+        "arena_win_rate": 0.25,
+        "elo": null
+    },
+    {
+        "iteration": 14,
+        "timestamp": "2025-12-07T15:38:23.454065",
+        "policy_loss": 2.864286207950149,
+        "value_loss": 0.2441025201136262,
+        "arena_win_rate": 0.5,
+        "elo": null
+    },
+    {
+        "iteration": 15,
+        "timestamp": "2025-12-07T18:18:19.611852",
+        "policy_loss": 2.861520542417254,
+        "value_loss": 0.24775780694825308,
+        "arena_win_rate": 0.25,
+        "elo": null
     }
 ]
