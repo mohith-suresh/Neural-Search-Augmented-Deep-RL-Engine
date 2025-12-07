@@ -27,7 +27,7 @@ from game_engine.cnn import ChessCNN
 
 # --- CUDA ---
 CUDA_TIMEOUT_INFERENCE = 0.01 
-CUDA_STREAMS = 6 
+CUDA_STREAMS = 8 
 
 # --- EXECUTION ---
 ITERATIONS = 1000
