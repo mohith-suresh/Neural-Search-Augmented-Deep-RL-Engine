@@ -3,6 +3,9 @@ import os
 import sys
 import chess
 import chess.engine
+import json
+from datetime import datetime
+
 
 sys.path.append(os.getcwd())
 from game_engine.mcts import MCTSWorker
@@ -188,3 +191,30 @@ class StockfishEvaluator:
             return 0.0, 0
         
         return score, num_games
+    
+class MetricsLogger:
+    def __init__(self, metrics_file="game_engine/model/metrics.json"):
+        self.metrics_file = metrics_file
+        self.history = []
+        
+        if os.path.exists(self.metrics_file):
+            try:
+                with open(self.metrics_file, 'r') as f:
+                    self.history = json.load(f)
+            except:
+                pass
+    
+    def log(self, iteration, policy_loss, value_loss, arena_win_rate, elo=None):
+        entry = {
+            "iteration": iteration,
+            "timestamp": datetime.now().isoformat(),
+            "policy_loss": float(policy_loss),
+            "value_loss": float(value_loss),
+            "arena_win_rate": float(arena_win_rate),
+            "elo": elo
+        }
+        self.history.append(entry)
+        
+        os.makedirs(os.path.dirname(self.metrics_file), exist_ok=True)
+        with open(self.metrics_file, 'w') as f:
+            json.dump(self.history, f, indent=4)
