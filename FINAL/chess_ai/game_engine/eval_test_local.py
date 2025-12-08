@@ -28,8 +28,8 @@ MODEL_DIR = "game_engine/model"
 BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/best_model.pth"
 
-EVAL_SIMULATIONS = 200  # From main.py
-MAX_MOVES_PER_GAME = 80  # From main.py
+EVAL_SIMULATIONS = 1200  # From main.py
+MAX_MOVES_PER_GAME = 140  # From main.py
 
 STOCKFISH_PATH = "/usr/games/stockfish"  # Or detect
 STOCKFISH_ELO = 1350
