@@ -234,3 +234,80 @@ class MCTSWorker:
         probs = visits / np.sum(visits) if np.sum(visits) > 0 else np.ones(len(visits))/len(visits)
         chosen_action = np.random.choice(actions, p=probs)
         return chosen_action, self.get_policy_vector(root)
+    
+    def search_direct(self, root_state, model, temperature=1.0, use_dirichlet=True):
+        """
+        Direct MCTS search without queue communication.
+        
+        Used for evaluation where we have direct model access.
+        Identical algorithm to queue-based search() but calls model directly.
+        
+        Args:
+            root_state: Game state (ChessGame instance)
+            model: PyTorch model with forward(tensor) -> (policy, value)
+            temperature: Move selection temperature (0=deterministic, 1=proportional)
+            use_dirichlet: If True, add exploration noise at root
+        
+        Returns:
+            (best_action, policy_vector) - same as search()
+        """
+        root = Node(root_state)
+        device = next(model.parameters()).device
+        
+        # 1. Expand Root
+        tensor = torch.from_numpy(root.state.to_tensor()).unsqueeze(0).to(device)
+        with torch.no_grad():
+            policy, value = model(tensor)
+        
+        root.expand(root.state.legal_moves(), policy.cpu().numpy())
+        
+        # 2. Add noise if enabled (conditional, vs always in queue version)
+        if use_dirichlet:
+            self._add_noise_recursive(root, depth=0)
+        
+        # 3. Batch simulation loop (IDENTICAL TO search())
+        num_iterations = max(1, self.simulations // self.batch_size)
+        
+        for _ in range(num_iterations):
+            leaves = []
+            paths = []
+            tensors = []
+            
+            # Selection Phase
+            for _ in range(self.batch_size):
+                node = root
+                path = [node]
+                
+                while node.is_expanded():
+                    action, node = node.select_child()
+                    path.append(node)
+                    node.virtual_loss += VIRTUAL_LOSS
+                    node.value_sum -= VIRTUAL_LOSS
+                
+                # Terminal state handling
+                if node.state.is_over or node.state.board.can_claim_draw():
+                    if node.state.is_over:
+                        reward = node.state.get_reward_for_turn(node.state.turn_player)
+                    else:
+                        reward = 0.0  # Draw
+                    self.backpropagate(path, reward, node.state.turn_player, is_terminal=True)
+                else:
+                    leaves.append(node)
+                    paths.append(path)
+                    tensors.append(node.state.to_tensor())
+            
+            if not leaves:
+                continue
+            
+            # Inference Phase (DIRECT MODEL CALL instead of queue)
+            batch_tensor = torch.from_numpy(np.array(tensors)).to(device)
+            with torch.no_grad():
+                policies, values = model(batch_tensor)
+            
+            # Expansion & Backprop Phase (IDENTICAL)
+            for i, node in enumerate(leaves):
+                path = paths[i]
+                node.expand(node.state.legal_moves(), policies[i].cpu().numpy())
+                self.backpropagate(path, values[i].item(), node.state.turn_player, is_terminal=False)
+        
+        return self.get_result(root, temperature)

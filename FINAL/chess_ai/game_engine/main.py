@@ -252,7 +252,7 @@ def run_stockfish_batch_worker(worker_id, queue, num_games, model_path, sims, sf
     try:
         sf_eval = StockfishEvaluator(sf_path, sims)
         # Pass max_moves here
-        score, games = sf_eval.evaluate(model_path, num_games, sf_elo, max_moves)
+        score, games = sf_eval.evaluate(model_path, num_games, sf_elo, max_moves, use_dirichlet=False)
         queue.put({"score": score, "games": games})
     except Exception as e:
         print(f"SF Worker {worker_id} Failed: {e}")
