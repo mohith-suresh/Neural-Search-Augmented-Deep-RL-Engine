@@ -16,7 +16,11 @@ class EvalMCTS:
     def __init__(self, model_path, simulations=1200, batch_size=8, device=None):
         self.simulations = simulations
         self.batch_size = batch_size
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if device is not None:
+            self.device = device
+        else:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         self.model = ChessCNN().to(self.device)
         
         if os.path.exists(model_path):
@@ -60,7 +64,6 @@ class EvalMCTS:
             use_dirichlet=use_dirichlet
         )
         return action
-
 
 class Arena:
     """Arena for comparing two models."""
@@ -110,7 +113,6 @@ class Arena:
             print(f"Arena Game {i+1}: {result} ({p1_label} vs {p2_label}) | Total Moves: {len(game.moves)}")
         
         return wins, draws, losses
-
 
 class StockfishEvaluator:
     """Evaluate model against Stockfish."""
@@ -186,7 +188,6 @@ class StockfishEvaluator:
             return 0.0, 0
         
         return score, num_games
-
 
 if __name__ == "__main__":
     """Local testing without Stockfish"""
