@@ -63,6 +63,16 @@ ps -ef | grep python
 ps aux | grep main.py
 kill -TERM <pid>
 
+# force kill
+
+# See what's running
+ps -u "$USER" | grep python
+
+# Then nuke all your user’s python processes (no grace)
+killall -9 python3 python || pkill -9 -u "$USER" python3
+
+pkill -9 -f "game_engine/main.py"
+
 # Absolute PATH
 
 /home/krishmod/EE542-Project/FINAL/chess_ai/training_log.txt

@@ -332,9 +332,9 @@ def run_self_play_phase(iteration):
         workers.append(p)
         
     for p in workers:
-        p.join(timeout=30)  # Add timeout to prevent infinite wait
+        p.join()  # wait indefinitely; only hung workers will reach below
         if p.is_alive():
-            print(f"⚠️ Worker process still alive after timeout, terminating...")
+            print(f"⚠️ Worker process still alive after join, terminating...")
             p.terminate()
             p.join(timeout=5)
             if p.is_alive():
