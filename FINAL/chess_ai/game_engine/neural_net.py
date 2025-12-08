@@ -122,4 +122,5 @@ class InferenceServer:
                 # Update last successful batch time
                 last_successful_batch_time = time.time()
                 if len(batch_data) > 20:
-                    print(f"[Server] Batch submitted: {len(batch_data)} requests")
+                    # print(f"[Server] Batch submitted: {len(batch_data)} requests")
+                    pass
