@@ -9,7 +9,16 @@ import torch
 import numpy as np
 import math
 import chess 
-import signal 
+import signal
+import sys
+
+def handle_timeout(signum, frame):
+    print("⚠️  Process timed out - likely deadlock!")
+    sys.exit(1)
+
+# Set 24-hour timeout
+signal.alarm(24 * 60 * 60)
+
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
