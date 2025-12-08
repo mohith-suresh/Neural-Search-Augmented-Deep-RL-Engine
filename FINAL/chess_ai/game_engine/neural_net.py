@@ -74,9 +74,21 @@ class InferenceServer:
         
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.num_streams)
         print(f"Server Ready: Batch={self.batch_size}, Streams={self.num_streams}, Device={self.device}")
-
+        # Deadlock detection: track last successful batch time
+        last_successful_batch_time = time.time()
+        deadlock_timeout = 60  # 60 seconds without progress = deadlock
+        
         while True:
             batch_data = []
+            current_time = time.time()
+            
+            # Check for deadlock
+            if current_time - last_successful_batch_time > deadlock_timeout:
+                print(f"🚨 DEADLOCK DETECTED: No batch processed in {deadlock_timeout}s")
+                print(f"   Input queue size: {self.input_queue.qsize()}")
+                print(f"   Output queues: {len(self.output_queues)} workers")
+                return  # Exit server gracefully
+            
             current_batch_count = 0
             start_time = time.time()
             
@@ -106,3 +118,8 @@ class InferenceServer:
                 stream = self.streams[self.current_stream_idx]
                 self.current_stream_idx = (self.current_stream_idx + 1) % self.num_streams
                 executor.submit(self.process_batch, batch_data, stream, model, self.device)
+                
+                # Update last successful batch time
+                last_successful_batch_time = time.time()
+                if len(batch_data) > 0:
+                    print(f"[Server] Batch submitted: {len(batch_data)} requests")

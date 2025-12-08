@@ -12,13 +12,30 @@ import chess
 import signal
 import sys
 
-def handle_timeout(signum, frame):
-    print("⚠️  Process timed out - likely deadlock!")
-    sys.exit(1)
+class TimeoutHandler:
+    """Handle process timeouts to prevent deadlocks"""
+    def __init__(self, timeout_seconds=3600):
+        self.timeout_seconds = timeout_seconds
+        self.start_time = None
+    
+    def start(self):
+        self.start_time = time.time()
+        signal.signal(signal.SIGALRM, self._timeout_handler)
+        signal.alarm(self.timeout_seconds)
+    
+    def _timeout_handler(self, signum, frame):
+        elapsed = int(time.time() - self.start_time)
+        print(f"⚠️ TIMEOUT: No progress in {self.timeout_seconds}s ({elapsed}s elapsed)")
+        print("⚠️ Likely deadlock detected. Shutting down gracefully...")
+        sys.exit(1)
+    
+    def reset(self):
+        """Reset timeout (call when iteration completes)"""
+        if self.start_time:
+            signal.alarm(self.timeout_seconds)
 
-# Set 24-hour timeout
-signal.alarm(24 * 60 * 60)
-
+# Create global timeout handler (1 hour = 3600 seconds)
+timeout_handler = TimeoutHandler(timeout_seconds=3600)
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
@@ -280,6 +297,33 @@ def run_self_play_phase(iteration):
     server_process.start()
     time.sleep(5) 
     
+    # Start queue monitor to detect stalls
+    def monitor_queues(server_ref, input_q, interval=30):
+        """Monitor queue sizes and detect stuck situations"""
+        last_size = 0
+        stall_count = 0
+        
+        while server_process.is_alive():
+            current_size = input_q.qsize()
+            
+            # If queue size hasn't changed in 3 checks (90 seconds), likely stuck
+            if current_size == last_size and current_size > 0:
+                stall_count += 1
+                if stall_count >= 3:
+                    print(f"⚠️ QUEUE STALL DETECTED: {current_size} requests stuck for ~90s")
+            else:
+                stall_count = 0
+            
+            last_size = current_size
+            time.sleep(interval)
+    
+    monitor_thread = threading.Thread(
+        target=monitor_queues,
+        args=(server, server.input_queue),
+        daemon=True
+    )
+    monitor_thread.start()
+
     workers = []
     for i in range(NUM_WORKERS):
         p = mp.Process(target=run_worker_batch, 
@@ -287,11 +331,28 @@ def run_self_play_phase(iteration):
         p.start()
         workers.append(p)
         
-    for p in workers: p.join()
+    for p in workers:
+        p.join(timeout=30)  # Add timeout to prevent infinite wait
+        if p.is_alive():
+            print(f"⚠️ Worker process still alive after timeout, terminating...")
+            p.terminate()
+            p.join(timeout=5)
+            if p.is_alive():
+                p.kill()
         
+    # Graceful server shutdown
+    print("Shutting down inference server...")
     server.input_queue.put("STOP")
     server_process.join(timeout=10)
-    if server_process.is_alive(): server_process.terminate()
+    
+    if server_process.is_alive():
+        print("⚠️ Server not responding to STOP, force terminating...")
+        server_process.terminate()
+        server_process.join(timeout=5)
+        if server_process.is_alive():
+            print("🚨 Force killing server process...")
+            server_process.kill()
+            server_process.join()
 
 def run_training_phase(iteration):
     print(f"\n=== ITERATION {iteration}: TRAINING PHASE ===")
@@ -389,6 +450,9 @@ if __name__ == "__main__":
         print("Initializing random model...")
         torch.save(ChessCNN().state_dict(), BEST_MODEL)
 
+    timeout_handler.start()
+    print("⏱️ Deadlock timeout: 1 hour per iteration")
+
     # RESUMPTION LOGIC
     start_iter = get_start_iteration(DATA_DIR)
     
@@ -480,6 +544,9 @@ if __name__ == "__main__":
             else:
                 print(f"✅ ITERATION {it} COMPLETE: {int(minutes)}m {seconds:.2f}s")
             print(f"{'='*60}\n")
+            
+            timeout_handler.reset()
+            print(f"✅ Iteration {it} completed - timeout reset")
             
             # CHECK BEFORE NEXT ITERATION
             if killer.kill_now:
