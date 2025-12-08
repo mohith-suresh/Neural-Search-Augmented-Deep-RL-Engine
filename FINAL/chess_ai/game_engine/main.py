@@ -390,7 +390,14 @@ if __name__ == "__main__":
             
             iter_end = time.time()
             elapsed = iter_end - iter_start
-            print(f"\n=== ITERATION {it} TOTAL TIME: {elapsed/60:.2f} minutes ({elapsed:.1f} seconds) ===\n")
+
+            hours, remainder = divmod(elapsed, 3600)
+            minutes, seconds = divmod(remainder, 60)
+
+            if hours > 0:
+                print(f"\n=== ITERATION {it} TOTAL TIME: {int(hours)}h {int(minutes)}m {seconds:.2f}s ===\n")
+            else:
+                print(f"\n=== ITERATION {it} TOTAL TIME: {int(minutes)}m {seconds:.2f}s ===\n")
 
     except KeyboardInterrupt:
         print("\n\n--- LOOP STOPPED BY USER ---")
