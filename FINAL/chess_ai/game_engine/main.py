@@ -374,6 +374,7 @@ if __name__ == "__main__":
     setup_child_logging()
     mp.set_start_method('spawn', force=True)
     os.makedirs(MODEL_DIR, exist_ok=True)
+    
     if not os.path.exists(BEST_MODEL):
         print("Initializing random model...")
         torch.save(ChessCNN().state_dict(), BEST_MODEL)
@@ -381,36 +382,108 @@ if __name__ == "__main__":
     # RESUMPTION LOGIC
     start_iter = get_start_iteration(DATA_DIR)
     
-    print("=================================================")
+    print("=" * 60)
     print(f"STARTING RUN")
     print(f"Resuming from Iteration: {start_iter}")
     print(f"Workers: {NUM_WORKERS} | Sims: {SIMULATIONS} | Batch: {WORKER_BATCH_SIZE}")
-    print("=================================================")
+    print("=" * 60)
 
     killer = GracefulKiller()
     
     try:
         for it in range(start_iter, ITERATIONS + 1):
+            
+            # CHECK BEFORE ITERATION STARTS
             if killer.kill_now:
-                print("Graceful exit detected. Stopping loop.")
+                print("\n[Main] ⚠️  Kill signal received BEFORE iteration start")
+                print(f"[Main] Gracefully exiting. Next run will resume from Iteration {it}")
                 break
             
             iter_start = time.time()
-
-            run_self_play_phase(it)
-            p_loss, v_loss = run_training_phase(it)
-            run_evaluation_phase(it, MetricsLogger(), p_loss, v_loss)
             
+            # === PHASE 1: SELF-PLAY ===
+            print(f"\n{'='*60}")
+            print(f"ITERATION {it} - PHASE 1: SELF-PLAY")
+            print(f"{'='*60}")
+            
+            try:
+                run_self_play_phase(it)
+                print(f"\n✅ ITERATION {it} - PHASE 1 COMPLETE")
+            except Exception as e:
+                print(f"\n❌ ITERATION {it} - PHASE 1 FAILED: {e}")
+                if killer.kill_now:
+                    print("[Main] Kill signal during Phase 1. Exiting...")
+                    break
+                raise
+            
+            # CHECK AFTER PHASE 1
+            if killer.kill_now:
+                print("\n[Main] ⚠️  Kill signal received AFTER Phase 1")
+                print("[Main] Saving state and exiting. Training/Eval will run on next startup.")
+                break
+            
+            # === PHASE 2: TRAINING ===
+            print(f"\n{'='*60}")
+            print(f"ITERATION {it} - PHASE 2: TRAINING")
+            print(f"{'='*60}")
+            
+            try:
+                p_loss, v_loss = run_training_phase(it)
+                print(f"\n✅ ITERATION {it} - PHASE 2 COMPLETE (Policy Loss: {p_loss:.4f}, Value Loss: {v_loss:.4f})")
+            except Exception as e:
+                print(f"\n❌ ITERATION {it} - PHASE 2 FAILED: {e}")
+                if killer.kill_now:
+                    print("[Main] Kill signal during Phase 2. Exiting...")
+                    break
+                raise
+            
+            # CHECK AFTER PHASE 2
+            if killer.kill_now:
+                print("\n[Main] ⚠️  Kill signal received AFTER Phase 2")
+                print("[Main] Saving state and exiting. Eval will run on next startup.")
+                break
+            
+            # === PHASE 3: EVALUATION ===
+            print(f"\n{'='*60}")
+            print(f"ITERATION {it} - PHASE 3: EVALUATION")
+            print(f"{'='*60}")
+            
+            try:
+                run_evaluation_phase(it, MetricsLogger(), p_loss, v_loss)
+                print(f"\n✅ ITERATION {it} - PHASE 3 COMPLETE")
+            except Exception as e:
+                print(f"\n❌ ITERATION {it} - PHASE 3 FAILED: {e}")
+                if killer.kill_now:
+                    print("[Main] Kill signal during Phase 3. Exiting...")
+                    break
+                raise
+            
+            # === ITERATION COMPLETE ===
             iter_end = time.time()
             elapsed = iter_end - iter_start
-
             hours, remainder = divmod(elapsed, 3600)
             minutes, seconds = divmod(remainder, 60)
-
+            
+            print(f"\n{'='*60}")
             if hours > 0:
-                print(f"\n=== ITERATION {it} TOTAL TIME: {int(hours)}h {int(minutes)}m {seconds:.2f}s ===\n")
+                print(f"✅ ITERATION {it} COMPLETE: {int(hours)}h {int(minutes)}m {seconds:.2f}s")
             else:
-                print(f"\n=== ITERATION {it} TOTAL TIME: {int(minutes)}m {seconds:.2f}s ===\n")
-
+                print(f"✅ ITERATION {it} COMPLETE: {int(minutes)}m {seconds:.2f}s")
+            print(f"{'='*60}\n")
+            
+            # CHECK BEFORE NEXT ITERATION
+            if killer.kill_now:
+                print("[Main] ⚠️  Kill signal received. Exiting gracefully...")
+                break
+    
     except KeyboardInterrupt:
-        print("\n\n--- LOOP STOPPED BY USER ---")
+        print("\n\n[Main] ❌ USER INTERRUPTED - EXITING")
+    
+    except Exception as e:
+        print(f"\n\n[Main] ❌ FATAL ERROR: {e}")
+        raise
+    
+    finally:
+        print("\n[Main] Cleanup: Closing threads and processes...")
+        cleanup_memory()
+        print("[Main] ✅ Shutdown complete")
