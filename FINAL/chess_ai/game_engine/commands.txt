@@ -59,9 +59,8 @@ nvtop
 
 # To kill the loop
 
-ps -ef | grep python
-pkill -u krishmod python3
-ps -ef | grep python
+ps aux | grep main.py
+kill -TERM <pid>
 
 # Absolute PATH
 

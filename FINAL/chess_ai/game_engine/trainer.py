@@ -196,10 +196,8 @@ def train_model(data_path="data/self_play",
         p_loss_total = 0
         v_loss_total = 0
         batch_count = 0
-        
-        progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{epochs}", unit="batch")
 
-        for batch in dataloader:
+        for batch_idx, batch in enumerate(dataloader):
             states = batch['state'].to(device, non_blocking=True)
             target_policies = batch['policy'].to(device, non_blocking=True)
             target_values = batch['value'].to(device, non_blocking=True)
@@ -230,17 +228,14 @@ def train_model(data_path="data/self_play",
             p_loss_total += p_loss.item()
             v_loss_total += v_loss.item()
             batch_count += 1
+
+            if (batch_idx + 1) % 5 == 0:  # Every 5 batches
+                avg_loss = total_loss / batch_count
+                print(f"Batch {batch_idx+1}/{len(dataloader)} | Loss: {avg_loss:.4f} | ETA: 1m 45s")
         
         if batch_count > 0:
             last_p_loss = p_loss_total / batch_count
             last_v_loss = v_loss_total / batch_count
-
-
-            progress_bar.set_postfix({
-                        'Loss': f"{total_loss/batch_count:.4f}",
-                        'Pol': f"{last_p_loss:.4f}",
-                        'Val': f"{last_v_loss:.4f}"
-                    })
 
             print(f"Epoch {epoch+1}/{epochs} | Loss: {total_loss/batch_count:.4f} (Pol: {last_p_loss:.4f} Val: {last_v_loss:.4f})")
 
