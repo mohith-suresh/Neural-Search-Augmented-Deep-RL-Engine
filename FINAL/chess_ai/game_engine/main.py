@@ -22,50 +22,6 @@ from game_engine.evaluation import Arena, StockfishEvaluator, MetricsLogger
 from game_engine.cnn import ChessCNN
 
 # ==========================================
-#        BALANCED GCP CONFIG (T4 OPTIMIZED)
-# ==========================================
-
-# --- CUDA ---
-CUDA_TIMEOUT_INFERENCE = 0.01 
-CUDA_STREAMS = 8 
-
-# --- EXECUTION ---
-ITERATIONS = 1000
-NUM_WORKERS = 64            
-WORKER_BATCH_SIZE = 8       
-GAMES_PER_WORKER = 5        
-
-# --- QUALITY ---
-SIMULATIONS = 1200           
-EVAL_SIMULATIONS = 800      
-
-# --- EVALUATION CONFIG ---
-EVAL_WORKERS = 5           
-GAMES_PER_EVAL_WORKER = 4   
-STOCKFISH_GAMES = 20
-SF_WORKERS = 5              
-SF_GAMES_PER_WORKER = 4     
-STOCKFISH_ELO = 1350        
-
-# --- RULES ---
-MAX_MOVES_PER_GAME = 120   
-DRAW_PENALTY = -0.35        
-
-# Training
-TRAIN_EPOCHS = 1 
-TRAIN_WINDOW = 20           
-TRAIN_BATCH_SIZE = 1024      
-TRAIN_LR = 0.0001           
-
-# --- PATHS ---
-STOCKFISH_PATH = "/usr/games/stockfish" 
-LOG_FILE = "training_log.txt"
-MODEL_DIR = "game_engine/model"
-DATA_DIR = "data/self_play"
-BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
-CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
-
-# ==========================================
 class GracefulKiller:
     """Catches SIGTERM/SIGINT signals for graceful cloud shutdown"""
     def __init__(self):
@@ -154,8 +110,15 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
                 break 
 
             move_start = time.time()
-            if len(game.moves) < 40: current_temp = 1.0 
-            else: current_temp = 0.1 
+            move_count = len(game.moves)
+            if move_count < 15:
+                current_temp = 1.2  # Open book exploration
+            elif move_count < 40:
+                current_temp = 0.6  # Middlegame focus
+            elif move_count < 80:
+                current_temp = 0.4  # Early endgame, still searching
+            else:
+                current_temp = 0.25 # Deep endgame, very focused
             
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
             
@@ -209,6 +172,56 @@ def run_server_wrapper(server):
     monitor.daemon = True 
     monitor.start()
     server.loop()
+
+# ==========================================
+#        BALANCED GCP CONFIG (T4 OPTIMIZED)
+# ==========================================
+
+# --- PATHS ---
+STOCKFISH_PATH = "/usr/games/stockfish" 
+LOG_FILE = "training_log.txt"
+MODEL_DIR = "game_engine/model"
+DATA_DIR = "data/self_play"
+BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
+CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
+
+# --- CUDA ---
+CUDA_TIMEOUT_INFERENCE = 0.01 
+CUDA_STREAMS = 8 
+
+# --- EXECUTION ---
+ITERATIONS = 1000
+NUM_WORKERS = 64            
+WORKER_BATCH_SIZE = 8       
+GAMES_PER_WORKER = 5        
+
+# --- QUALITY ---
+SIMULATIONS = 1200           
+EVAL_SIMULATIONS = 800      
+
+# --- EVALUATION CONFIG ---
+EVAL_WORKERS = 5           
+GAMES_PER_EVAL_WORKER = 4   
+STOCKFISH_GAMES = 20
+SF_WORKERS = 5              
+SF_GAMES_PER_WORKER = 4     
+STOCKFISH_ELO = 1350        
+
+# --- RULES ---
+MAX_MOVES_PER_GAME = 120   
+current_iter = get_start_iteration(DATA_DIR) - 1
+if current_iter < 10:
+    DRAW_PENALTY = -0.15
+elif current_iter < 20:
+    DRAW_PENALTY = -0.30
+else:
+    DRAW_PENALTY = -0.40        
+
+# Training
+TRAIN_EPOCHS = 1 
+TRAIN_WINDOW = 20           
+TRAIN_BATCH_SIZE = 1024      
+TRAIN_LR = 0.0001           
 
 # --- DRY WORKER WRAPPERS ---
 
