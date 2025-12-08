@@ -209,6 +209,7 @@ STOCKFISH_ELO = 1350
 
 # --- RULES ---
 MAX_MOVES_PER_GAME = 120   
+EVAL_MAX_MOVES_PER_GAME = 140 
 current_iter = get_start_iteration(DATA_DIR) - 1
 if current_iter < 10:
     DRAW_PENALTY = -0.15
@@ -310,7 +311,7 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
     for i in range(EVAL_WORKERS):
         p = ctx.Process(
             target=run_arena_batch_worker,
-            args=(i, arena_queue, GAMES_PER_EVAL_WORKER, CANDIDATE_MODEL, BEST_MODEL, EVAL_SIMULATIONS, MAX_MOVES_PER_GAME)
+            args=(i, arena_queue, GAMES_PER_EVAL_WORKER, CANDIDATE_MODEL, BEST_MODEL, EVAL_SIMULATIONS, EVAL_MAX_MOVES_PER_GAME)
         )
         p.start()
         arena_workers.append(p)
@@ -345,7 +346,7 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
         for i in range(SF_WORKERS):
             p = ctx.Process(
                 target=run_stockfish_batch_worker,
-                args=(i, sf_queue, SF_GAMES_PER_WORKER, BEST_MODEL, EVAL_SIMULATIONS, STOCKFISH_ELO, STOCKFISH_PATH, MAX_MOVES_PER_GAME)
+                args=(i, sf_queue, SF_GAMES_PER_WORKER, BEST_MODEL, EVAL_SIMULATIONS, STOCKFISH_ELO, STOCKFISH_PATH, EVAL_MAX_MOVES_PER_GAME)
             )
             p.start()
             sf_workers.append(p)

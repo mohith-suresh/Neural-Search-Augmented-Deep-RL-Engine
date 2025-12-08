@@ -116,7 +116,7 @@ class Arena:
                 draws += 1
             
             # Optional: Print result of each game
-            print(f"Arena Game {i+1}: {result} ({p1_label} vs {p2_label})")
+            print(f"Arena Game {i+1}: {result} ({p1_label} vs {p2_label}) | Total Moves: {len(game.moves)}")
                 
         return wins, draws, losses
 
@@ -172,7 +172,7 @@ class StockfishEvaluator:
                         score += 0.5
                     
                     # Print result of each game (matches Arena format)
-                    print(f"Stockfish Game {i+1}: {res} ({p1_label} vs {p2_label})")
+                    print(f"Stockfish Game {i+1}: {res} ({p1_label} vs {p2_label}) | Total Moves: {len(game.moves)}")
                     
         except Exception as e:
             print(f"Stockfish Error: {e}")
