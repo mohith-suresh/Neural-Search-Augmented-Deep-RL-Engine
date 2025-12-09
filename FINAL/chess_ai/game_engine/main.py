@@ -14,7 +14,7 @@ import sys
 
 class TimeoutHandler:
     """Handle process timeouts to prevent deadlocks"""
-    def __init__(self, timeout_seconds=3600):
+    def __init__(self, timeout_seconds=9000):
         self.timeout_seconds = timeout_seconds
         self.start_time = None
     
