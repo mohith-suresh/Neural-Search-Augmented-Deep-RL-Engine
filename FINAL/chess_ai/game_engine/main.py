@@ -216,20 +216,20 @@ CUDA_TIMEOUT_INFERENCE = 0.01
 CUDA_STREAMS = 8 
 
 # --- EXECUTION ---
-ITERATIONS = 1000
-NUM_WORKERS = 42            
+ITERATIONS = 1
+NUM_WORKERS = 10            
 WORKER_BATCH_SIZE = 8       
-GAMES_PER_WORKER = 5        
+GAMES_PER_WORKER = 1        
 
 # --- QUALITY ---
-SIMULATIONS = 1200           
-EVAL_SIMULATIONS = 1200      
+SIMULATIONS = 50           
+EVAL_SIMULATIONS = 50      
 
 # --- EVALUATION CONFIG ---
-EVAL_WORKERS = 10           
+EVAL_WORKERS = 2           
 GAMES_PER_EVAL_WORKER = 2   
-STOCKFISH_GAMES = 20
-SF_WORKERS = 10              
+STOCKFISH_GAMES = 4
+SF_WORKERS = 2              
 SF_GAMES_PER_WORKER = 2     
 STOCKFISH_ELO = 1350        
 
@@ -552,41 +552,41 @@ if __name__ == "__main__":
                 print("[Main] Saving state and exiting. Training/Eval will run on next startup.")
                 break
             
-            # === PHASE 2: TRAINING ===
-            print(f"\n{'='*60}")
-            print(f"ITERATION {it} - PHASE 2: TRAINING")
-            print(f"{'='*60}")
+            # # === PHASE 2: TRAINING ===
+            # print(f"\n{'='*60}")
+            # print(f"ITERATION {it} - PHASE 2: TRAINING")
+            # print(f"{'='*60}")
             
-            try:
-                p_loss, v_loss = run_training_phase(it)
-                print(f"\n✅ ITERATION {it} - PHASE 2 COMPLETE (Policy Loss: {p_loss:.4f}, Value Loss: {v_loss:.4f})")
-            except Exception as e:
-                print(f"\n❌ ITERATION {it} - PHASE 2 FAILED: {e}")
-                if killer.kill_now:
-                    print("[Main] Kill signal during Phase 2. Exiting...")
-                    break
-                raise
+            # try:
+            #     p_loss, v_loss = run_training_phase(it)
+            #     print(f"\n✅ ITERATION {it} - PHASE 2 COMPLETE (Policy Loss: {p_loss:.4f}, Value Loss: {v_loss:.4f})")
+            # except Exception as e:
+            #     print(f"\n❌ ITERATION {it} - PHASE 2 FAILED: {e}")
+            #     if killer.kill_now:
+            #         print("[Main] Kill signal during Phase 2. Exiting...")
+            #         break
+            #     raise
             
-            # CHECK AFTER PHASE 2
-            if killer.kill_now:
-                print("\n[Main] ⚠️  Kill signal received AFTER Phase 2")
-                print("[Main] Saving state and exiting. Eval will run on next startup.")
-                break
+            # # CHECK AFTER PHASE 2
+            # if killer.kill_now:
+            #     print("\n[Main] ⚠️  Kill signal received AFTER Phase 2")
+            #     print("[Main] Saving state and exiting. Eval will run on next startup.")
+            #     break
             
-            # === PHASE 3: EVALUATION ===
-            print(f"\n{'='*60}")
-            print(f"ITERATION {it} - PHASE 3: EVALUATION")
-            print(f"{'='*60}")
+            # # === PHASE 3: EVALUATION ===
+            # print(f"\n{'='*60}")
+            # print(f"ITERATION {it} - PHASE 3: EVALUATION")
+            # print(f"{'='*60}")
             
-            try:
-                run_evaluation_phase(it, MetricsLogger(), p_loss, v_loss)
-                print(f"\n✅ ITERATION {it} - PHASE 3 COMPLETE")
-            except Exception as e:
-                print(f"\n❌ ITERATION {it} - PHASE 3 FAILED: {e}")
-                if killer.kill_now:
-                    print("[Main] Kill signal during Phase 3. Exiting...")
-                    break
-                raise
+            # try:
+            #     run_evaluation_phase(it, MetricsLogger(), p_loss, v_loss)
+            #     print(f"\n✅ ITERATION {it} - PHASE 3 COMPLETE")
+            # except Exception as e:
+            #     print(f"\n❌ ITERATION {it} - PHASE 3 FAILED: {e}")
+            #     if killer.kill_now:
+            #         print("[Main] Kill signal during Phase 3. Exiting...")
+            #         break
+            #     raise
             
             # === ITERATION COMPLETE ===
             iter_end = time.time()
