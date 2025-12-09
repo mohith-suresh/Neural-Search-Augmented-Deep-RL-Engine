@@ -185,7 +185,7 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
                             policies=np.array([g["policy"] for g in game_data]), 
                             values=np.array(values, dtype=np.float32))
         
-        print(f"   [Worker {worker_id}] Finished Game {i+1} in {time.time()-game_start:.1f}s")
+        print(f"   [Worker {worker_id}] Finished Game {i+1} in {time.time()-game_start:.1f}s |  Total Moves {len(game.moves)} | Result {result}")
         gc.collect()
 
 def run_server_wrapper(server):
