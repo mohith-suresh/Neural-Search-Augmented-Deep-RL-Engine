@@ -102,5 +102,29 @@
         "value_loss": 0.2537736298640569,
         "arena_win_rate": 0.75,
         "elo": 838.4985596188685
+    },
+    {
+        "iteration": 20,
+        "timestamp": "2025-12-09T07:42:14.318043",
+        "policy_loss": 2.749293759693064,
+        "value_loss": 0.2241896410965409,
+        "arena_win_rate": 0.25,
+        "elo": null
+    },
+    {
+        "iteration": 21,
+        "timestamp": "2025-12-09T11:54:36.959030",
+        "policy_loss": 2.7486896439094766,
+        "value_loss": 0.2263083504028403,
+        "arena_win_rate": 0.525,
+        "elo": null
+    },
+    {
+        "iteration": 22,
+        "timestamp": "2025-12-09T16:00:42.610267",
+        "policy_loss": 2.7549008904367938,
+        "value_loss": 0.23683560662836933,
+        "arena_win_rate": 0.375,
+        "elo": null
     }
 ]
