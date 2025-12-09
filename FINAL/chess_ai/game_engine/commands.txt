@@ -43,19 +43,22 @@ echo $PATH
 git clone https://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@github.com/krish-modi1/EE542-Project.git
 cd EE542-Project/FINAL/chess_ai
 
+git config --global user.email "krish.modi.2000@gmail.com"
+git config --global user.name "Krish Modi"
+
 https://drive.google.com/file/d//view?usp=drive_link
 # Download your model
 gdown "1MM3YepePOI599dGRjNMkiQ5FHWNRAwX8" -O game_engine/model/best_model.pth
 
 python3 game_engine/migrate_model.py
 
-# Run training
-nohup python3 -u game_engine/main.py > /dev/null 2>&1 &
-tail -f training_log.txt
-
 # Install nvtop
 sudo apt install nvtop
 nvtop
+
+# Run training
+nohup python3 -u game_engine/main.py > /dev/null 2>&1 &
+tail -f training_log.txt
 
 # To kill the loop
 
@@ -77,9 +80,6 @@ pkill -9 -f "game_engine/main.py"
 
 /home/krishmod/EE542-Project/FINAL/chess_ai/training_log.txt
 /home/krishmod/EE542-Project/FINAL/chess_ai/game_engine/model/best_model.pth
-
-git config --global user.email "krish.modi.2000@gmail.com"
-git config --global user.name "Krish Modi"
 
 # on cloud push
 

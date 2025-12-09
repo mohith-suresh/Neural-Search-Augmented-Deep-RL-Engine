@@ -234,8 +234,8 @@ SF_GAMES_PER_WORKER = 2
 STOCKFISH_ELO = 1350        
 
 # --- RULES ---
-MAX_MOVES_PER_GAME = 120   
-EVAL_MAX_MOVES_PER_GAME = 140 
+MAX_MOVES_PER_GAME = 140   
+EVAL_MAX_MOVES_PER_GAME = 160 
 current_iter = get_start_iteration(DATA_DIR) - 1
 if current_iter < 10:
     DRAW_PENALTY = -0.15
@@ -507,7 +507,7 @@ if __name__ == "__main__":
         torch.save(ChessCNN().state_dict(), BEST_MODEL)
 
     timeout_handler.start()
-    print("⏱️ Deadlock timeout: 1 hour per iteration")
+    print("⏱️ Deadlock timeout: 5 hour per iteration")
 
     # RESUMPTION LOGIC
     start_iter = get_start_iteration(DATA_DIR)
