@@ -132,7 +132,13 @@ class MCTSWorker:
         # 1. Expand Root
         tensor = torch.from_numpy(root.state.to_tensor())
         self.input_queue.put((self.worker_id, tensor)) 
-        policy, value = self.output_queue.get()
+        
+        try:
+            policy, value = self.output_queue.get(timeout=30)
+        except Exception:
+            print(f"[Worker {self.worker_id}] ❌ Server timeout - no response in 30s")
+            raise RuntimeError("Server communication timeout")
+
         root.expand(root.state.legal_moves(), policy)
         
         self._add_noise_recursive(root, depth=0)
@@ -174,7 +180,13 @@ class MCTSWorker:
             # Inference Phase
             batch_tensor = torch.from_numpy(np.array(tensors))
             self.input_queue.put((self.worker_id, batch_tensor))
-            policies, values = self.output_queue.get()
+            
+            try:
+                policies, values = self.output_queue.get(timeout=30)
+            except Exception:
+                print(f"[Worker {self.worker_id}] ❌ Server timeout - no response in 30s")
+                raise RuntimeError("Server communication timeout")
+
             
             # Expansion & Backprop Phase
             for i, node in enumerate(leaves):

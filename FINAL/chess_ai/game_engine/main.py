@@ -331,28 +331,53 @@ def run_self_play_phase(iteration):
         p.start()
         workers.append(p)
         
-    for p in workers:
-        p.join()  # wait indefinitely; only hung workers will reach below
-        if p.is_alive():
-            print(f"⚠️ Worker process still alive after join, terminating...")
-            p.terminate()
-            p.join(timeout=5)
+    # NEW CODE - ACTIVE MONITORING LOOP
+    try:
+        while True:
+            # 1. Check if Server is alive
+            if not server_process.is_alive():
+                print("🚨 CRITICAL: Inference Server died unexpectedly! Terminating workers...")
+                raise RuntimeError("Inference Server died during self-play.")
+
+            # 2. Check if Workers are done
+            alive_workers = [p for p in workers if p.is_alive()]
+            
+            if not alive_workers:
+                print("✅ All workers finished successfully.")
+                break
+                
+            # 3. Sleep to prevent CPU burn
+            time.sleep(2)
+            
+    except Exception as e:
+        print(f"❌ Exception in Phase 1 Loop: {e}")
+        for p in workers:
             if p.is_alive():
-                p.kill()
-        
-    # Graceful server shutdown
-    print("Shutting down inference server...")
-    server.input_queue.put("STOP")
-    server_process.join(timeout=10)
-    
-    if server_process.is_alive():
-        print("⚠️ Server not responding to STOP, force terminating...")
-        server_process.terminate()
-        server_process.join(timeout=5)
+                p.terminate()
         if server_process.is_alive():
-            print("🚨 Force killing server process...")
-            server_process.kill()
-            server_process.join()
+            server_process.terminate()
+        raise e
+        
+    finally:
+        print("🧹 Cleaning up Phase 1 processes...")
+        
+        # Kill any straggler workers
+        for p in workers:
+            if p.is_alive():
+                p.terminate()
+                p.join(timeout=1)
+        
+        # Stop Server
+        if server_process.is_alive():
+            server.input_queue.put("STOP")
+            server_process.join(timeout=10)
+            if server_process.is_alive():
+                print("⚠️ Server did not stop gracefully. Force killing...")
+                server_process.terminate()
+                server_process.join(timeout=5)
+                if server_process.is_alive():
+                    server_process.kill()
+                    server_process.join()
 
 def run_training_phase(iteration):
     print(f"\n=== ITERATION {iteration}: TRAINING PHASE ===")
@@ -371,13 +396,13 @@ def run_training_phase(iteration):
 def run_evaluation_phase(iteration, logger, p_loss, v_loss):
     print(f"\n=== ITERATION {iteration}: EVALUATION PHASE ===")
     cleanup_memory() # Clear VRAM before launching multiple evaluation workers
-    
+
     # 1. ARENA EVALUATION
     print(f" [Arena] Playing {EVAL_WORKERS * GAMES_PER_EVAL_WORKER} games...")
     ctx = mp.get_context('spawn')
     arena_queue = ctx.Queue()
     arena_workers = []
-    
+
     for i in range(EVAL_WORKERS):
         p = ctx.Process(
             target=run_arena_batch_worker,
@@ -385,9 +410,25 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
         )
         p.start()
         arena_workers.append(p)
+
+    # --- ACTIVE MONITORING FOR ARENA ---
+    try:
+        while True:
+            alive = [p for p in arena_workers if p.is_alive()]
+            if not alive:
+                print("✅ All arena workers finished.")
+                break
+            time.sleep(1)
+    except Exception as e:
+        print(f"❌ Arena evaluation failed: {e}")
+        for p in arena_workers:
+            if p.is_alive():
+                p.terminate()
+                p.join(timeout=1)
+        raise
+
     
-    for p in arena_workers: p.join()
-    
+    # Collect Arena Results
     total_wins, total_draws, total_losses = 0, 0, 0
     while not arena_queue.empty():
         res = arena_queue.get()
@@ -401,18 +442,18 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
     print(f" [Arena] Final Result: {win_rate*100:.1f}% Win Rate ({total_wins}W - {total_draws}D - {total_losses}L)")
     
     est_elo = None
-    
+
     # 2. PROMOTION LOGIC
     if win_rate >= 0.55:
-        print(f" [Arena] \u2b50 Candidate PROMOTED! (WR > 55%) \u2b50")
+        print(f" [Arena] ⭐ Candidate PROMOTED! (WR > 55%) ⭐")
         shutil.copyfile(CANDIDATE_MODEL, BEST_MODEL)
         
-        # 3. STOCKFISH EVALUATION
+        # 3. STOCKFISH EVALUATION (only if promoted)
         print(f" [Stockfish] Playing {SF_WORKERS * SF_GAMES_PER_WORKER} games vs Elo {STOCKFISH_ELO}...")
         cleanup_memory() # Clear again before Stockfish
         sf_queue = ctx.Queue()
         sf_workers = []
-        
+
         for i in range(SF_WORKERS):
             p = ctx.Process(
                 target=run_stockfish_batch_worker,
@@ -420,16 +461,31 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
             )
             p.start()
             sf_workers.append(p)
+
+        # --- ACTIVE MONITORING FOR STOCKFISH ---
+        try:
+            while True:
+                alive = [p for p in sf_workers if p.is_alive()]
+                if not alive:
+                    print("✅ All Stockfish workers finished.")
+                    break
+                time.sleep(1)
+        except Exception as e:
+            print(f"❌ Stockfish evaluation failed: {e}")
+            for p in sf_workers:
+                if p.is_alive():
+                    p.terminate()
+                    p.join(timeout=1)
+            raise
         
-        for p in sf_workers: p.join()
-        
+        # Collect Stockfish Results
         total_sf_score = 0.0
         total_sf_games = 0
         while not sf_queue.empty():
             res = sf_queue.get()
             total_sf_score += res['score']
             total_sf_games += res['games']
-        
+
         if total_sf_games > 0:
             sf_wr = total_sf_score / total_sf_games
             safe_wr = max(0.01, min(0.99, sf_wr))
@@ -437,7 +493,7 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
             print(f" [Stockfish] Score: {total_sf_score}/{total_sf_games} ({sf_wr*100:.1f}%) | Est. Elo: {est_elo:.0f}")
     
     else:
-        print(f" [Arena] Candidate rejected. Skipping Stockfish evaluation.")
+        print(f" [Arena] Candidate rejected (WR <= 55%). Skipping Stockfish evaluation.")
     
     logger.log(iteration, p_loss, v_loss, win_rate, est_elo)
 
