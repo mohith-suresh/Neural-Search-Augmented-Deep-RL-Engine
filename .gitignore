@@ -305,5 +305,3 @@ secrets/
 !README.md
 !requirements.txt
 !setup.py
-
-FINAL/chess_ai/training_log.txt
