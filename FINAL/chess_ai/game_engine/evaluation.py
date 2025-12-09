@@ -76,7 +76,7 @@ class Arena:
         self.champion = EvalMCTS(champion_path, simulations=simulations)
         self.max_moves = max_moves
     
-    def play_match(self, num_games=10):
+    def play_match(self, num_games=10, temperature=0.5, use_dirichlet=True):
         """Play match between candidate and champion."""
         wins, draws, losses = 0, 0, 0
         
@@ -88,9 +88,9 @@ class Arena:
             
             while not game.is_over and len(game.moves) < self.max_moves:
                 if game.board.turn == chess.WHITE:
-                    move = self.candidate.search(game, temperature=0.0) if cand_is_white else self.champion.search(game, temperature=0.0)
+                    move = self.candidate.search(game, temperature=temperature, use_dirichlet=use_dirichlet) if cand_is_white else self.champion.search(game, temperature=temperature, use_dirichlet=use_dirichlet)
                 else:
-                    move = self.champion.search(game, temperature=0.0) if cand_is_white else self.candidate.search(game, temperature=0.0)
+                    move = self.champion.search(game, temperature=temperature, use_dirichlet=use_dirichlet) if cand_is_white else self.candidate.search(game, temperature=temperature, use_dirichlet=use_dirichlet)
                 
                 if move is None:
                     break
@@ -124,8 +124,7 @@ class StockfishEvaluator:
         self.stockfish_path = stockfish_path
         self.simulations = simulations
     
-    def evaluate(self, model_path, num_games=10, stockfish_elo=1350, 
-                 max_moves=200, use_dirichlet=False):
+    def evaluate(self, model_path, num_games=10, stockfish_elo=1350, max_moves=200, use_dirichlet=False):
         """
         Evaluate model against Stockfish.
         

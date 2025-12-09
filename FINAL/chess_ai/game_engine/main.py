@@ -259,7 +259,7 @@ def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model,
 
     try:
         arena = Arena(cand_model, champ_model, sims, max_moves)
-        w, d, l = arena.play_match(num_games)
+        w, d, l = arena.play_match(num_games, temperature=0.5, use_dirichlet=True)
         
         # We create a simple result string for logging
         result_str = f"Worker {worker_id}: {w}W - {d}D - {l}L"
