@@ -126,5 +126,13 @@
         "value_loss": 0.23683560662836933,
         "arena_win_rate": 0.375,
         "elo": null
+    },
+    {
+        "iteration": 25,
+        "timestamp": "2025-12-10T03:13:22.908981",
+        "policy_loss": 2.7647321820259094,
+        "value_loss": 0.2606624257548348,
+        "arena_win_rate": 0.35,
+        "elo": null
     }
 ]
