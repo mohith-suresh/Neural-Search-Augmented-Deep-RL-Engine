@@ -34,8 +34,8 @@ class TimeoutHandler:
         if self.start_time:
             signal.alarm(self.timeout_seconds)
 
-# Create global timeout handler (3 hour = 10800 seconds)
-timeout_handler = TimeoutHandler(timeout_seconds=18000)
+# Create global timeout handler (6 hour = 21600 seconds)
+timeout_handler = TimeoutHandler(timeout_seconds=21600)
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
