@@ -46,7 +46,8 @@ cd EE542-Project/FINAL/chess_ai
 git config --global user.email "krish.modi.2000@gmail.com"
 git config --global user.name "Krish Modi"
 
-https://drive.google.com/file/d//view?usp=drive_link
+https://drive.google.com/file/d/1MM3YepePOI599dGRjNMkiQ5FHWNRAwX8/view?usp=sharing
+
 # Download your model
 gdown "1MM3YepePOI599dGRjNMkiQ5FHWNRAwX8" -O game_engine/model/best_model.pth
 
@@ -70,6 +71,7 @@ kill -TERM <pid>
 
 # See what's running
 ps -u "$USER" | grep python
+watch -n 1 "ps -ef | grep python | grep -v grep"
 
 # Then nuke all your user’s python processes (no grace)
 killall -9 python3 python || pkill -9 -u "$USER" python3

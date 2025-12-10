@@ -226,10 +226,10 @@ SIMULATIONS = 1200
 EVAL_SIMULATIONS = 1200      
 
 # --- EVALUATION CONFIG ---
-EVAL_WORKERS = 10           
+EVAL_WORKERS = 15           
 GAMES_PER_EVAL_WORKER = 2   
-STOCKFISH_GAMES = 20
-SF_WORKERS = 10              
+STOCKFISH_GAMES = 30
+SF_WORKERS = 15              
 SF_GAMES_PER_WORKER = 2     
 STOCKFISH_ELO = 1350        
 
@@ -240,15 +240,15 @@ current_iter = get_start_iteration(DATA_DIR) - 1
 if current_iter < 10:
     DRAW_PENALTY = -0.15
 elif current_iter < 20:
-    DRAW_PENALTY = -0.30
+    DRAW_PENALTY = -0.25
 else:
-    DRAW_PENALTY = -0.40        
+    DRAW_PENALTY = -0.30        
 
 # Training
-TRAIN_EPOCHS = 1 
-TRAIN_WINDOW = 20           
+TRAIN_EPOCHS = 2 
+TRAIN_WINDOW = 30           
 TRAIN_BATCH_SIZE = 1024      
-TRAIN_LR = 0.0001           
+TRAIN_LR = 0.00005          
 
 # --- DRY WORKER WRAPPERS ---
 
