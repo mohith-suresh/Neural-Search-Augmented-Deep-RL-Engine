@@ -34,8 +34,8 @@ class TimeoutHandler:
         if self.start_time:
             signal.alarm(self.timeout_seconds)
 
-# Create global timeout handler (6 hour = 21600 seconds)
-timeout_handler = TimeoutHandler(timeout_seconds=21600)
+# Create global timeout handler (8 hours = 28800 seconds)
+timeout_handler = TimeoutHandler(timeout_seconds=28800)
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
@@ -226,16 +226,16 @@ SIMULATIONS = 1200
 EVAL_SIMULATIONS = 1200      
 
 # --- EVALUATION CONFIG ---
-EVAL_WORKERS = 15           
-GAMES_PER_EVAL_WORKER = 2   
-STOCKFISH_GAMES = 30
-SF_WORKERS = 15              
-SF_GAMES_PER_WORKER = 2     
+EVAL_WORKERS = 10           
+GAMES_PER_EVAL_WORKER = 4   
+STOCKFISH_GAMES = 20
+SF_WORKERS = 10              
+SF_GAMES_PER_WORKER = 4     
 STOCKFISH_ELO = 1350        
 
 # --- RULES ---
 MAX_MOVES_PER_GAME = 140   
-EVAL_MAX_MOVES_PER_GAME = 160 
+EVAL_MAX_MOVES_PER_GAME = 140 
 current_iter = get_start_iteration(DATA_DIR) - 1
 if current_iter < 10:
     DRAW_PENALTY = -0.15
