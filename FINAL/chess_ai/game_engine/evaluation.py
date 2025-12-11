@@ -4,6 +4,7 @@ import sys
 import chess
 import chess.engine
 import json
+import random
 from datetime import datetime
 
 
@@ -76,13 +77,22 @@ class Arena:
         self.champion = EvalMCTS(champion_path, simulations=simulations)
         self.max_moves = max_moves
     
-    def play_match(self, num_games=10, temperature=0.5, use_dirichlet=True):
+    def play_match(self, num_games=10, temperature=0.0, use_dirichlet=False):
         """Play match between candidate and champion."""
-        wins, draws, losses = 0, 0, 0
+        wins, draws, losses, forced_draws = 0, 0, 0,0
         
         for i in range(num_games):
-            game = ChessGame()
-            cand_is_white = (i % 2 == 0)
+            for i in range(num_games):
+                game = ChessGame()
+                
+                # Force first move to vary by game
+                legal_moves = list(game.board.legal_moves)
+                # Pick a random first move (e.g., e4, d4, c4, Nf3, f4, b3, etc.)
+                random_opening = random.choice(legal_moves)
+                game.push(random_opening)
+                
+                cand_is_white = (i % 2 == 0)
+
             p1_label = "Cand" if cand_is_white else "Champ"
             p2_label = "Champ" if cand_is_white else "Cand"
             
@@ -97,6 +107,11 @@ class Arena:
                 game.push(move)
             
             if not game.is_over and len(game.moves) >= self.max_moves:
+                forced_draw = True
+            else:
+                forced_draw = False
+            
+            if forced_draw:
                 print(f" [Arena] Game {i+1} ended in FORCED DRAW (Max moves {self.max_moves})")
             
             result = game.result
@@ -111,11 +126,14 @@ class Arena:
                 else:
                     wins += 1
             else:
-                draws += 1
+                if forced_draw:
+                    forced_draws += 1
+                else:
+                    draws += 1
             
             print(f"Arena Game {i+1}: {result} ({p1_label} vs {p2_label}) | Total Moves: {len(game.moves)}")
         
-        return wins, draws, losses
+        return wins, draws, losses, forced_draws
 
 class StockfishEvaluator:
     """Evaluate model against Stockfish."""

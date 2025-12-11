@@ -235,7 +235,7 @@ STOCKFISH_ELO = 1350
 
 # --- RULES ---
 MAX_MOVES_PER_GAME = 140   
-EVAL_MAX_MOVES_PER_GAME = 140 
+EVAL_MAX_MOVES_PER_GAME = 150 
 current_iter = get_start_iteration(DATA_DIR) - 1
 if current_iter < 10:
     DRAW_PENALTY = -0.15
@@ -259,13 +259,13 @@ def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model,
 
     try:
         arena = Arena(cand_model, champ_model, sims, max_moves)
-        w, d, l = arena.play_match(num_games, temperature=0.5, use_dirichlet=True)
+        w, d, l, fd = arena.play_match(num_games, temperature=0.0, use_dirichlet=False)
         
         # We create a simple result string for logging
         result_str = f"Worker {worker_id}: {w}W - {d}D - {l}L"
         print(f"   [Arena] {result_str}")
         
-        queue.put({"wins": w, "draws": d, "losses": l})
+        queue.put({"wins": w, "draws": d, "losses": l, "forced_draws": fd})
     except Exception as e:
         print(f"Arena Worker {worker_id} Failed: {e}")
         queue.put({"wins": 0, "draws": 0, "losses": 0})
@@ -429,17 +429,19 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
 
     
     # Collect Arena Results
-    total_wins, total_draws, total_losses = 0, 0, 0
+    total_wins, total_draws, total_losses, total_forced_draws = 0, 0, 0, 0
     while not arena_queue.empty():
         res = arena_queue.get()
         total_wins += res['wins']
         total_draws += res['draws']
         total_losses += res['losses']
+        total_forced_draws += res['forced_draws']
     
-    total_games = total_wins + total_draws + total_losses
-    win_rate = (total_wins + 0.5 * total_draws) / total_games if total_games > 0 else 0
+    total_score = total_wins + 0.75 * total_forced_draws + 0.5 * total_draws
+    total_game_count = total_wins + total_draws + total_forced_draws + total_losses
+    win_rate = total_score / total_game_count if total_game_count > 0 else 0
     
-    print(f" [Arena] Final Result: {win_rate*100:.1f}% Win Rate ({total_wins}W - {total_draws}D - {total_losses}L)")
+    print(f" [Arena] Final Result: {win_rate*100:.1f}% Win Rate ({total_wins}W - {total_draws}D - {total_forced_draws}FD - {total_losses}L)")
     
     est_elo = None
 
