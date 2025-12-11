@@ -268,7 +268,7 @@ def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model,
         queue.put({"wins": w, "draws": d, "losses": l, "forced_draws": fd})
     except Exception as e:
         print(f"Arena Worker {worker_id} Failed: {e}")
-        queue.put({"wins": 0, "draws": 0, "losses": 0})
+        queue.put({"wins": w, "draws": d, "losses": l, "forced_draws": fd})
 
 def run_stockfish_batch_worker(worker_id, queue, num_games, model_path, sims, sf_elo, sf_path, max_moves):
     setup_child_logging()

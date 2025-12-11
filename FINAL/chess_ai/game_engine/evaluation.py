@@ -79,20 +79,19 @@ class Arena:
     
     def play_match(self, num_games=10, temperature=0.0, use_dirichlet=False):
         """Play match between candidate and champion."""
-        wins, draws, losses, forced_draws = 0, 0, 0,0
+        wins, draws, losses, forced_draws = 0, 0, 0, 0
         
         for i in range(num_games):
-            for i in range(num_games):
-                game = ChessGame()
-                
-                # Force first move to vary by game
-                legal_moves = list(game.board.legal_moves)
-                # Pick a random first move (e.g., e4, d4, c4, Nf3, f4, b3, etc.)
-                random_opening = random.choice(legal_moves)
-                game.push(random_opening)
-                
-                cand_is_white = (i % 2 == 0)
-
+            game = ChessGame()
+            
+            # --- OPENING VARIETY (CORRECTED) ---
+            # Randomly pick ANY valid first move to ensure true variety
+            legal_moves = list(game.board.legal_moves)
+            random_opening_move = random.choice(legal_moves)
+            # Convert the Move object to a UCI string before pushing
+            game.push(random_opening_move.uci())
+            
+            cand_is_white = (i % 2 == 0)
             p1_label = "Cand" if cand_is_white else "Champ"
             p2_label = "Champ" if cand_is_white else "Cand"
             
@@ -106,14 +105,11 @@ class Arena:
                     break
                 game.push(move)
             
-            if not game.is_over and len(game.moves) >= self.max_moves:
-                forced_draw = True
-            else:
-                forced_draw = False
-            
-            if forced_draw:
+            # Check for forced draw
+            is_forced_draw = not game.is_over and len(game.moves) >= self.max_moves
+            if is_forced_draw:
                 print(f" [Arena] Game {i+1} ended in FORCED DRAW (Max moves {self.max_moves})")
-            
+
             result = game.result
             if result == "1-0":
                 if cand_is_white:
@@ -125,8 +121,8 @@ class Arena:
                     losses += 1
                 else:
                     wins += 1
-            else:
-                if forced_draw:
+            else: # Game is a draw
+                if is_forced_draw:
                     forced_draws += 1
                 else:
                     draws += 1
