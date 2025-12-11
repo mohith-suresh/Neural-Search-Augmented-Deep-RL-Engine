@@ -161,7 +161,7 @@ class StockfishEvaluator:
         
         try:
             with chess.engine.SimpleEngine.popen_uci(self.stockfish_path) as engine:
-                engine.configure({"UCI_LimitStrength": True, "UCI_Elo": stockfish_elo})
+                engine.configure({"Skill Level": 0})
                 
                 for i in range(num_games):
                     game = ChessGame()
