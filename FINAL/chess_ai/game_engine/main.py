@@ -243,7 +243,7 @@ else:
     DRAW_PENALTY = -0.30        
 
 # Training
-TRAIN_EPOCHS = 2 
+TRAIN_EPOCHS = 3 
 TRAIN_WINDOW = 40           
 TRAIN_BATCH_SIZE = 1024      
 TRAIN_LR = 0.00005          
