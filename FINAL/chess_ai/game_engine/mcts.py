@@ -115,15 +115,31 @@ class MCTSWorker:
         self.batch_size = batch_size 
         self.cpu = 1.0 
 
-    def get_policy_vector(self, root):
+    def get_policy_vector(self, root, alpha: float = 1.5):
         policy_vector = np.zeros(8192, dtype=np.float32)
-        visit_sum = sum(child.visit_count for child in root.children.values())
-        if visit_sum == 0: return policy_vector
         
+        # Collect raw visit counts
+        visits = {}
         for action_uci, child in root.children.items():
             idx = move_to_index(action_uci)
-            if idx < 8192: 
-                policy_vector[idx] = child.visit_count / visit_sum
+            if idx < 8192:
+                visits[idx] = child.visit_count
+        
+        if not visits:
+            return policy_vector
+        
+        # Apply exponent α for sharpening
+        counts = np.array(list(visits.values()), dtype=np.float32)
+        indices = np.array(list(visits.keys()), dtype=np.int32)
+        
+        sharpened = counts ** alpha
+        total = sharpened.sum()
+        if total <= 0:
+            return policy_vector
+        
+        probs = sharpened / total
+        policy_vector[indices] = probs
+        
         return policy_vector
 
     def search(self, root_state, temperature=1.0):
