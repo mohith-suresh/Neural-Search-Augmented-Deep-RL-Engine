@@ -244,8 +244,8 @@ else:
 # Training
 TRAIN_EPOCHS = 3 
 TRAIN_WINDOW = 40           
-TRAIN_BATCH_SIZE = 3072      
-TRAIN_LR = 0.0001          
+TRAIN_BATCH_SIZE = 2048
+TRAIN_LR = 0.000075       
 
 # --- DRY WORKER WRAPPERS ---
 
