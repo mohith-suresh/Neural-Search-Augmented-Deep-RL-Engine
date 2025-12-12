@@ -205,7 +205,7 @@ class StockfishEvaluator:
         
         return score, num_games
     
-    def evaluate_with_bayeselo(self, model_path, pgn_output_path, num_games=40, stockfish_elo=1350, max_moves=200):
+    def evaluate_with_bayeselo(self, model_path, pgn_output_path, num_games=20, stockfish_elo=1350, max_moves=200):
         """Play games, save PGN, and run BayesElo for accurate rating."""
         print(f"\n{'='*70}\n📊 STOCKFISH EVALUATION - {num_games} GAMES\n{'='*70}\n")
         
