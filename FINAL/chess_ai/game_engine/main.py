@@ -34,7 +34,7 @@ class TimeoutHandler:
         if self.start_time:
             signal.alarm(self.timeout_seconds)
 
-timeout_handler = TimeoutHandler(timeout_seconds=30000)
+timeout_handler = TimeoutHandler(timeout_seconds=32000)
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
@@ -227,7 +227,7 @@ EVAL_SIMULATIONS = 1200
 # --- EVALUATION CONFIG ---
 EVAL_WORKERS = 10           
 GAMES_PER_EVAL_WORKER = 4   
-STOCKFISH_GAMES = 40
+STOCKFISH_GAMES = 20
 STOCKFISH_ELO = 1320        
 
 # --- RULES ---

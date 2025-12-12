@@ -179,7 +179,6 @@ data/training_data/
 data/played_games/
 *.bin
 *.zst
-*.pgn
 *.pgn.gz
 
 # Model checkpoints and weights
