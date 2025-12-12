@@ -48337,3 +48337,96 @@ Arena Game 2: * (Champ vs Cand) | Total Moves: 150
 Arena Game 3: 0-1 (Cand vs Champ) | Total Moves: 90
  [Arena] Game 2 ended in FORCED DRAW (Max moves 150)
 Arena Game 2: * (Champ vs Cand) | Total Moves: 150
+ [Arena] Game 2 ended in FORCED DRAW (Max moves 150)
+Arena Game 2: * (Champ vs Cand) | Total Moves: 150
+ [Arena] Game 3 ended in FORCED DRAW (Max moves 150)
+Arena Game 3: * (Cand vs Champ) | Total Moves: 150
+Arena Game 4: 1-0 (Champ vs Cand) | Total Moves: 11
+   [Arena] Worker 1: 1W - 0D - 1L
+Arena Game 3: 0-1 (Cand vs Champ) | Total Moves: 90
+ [Arena] Game 3 ended in FORCED DRAW (Max moves 150)
+Arena Game 3: * (Cand vs Champ) | Total Moves: 150
+ [Arena] Game 3 ended in FORCED DRAW (Max moves 150)
+Arena Game 3: * (Cand vs Champ) | Total Moves: 150
+ [Arena] Game 3 ended in FORCED DRAW (Max moves 150)
+Arena Game 3: * (Cand vs Champ) | Total Moves: 150
+Arena Game 4: 1-0 (Champ vs Cand) | Total Moves: 11
+   [Arena] Worker 6: 1W - 0D - 1L
+Arena Game 4: 1-0 (Champ vs Cand) | Total Moves: 15
+   [Arena] Worker 4: 1W - 0D - 1L
+Arena Game 3: 0-1 (Cand vs Champ) | Total Moves: 108
+ [Arena] Game 4 ended in FORCED DRAW (Max moves 150)
+Arena Game 4: * (Champ vs Cand) | Total Moves: 150
+   [Arena] Worker 5: 1W - 0D - 1L
+Arena Game 4: 0-1 (Champ vs Cand) | Total Moves: 116
+   [Arena] Worker 0: 2W - 0D - 2L
+ [Arena] Game 3 ended in FORCED DRAW (Max moves 150)
+Arena Game 3: * (Cand vs Champ) | Total Moves: 150
+Arena Game 4: 0-1 (Champ vs Cand) | Total Moves: 116
+   [Arena] Worker 8: 2W - 0D - 1L
+ [Arena] Game 4 ended in FORCED DRAW (Max moves 150)
+Arena Game 4: * (Champ vs Cand) | Total Moves: 150
+   [Arena] Worker 9: 0W - 0D - 1L
+ [Arena] Game 4 ended in FORCED DRAW (Max moves 150)
+Arena Game 4: * (Champ vs Cand) | Total Moves: 150
+   [Arena] Worker 3: 0W - 0D - 1L
+Arena Game 4: 0-1 (Champ vs Cand) | Total Moves: 116
+   [Arena] Worker 7: 1W - 0D - 0L
+✅ All arena workers finished.
+ [Arena] Final Result: 60.6% Win Rate (10W - 0D - 19FD - 11L)
+ [Arena] ⭐ Candidate PROMOTED! (WR > 55%) ⭐
+ [Stockfish] Playing 40 games vs Elo 700...
+Stockfish Game 1: 0-1 (Agent vs Stockfish) | Total Moves: 30
+Stockfish Game 1: 0-1 (Agent vs Stockfish) | Total Moves: 32
+Stockfish Game 1: 0-1 (Agent vs Stockfish) | Total Moves: 34
+Stockfish Game 2: 1-0 (Stockfish vs Agent) | Total Moves: 9
+Stockfish Game 2: 1-0 (Stockfish vs Agent) | Total Moves: 9
+Stockfish Game 1: 0-1 (Agent vs Stockfish) | Total Moves: 40
+Stockfish Game 1: 0-1 (Agent vs Stockfish) | Total Moves: 48
+Stockfish Game 1: 0-1 (Agent vs Stockfish) | Total Moves: 48
+Stockfish Game 1: 0-1 (Agent vs Stockfish) | Total Moves: 50
+Stockfish Game 1: 0-1 (Agent vs Stockfish) | Total Moves: 56
+Stockfish Game 3: 0-1 (Agent vs Stockfish) | Total Moves: 42
+Stockfish Game 2: 1-0 (Stockfish vs Agent) | Total Moves: 21
+Stockfish Game 1: 0-1 (Agent vs Stockfish) | Total Moves: 60
+Stockfish Game 2: 1-0 (Stockfish vs Agent) | Total Moves: 35
+Stockfish Game 2: 1-0 (Stockfish vs Agent) | Total Moves: 43
+Stockfish Game 3: 0-1 (Agent vs Stockfish) | Total Moves: 48
+Stockfish Game 2: 1-0 (Stockfish vs Agent) | Total Moves: 57
+Stockfish Game 4: 1-0 (Stockfish vs Agent) | Total Moves: 23
+Stockfish Game 2: 1-0 (Stockfish vs Agent) | Total Moves: 45
+Stockfish Game 1: 0-1 (Agent vs Stockfish) | Total Moves: 78
+Stockfish Game 3: 0-1 (Agent vs Stockfish) | Total Moves: 34
+Stockfish Game 3: 0-1 (Agent vs Stockfish) | Total Moves: 44
+Stockfish Game 2: 1-0 (Stockfish vs Agent) | Total Moves: 53
+Stockfish Game 2: 1-0 (Stockfish vs Agent) | Total Moves: 77
+Stockfish Game 4: 1-0 (Stockfish vs Agent) | Total Moves: 31
+Stockfish Game 3: 0-1 (Agent vs Stockfish) | Total Moves: 44
+Stockfish Game 4: 1-0 (Stockfish vs Agent) | Total Moves: 39
+Stockfish Game 2: 1-0 (Stockfish vs Agent) | Total Moves: 49
+Stockfish Game 3: 0-1 (Agent vs Stockfish) | Total Moves: 64
+Stockfish Game 3: 0-1 (Agent vs Stockfish) | Total Moves: 84
+Stockfish Game 3: 0-1 (Agent vs Stockfish) | Total Moves: 50
+Stockfish Game 4: 1-0 (Stockfish vs Agent) | Total Moves: 35
+Stockfish Game 4: 1-0 (Stockfish vs Agent) | Total Moves: 21
+Stockfish Game 4: 1-0 (Stockfish vs Agent) | Total Moves: 93
+Stockfish Game 3: 0-1 (Agent vs Stockfish) | Total Moves: 48
+Stockfish Game 4: 1-0 (Stockfish vs Agent) | Total Moves: 39
+Stockfish Game 4: 1-0 (Stockfish vs Agent) | Total Moves: 47
+Stockfish Game 3: 0-1 (Agent vs Stockfish) | Total Moves: 56
+Stockfish Game 4: 1-0 (Stockfish vs Agent) | Total Moves: 53
+Stockfish Game 4: 1-0 (Stockfish vs Agent) | Total Moves: 45
+✅ All Stockfish workers finished.
+ [Stockfish] Score: 0.0/40 (0.0%) | Est. Elo: -98
+
+✅ ITERATION 32 - PHASE 3 COMPLETE
+
+============================================================
+✅ ITERATION 32 COMPLETE: 5h 51m 49.07s
+============================================================
+
+✅ Iteration 32 completed - timeout reset
+[Main] ⚠️  Kill signal received. Exiting gracefully...
+
+[Main] Cleanup: Closing threads and processes...
+[Main] ✅ Shutdown complete
