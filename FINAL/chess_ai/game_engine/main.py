@@ -222,15 +222,13 @@ WORKER_BATCH_SIZE = 8
 GAMES_PER_WORKER = 5        
 
 # --- QUALITY ---
-SIMULATIONS = 1200           
+SIMULATIONS = 1600           
 EVAL_SIMULATIONS = 1200      
 
 # --- EVALUATION CONFIG ---
 EVAL_WORKERS = 10           
 GAMES_PER_EVAL_WORKER = 4   
 STOCKFISH_GAMES = 40
-SF_WORKERS = 10              
-SF_GAMES_PER_WORKER = 4     
 STOCKFISH_ELO = 1320        
 
 # --- RULES ---
@@ -246,7 +244,7 @@ else:
 
 # Training
 TRAIN_EPOCHS = 2 
-TRAIN_WINDOW = 30           
+TRAIN_WINDOW = 40           
 TRAIN_BATCH_SIZE = 1024      
 TRAIN_LR = 0.00005          
 
@@ -269,20 +267,6 @@ def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model,
     except Exception as e:
         print(f"Arena Worker {worker_id} Failed: {e}")
         queue.put({"wins": w, "draws": d, "losses": l, "forced_draws": fd})
-
-def run_stockfish_batch_worker(worker_id, queue, num_games, model_path, sims, sf_elo, sf_path, max_moves):
-    setup_child_logging()
-    np.random.seed(worker_id + int(time.time()) % 10000)
-    torch.manual_seed(worker_id + int(time.time()) % 10000)
-
-    try:
-        sf_eval = StockfishEvaluator(sf_path, sims)
-        # Pass max_moves here
-        score, games = sf_eval.evaluate(model_path, num_games, sf_elo, max_moves, use_dirichlet=False)
-        queue.put({"score": score, "games": games})
-    except Exception as e:
-        print(f"SF Worker {worker_id} Failed: {e}")
-        queue.put({"score": 0, "games": 0})
 
 # --- PHASES ---
 
@@ -437,7 +421,7 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
         total_losses += res['losses']
         total_forced_draws += res['forced_draws']
     
-    total_score = total_wins + 0.75 * total_forced_draws + 0.5 * total_draws
+    total_score = total_wins + 0.55 * total_forced_draws + 0.5 * total_draws
     total_game_count = total_wins + total_draws + total_forced_draws + total_losses
     win_rate = total_score / total_game_count if total_game_count > 0 else 0
     
@@ -450,50 +434,39 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
         print(f" [Arena] ⭐ Candidate PROMOTED! (WR > 55%) ⭐")
         shutil.copyfile(CANDIDATE_MODEL, BEST_MODEL)
         
-        # 3. STOCKFISH EVALUATION (only if promoted)
-        print(f" [Stockfish] Playing {SF_WORKERS * SF_GAMES_PER_WORKER} games vs Elo {STOCKFISH_ELO}...")
-        cleanup_memory() # Clear again before Stockfish
-        sf_queue = ctx.Queue()
-        sf_workers = []
+        # 3. STOCKFISH EVALUATION WITH BAYESELO (only if promoted)
+        print(f" [Stockfish/BayesElo] Playing {STOCKFISH_GAMES} games vs Elo {STOCKFISH_ELO}...")
+        cleanup_memory()
 
-        for i in range(SF_WORKERS):
-            p = ctx.Process(
-                target=run_stockfish_batch_worker,
-                args=(i, sf_queue, SF_GAMES_PER_WORKER, BEST_MODEL, EVAL_SIMULATIONS, STOCKFISH_ELO, STOCKFISH_PATH, EVAL_MAX_MOVES_PER_GAME)
-            )
-            p.start()
-            sf_workers.append(p)
-
-        # --- ACTIVE MONITORING FOR STOCKFISH ---
         try:
-            while True:
-                alive = [p for p in sf_workers if p.is_alive()]
-                if not alive:
-                    print("✅ All Stockfish workers finished.")
-                    break
-                time.sleep(1)
+            sf_eval = StockfishEvaluator(STOCKFISH_PATH, EVAL_SIMULATIONS)
+            pgn_path = f"game_engine/evaluation/pgn/iter_{iteration}_{int(time.time())}.pgn"
+            
+            bayeselo_results = sf_eval.evaluate_with_bayeselo(
+                model_path=BEST_MODEL,
+                pgn_output_path=pgn_path,
+                num_games=STOCKFISH_GAMES,
+                stockfish_elo=STOCKFISH_ELO,
+                max_moves=EVAL_MAX_MOVES_PER_GAME
+            )
+            
+            if bayeselo_results:
+                est_elo = bayeselo_results['model_elo']
+                print(f" [BayesElo] ✅ Model Elo: {est_elo:.0f}")
+                print(f" [BayesElo] Record: {bayeselo_results['win_count']}-{bayeselo_results['draw_count']}-{bayeselo_results['loss_count']}")
+            else:
+                est_elo = None
+                print(f" [BayesElo] ❌ Failed to compute")
+                
         except Exception as e:
-            print(f"❌ Stockfish evaluation failed: {e}")
-            for p in sf_workers:
-                if p.is_alive():
-                    p.terminate()
-                    p.join(timeout=1)
-            raise
-        
-        # Collect Stockfish Results
-        total_sf_score = 0.0
-        total_sf_games = 0
-        while not sf_queue.empty():
-            res = sf_queue.get()
-            total_sf_score += res['score']
-            total_sf_games += res['games']
+            print(f" [BayesElo] ❌ Error: {e}")
+            import traceback
+            traceback.print_exc()
+            est_elo = None
 
-        if total_sf_games > 0:
-            sf_wr = total_sf_score / total_sf_games
-            safe_wr = max(0.01, min(0.99, sf_wr))
-            est_elo = STOCKFISH_ELO - 400 * math.log10(1/safe_wr - 1)
-            print(f" [Stockfish] Score: {total_sf_score}/{total_sf_games} ({sf_wr*100:.1f}%) | Est. Elo: {est_elo:.0f}")
-    
+        logger.log(iteration, p_loss, v_loss, win_rate, est_elo)
+
+            
     else:
         print(f" [Arena] Candidate rejected (WR <= 55%). Skipping Stockfish evaluation.")
     

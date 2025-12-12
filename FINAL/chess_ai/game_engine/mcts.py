@@ -8,7 +8,7 @@ VIRTUAL_LOSS = 3.0
 
 # PUCT Constants
 CPUCT_BASE = 19652
-CPUCT_INIT = 0.8
+CPUCT_INIT = 1.0
 
 def move_to_index(move_str):
     """
