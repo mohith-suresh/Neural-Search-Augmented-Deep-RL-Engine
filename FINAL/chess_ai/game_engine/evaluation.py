@@ -302,7 +302,7 @@ class StockfishEvaluator:
                 print(f"Difference:     +{results['diff_elo']:.0f} Elo")
                 print(f"Win Rate:       {results['win_rate']:.1%}")
                 print(f"Record:         {results['win_count']}-{results['loss_count']}-{results['draw_count']}")
-                print(f"PGN Saved:      {pgn_path}")
+                print(f"PGN Saved:      {pgn_output_path}")
                 print("=" * 70)
                 
                 return results
