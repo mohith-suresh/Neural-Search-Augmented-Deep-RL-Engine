@@ -241,14 +241,14 @@ BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
 
 # --- CUDA ---
-CUDA_TIMEOUT_INFERENCE = 0.02 
+CUDA_TIMEOUT_INFERENCE = 0.1 
 CUDA_STREAMS = 8 
 
 # --- EXECUTION ---
 ITERATIONS = 1000
 NUM_WORKERS = 42            
 WORKER_BATCH_SIZE = 8       
-GAMES_PER_WORKER = 5        
+GAMES_PER_WORKER = 8        
 
 # --- QUALITY ---
 SIMULATIONS = 1600           
