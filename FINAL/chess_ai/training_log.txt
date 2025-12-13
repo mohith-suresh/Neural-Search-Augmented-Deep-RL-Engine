@@ -59912,3 +59912,390 @@ Batch 610/612 | Loss: 2.5436 | ETA: 1m 45s
 Epoch 1/3 | Loss: 2.5437 (Pol: 2.4427 Val: 0.1010)
 Batch 5/612 | Loss: 2.4762 | ETA: 1m 45s
 Batch 10/612 | Loss: 2.4692 | ETA: 1m 45s
+Batch 15/612 | Loss: 2.4638 | ETA: 1m 45s
+Batch 20/612 | Loss: 2.4624 | ETA: 1m 45s
+Batch 25/612 | Loss: 2.4648 | ETA: 1m 45s
+Batch 30/612 | Loss: 2.4606 | ETA: 1m 45s
+Batch 35/612 | Loss: 2.4621 | ETA: 1m 45s
+Batch 40/612 | Loss: 2.4644 | ETA: 1m 45s
+Batch 45/612 | Loss: 2.4668 | ETA: 1m 45s
+Batch 50/612 | Loss: 2.4656 | ETA: 1m 45s
+Batch 55/612 | Loss: 2.4669 | ETA: 1m 45s
+Batch 60/612 | Loss: 2.4660 | ETA: 1m 45s
+Batch 65/612 | Loss: 2.4661 | ETA: 1m 45s
+Batch 70/612 | Loss: 2.4667 | ETA: 1m 45s
+Batch 75/612 | Loss: 2.4676 | ETA: 1m 45s
+Batch 80/612 | Loss: 2.4671 | ETA: 1m 45s
+Batch 85/612 | Loss: 2.4693 | ETA: 1m 45s
+Batch 90/612 | Loss: 2.4692 | ETA: 1m 45s
+Batch 95/612 | Loss: 2.4701 | ETA: 1m 45s
+Batch 100/612 | Loss: 2.4710 | ETA: 1m 45s
+Batch 105/612 | Loss: 2.4709 | ETA: 1m 45s
+Batch 110/612 | Loss: 2.4720 | ETA: 1m 45s
+Batch 115/612 | Loss: 2.4723 | ETA: 1m 45s
+Batch 120/612 | Loss: 2.4722 | ETA: 1m 45s
+Batch 125/612 | Loss: 2.4722 | ETA: 1m 45s
+Batch 130/612 | Loss: 2.4723 | ETA: 1m 45s
+Batch 135/612 | Loss: 2.4719 | ETA: 1m 45s
+Batch 140/612 | Loss: 2.4721 | ETA: 1m 45s
+Batch 145/612 | Loss: 2.4724 | ETA: 1m 45s
+Batch 150/612 | Loss: 2.4720 | ETA: 1m 45s
+Batch 155/612 | Loss: 2.4722 | ETA: 1m 45s
+Batch 160/612 | Loss: 2.4726 | ETA: 1m 45s
+Batch 165/612 | Loss: 2.4728 | ETA: 1m 45s
+Batch 170/612 | Loss: 2.4723 | ETA: 1m 45s
+Batch 175/612 | Loss: 2.4734 | ETA: 1m 45s
+Batch 180/612 | Loss: 2.4737 | ETA: 1m 45s
+Batch 185/612 | Loss: 2.4737 | ETA: 1m 45s
+Batch 190/612 | Loss: 2.4743 | ETA: 1m 45s
+Batch 195/612 | Loss: 2.4746 | ETA: 1m 45s
+Batch 200/612 | Loss: 2.4745 | ETA: 1m 45s
+Batch 205/612 | Loss: 2.4750 | ETA: 1m 45s
+Batch 210/612 | Loss: 2.4756 | ETA: 1m 45s
+Batch 215/612 | Loss: 2.4762 | ETA: 1m 45s
+Batch 220/612 | Loss: 2.4769 | ETA: 1m 45s
+Batch 225/612 | Loss: 2.4775 | ETA: 1m 45s
+Batch 230/612 | Loss: 2.4773 | ETA: 1m 45s
+Batch 235/612 | Loss: 2.4780 | ETA: 1m 45s
+Batch 240/612 | Loss: 2.4784 | ETA: 1m 45s
+Batch 245/612 | Loss: 2.4787 | ETA: 1m 45s
+Batch 250/612 | Loss: 2.4790 | ETA: 1m 45s
+Batch 255/612 | Loss: 2.4793 | ETA: 1m 45s
+Batch 260/612 | Loss: 2.4793 | ETA: 1m 45s
+Batch 265/612 | Loss: 2.4798 | ETA: 1m 45s
+Batch 270/612 | Loss: 2.4799 | ETA: 1m 45s
+Batch 275/612 | Loss: 2.4801 | ETA: 1m 45s
+Batch 280/612 | Loss: 2.4804 | ETA: 1m 45s
+Batch 285/612 | Loss: 2.4804 | ETA: 1m 45s
+Batch 290/612 | Loss: 2.4807 | ETA: 1m 45s
+Batch 295/612 | Loss: 2.4814 | ETA: 1m 45s
+Batch 300/612 | Loss: 2.4816 | ETA: 1m 45s
+Batch 305/612 | Loss: 2.4819 | ETA: 1m 45s
+Batch 310/612 | Loss: 2.4822 | ETA: 1m 45s
+Batch 315/612 | Loss: 2.4823 | ETA: 1m 45s
+Batch 320/612 | Loss: 2.4828 | ETA: 1m 45s
+Batch 325/612 | Loss: 2.4830 | ETA: 1m 45s
+Batch 330/612 | Loss: 2.4835 | ETA: 1m 45s
+Batch 335/612 | Loss: 2.4839 | ETA: 1m 45s
+Batch 340/612 | Loss: 2.4843 | ETA: 1m 45s
+Batch 345/612 | Loss: 2.4844 | ETA: 1m 45s
+Batch 350/612 | Loss: 2.4848 | ETA: 1m 45s
+Batch 355/612 | Loss: 2.4849 | ETA: 1m 45s
+Batch 360/612 | Loss: 2.4849 | ETA: 1m 45s
+Batch 365/612 | Loss: 2.4851 | ETA: 1m 45s
+Batch 370/612 | Loss: 2.4857 | ETA: 1m 45s
+Batch 375/612 | Loss: 2.4857 | ETA: 1m 45s
+Batch 380/612 | Loss: 2.4863 | ETA: 1m 45s
+Batch 385/612 | Loss: 2.4864 | ETA: 1m 45s
+Batch 390/612 | Loss: 2.4869 | ETA: 1m 45s
+Batch 395/612 | Loss: 2.4873 | ETA: 1m 45s
+Batch 400/612 | Loss: 2.4875 | ETA: 1m 45s
+Batch 405/612 | Loss: 2.4876 | ETA: 1m 45s
+Batch 410/612 | Loss: 2.4881 | ETA: 1m 45s
+Batch 415/612 | Loss: 2.4882 | ETA: 1m 45s
+Batch 420/612 | Loss: 2.4883 | ETA: 1m 45s
+Batch 425/612 | Loss: 2.4885 | ETA: 1m 45s
+Batch 430/612 | Loss: 2.4884 | ETA: 1m 45s
+Batch 435/612 | Loss: 2.4885 | ETA: 1m 45s
+Batch 440/612 | Loss: 2.4886 | ETA: 1m 45s
+Batch 445/612 | Loss: 2.4888 | ETA: 1m 45s
+Batch 450/612 | Loss: 2.4890 | ETA: 1m 45s
+Batch 455/612 | Loss: 2.4893 | ETA: 1m 45s
+Batch 460/612 | Loss: 2.4895 | ETA: 1m 45s
+Batch 465/612 | Loss: 2.4898 | ETA: 1m 45s
+Batch 470/612 | Loss: 2.4900 | ETA: 1m 45s
+Batch 475/612 | Loss: 2.4903 | ETA: 1m 45s
+Batch 480/612 | Loss: 2.4905 | ETA: 1m 45s
+Batch 485/612 | Loss: 2.4907 | ETA: 1m 45s
+Batch 490/612 | Loss: 2.4909 | ETA: 1m 45s
+Batch 495/612 | Loss: 2.4909 | ETA: 1m 45s
+Batch 500/612 | Loss: 2.4912 | ETA: 1m 45s
+Batch 505/612 | Loss: 2.4916 | ETA: 1m 45s
+Batch 510/612 | Loss: 2.4919 | ETA: 1m 45s
+Batch 515/612 | Loss: 2.4922 | ETA: 1m 45s
+Batch 520/612 | Loss: 2.4924 | ETA: 1m 45s
+Batch 525/612 | Loss: 2.4927 | ETA: 1m 45s
+Batch 530/612 | Loss: 2.4931 | ETA: 1m 45s
+Batch 535/612 | Loss: 2.4933 | ETA: 1m 45s
+Batch 540/612 | Loss: 2.4935 | ETA: 1m 45s
+Batch 545/612 | Loss: 2.4938 | ETA: 1m 45s
+Batch 550/612 | Loss: 2.4939 | ETA: 1m 45s
+Batch 555/612 | Loss: 2.4943 | ETA: 1m 45s
+Batch 560/612 | Loss: 2.4948 | ETA: 1m 45s
+Batch 565/612 | Loss: 2.4951 | ETA: 1m 45s
+Batch 570/612 | Loss: 2.4954 | ETA: 1m 45s
+Batch 575/612 | Loss: 2.4958 | ETA: 1m 45s
+Batch 580/612 | Loss: 2.4960 | ETA: 1m 45s
+Batch 585/612 | Loss: 2.4962 | ETA: 1m 45s
+Batch 590/612 | Loss: 2.4964 | ETA: 1m 45s
+Batch 595/612 | Loss: 2.4965 | ETA: 1m 45s
+Batch 600/612 | Loss: 2.4967 | ETA: 1m 45s
+Batch 605/612 | Loss: 2.4969 | ETA: 1m 45s
+Batch 610/612 | Loss: 2.4969 | ETA: 1m 45s
+Epoch 2/3 | Loss: 2.4971 (Pol: 2.4080 Val: 0.0891)
+Batch 5/612 | Loss: 2.4468 | ETA: 1m 45s
+Batch 10/612 | Loss: 2.4388 | ETA: 1m 45s
+Batch 15/612 | Loss: 2.4391 | ETA: 1m 45s
+Batch 20/612 | Loss: 2.4395 | ETA: 1m 45s
+Batch 25/612 | Loss: 2.4397 | ETA: 1m 45s
+Batch 30/612 | Loss: 2.4408 | ETA: 1m 45s
+Batch 35/612 | Loss: 2.4416 | ETA: 1m 45s
+Batch 40/612 | Loss: 2.4424 | ETA: 1m 45s
+Batch 45/612 | Loss: 2.4432 | ETA: 1m 45s
+Batch 50/612 | Loss: 2.4448 | ETA: 1m 45s
+Batch 55/612 | Loss: 2.4468 | ETA: 1m 45s
+Batch 60/612 | Loss: 2.4442 | ETA: 1m 45s
+Batch 65/612 | Loss: 2.4429 | ETA: 1m 45s
+Batch 70/612 | Loss: 2.4428 | ETA: 1m 45s
+Batch 75/612 | Loss: 2.4419 | ETA: 1m 45s
+Batch 80/612 | Loss: 2.4411 | ETA: 1m 45s
+Batch 85/612 | Loss: 2.4409 | ETA: 1m 45s
+Batch 90/612 | Loss: 2.4421 | ETA: 1m 45s
+Batch 95/612 | Loss: 2.4414 | ETA: 1m 45s
+Batch 100/612 | Loss: 2.4413 | ETA: 1m 45s
+Batch 105/612 | Loss: 2.4419 | ETA: 1m 45s
+Batch 110/612 | Loss: 2.4423 | ETA: 1m 45s
+Batch 115/612 | Loss: 2.4427 | ETA: 1m 45s
+Batch 120/612 | Loss: 2.4428 | ETA: 1m 45s
+Batch 125/612 | Loss: 2.4433 | ETA: 1m 45s
+Batch 130/612 | Loss: 2.4444 | ETA: 1m 45s
+Batch 135/612 | Loss: 2.4452 | ETA: 1m 45s
+Batch 140/612 | Loss: 2.4460 | ETA: 1m 45s
+Batch 145/612 | Loss: 2.4459 | ETA: 1m 45s
+Batch 150/612 | Loss: 2.4464 | ETA: 1m 45s
+Batch 155/612 | Loss: 2.4469 | ETA: 1m 45s
+Batch 160/612 | Loss: 2.4469 | ETA: 1m 45s
+Batch 165/612 | Loss: 2.4467 | ETA: 1m 45s
+Batch 170/612 | Loss: 2.4468 | ETA: 1m 45s
+Batch 175/612 | Loss: 2.4469 | ETA: 1m 45s
+Batch 180/612 | Loss: 2.4472 | ETA: 1m 45s
+Batch 185/612 | Loss: 2.4480 | ETA: 1m 45s
+Batch 190/612 | Loss: 2.4481 | ETA: 1m 45s
+Batch 195/612 | Loss: 2.4485 | ETA: 1m 45s
+Batch 200/612 | Loss: 2.4489 | ETA: 1m 45s
+Batch 205/612 | Loss: 2.4490 | ETA: 1m 45s
+Batch 210/612 | Loss: 2.4496 | ETA: 1m 45s
+Batch 215/612 | Loss: 2.4499 | ETA: 1m 45s
+Batch 220/612 | Loss: 2.4501 | ETA: 1m 45s
+Batch 225/612 | Loss: 2.4498 | ETA: 1m 45s
+Batch 230/612 | Loss: 2.4499 | ETA: 1m 45s
+Batch 235/612 | Loss: 2.4503 | ETA: 1m 45s
+Batch 240/612 | Loss: 2.4504 | ETA: 1m 45s
+Batch 245/612 | Loss: 2.4501 | ETA: 1m 45s
+Batch 250/612 | Loss: 2.4509 | ETA: 1m 45s
+Batch 255/612 | Loss: 2.4508 | ETA: 1m 45s
+Batch 260/612 | Loss: 2.4506 | ETA: 1m 45s
+Batch 265/612 | Loss: 2.4512 | ETA: 1m 45s
+Batch 270/612 | Loss: 2.4512 | ETA: 1m 45s
+Batch 275/612 | Loss: 2.4511 | ETA: 1m 45s
+Batch 280/612 | Loss: 2.4509 | ETA: 1m 45s
+Batch 285/612 | Loss: 2.4514 | ETA: 1m 45s
+Batch 290/612 | Loss: 2.4516 | ETA: 1m 45s
+Batch 295/612 | Loss: 2.4517 | ETA: 1m 45s
+Batch 300/612 | Loss: 2.4519 | ETA: 1m 45s
+Batch 305/612 | Loss: 2.4524 | ETA: 1m 45s
+Batch 310/612 | Loss: 2.4526 | ETA: 1m 45s
+Batch 315/612 | Loss: 2.4528 | ETA: 1m 45s
+Batch 320/612 | Loss: 2.4532 | ETA: 1m 45s
+Batch 325/612 | Loss: 2.4536 | ETA: 1m 45s
+Batch 330/612 | Loss: 2.4535 | ETA: 1m 45s
+Batch 335/612 | Loss: 2.4536 | ETA: 1m 45s
+Batch 340/612 | Loss: 2.4537 | ETA: 1m 45s
+Batch 345/612 | Loss: 2.4540 | ETA: 1m 45s
+Batch 350/612 | Loss: 2.4545 | ETA: 1m 45s
+Batch 355/612 | Loss: 2.4545 | ETA: 1m 45s
+Batch 360/612 | Loss: 2.4548 | ETA: 1m 45s
+Batch 365/612 | Loss: 2.4550 | ETA: 1m 45s
+Batch 370/612 | Loss: 2.4552 | ETA: 1m 45s
+Batch 375/612 | Loss: 2.4553 | ETA: 1m 45s
+Batch 380/612 | Loss: 2.4555 | ETA: 1m 45s
+Batch 385/612 | Loss: 2.4557 | ETA: 1m 45s
+Batch 390/612 | Loss: 2.4556 | ETA: 1m 45s
+Batch 395/612 | Loss: 2.4560 | ETA: 1m 45s
+Batch 400/612 | Loss: 2.4563 | ETA: 1m 45s
+Batch 405/612 | Loss: 2.4564 | ETA: 1m 45s
+Batch 410/612 | Loss: 2.4566 | ETA: 1m 45s
+Batch 415/612 | Loss: 2.4567 | ETA: 1m 45s
+Batch 420/612 | Loss: 2.4570 | ETA: 1m 45s
+Batch 425/612 | Loss: 2.4573 | ETA: 1m 45s
+Batch 430/612 | Loss: 2.4575 | ETA: 1m 45s
+Batch 435/612 | Loss: 2.4578 | ETA: 1m 45s
+Batch 440/612 | Loss: 2.4581 | ETA: 1m 45s
+Batch 445/612 | Loss: 2.4582 | ETA: 1m 45s
+Batch 450/612 | Loss: 2.4581 | ETA: 1m 45s
+Batch 455/612 | Loss: 2.4583 | ETA: 1m 45s
+Batch 460/612 | Loss: 2.4587 | ETA: 1m 45s
+Batch 465/612 | Loss: 2.4587 | ETA: 1m 45s
+Batch 470/612 | Loss: 2.4589 | ETA: 1m 45s
+Batch 475/612 | Loss: 2.4592 | ETA: 1m 45s
+Batch 480/612 | Loss: 2.4595 | ETA: 1m 45s
+Batch 485/612 | Loss: 2.4595 | ETA: 1m 45s
+Batch 490/612 | Loss: 2.4596 | ETA: 1m 45s
+Batch 495/612 | Loss: 2.4597 | ETA: 1m 45s
+Batch 500/612 | Loss: 2.4602 | ETA: 1m 45s
+Batch 505/612 | Loss: 2.4603 | ETA: 1m 45s
+Batch 510/612 | Loss: 2.4606 | ETA: 1m 45s
+Batch 515/612 | Loss: 2.4605 | ETA: 1m 45s
+Batch 520/612 | Loss: 2.4609 | ETA: 1m 45s
+Batch 525/612 | Loss: 2.4611 | ETA: 1m 45s
+Batch 530/612 | Loss: 2.4614 | ETA: 1m 45s
+Batch 535/612 | Loss: 2.4615 | ETA: 1m 45s
+Batch 540/612 | Loss: 2.4617 | ETA: 1m 45s
+Batch 545/612 | Loss: 2.4619 | ETA: 1m 45s
+Batch 550/612 | Loss: 2.4624 | ETA: 1m 45s
+Batch 555/612 | Loss: 2.4624 | ETA: 1m 45s
+Batch 560/612 | Loss: 2.4627 | ETA: 1m 45s
+Batch 565/612 | Loss: 2.4630 | ETA: 1m 45s
+Batch 570/612 | Loss: 2.4633 | ETA: 1m 45s
+Batch 575/612 | Loss: 2.4634 | ETA: 1m 45s
+Batch 580/612 | Loss: 2.4634 | ETA: 1m 45s
+Batch 585/612 | Loss: 2.4638 | ETA: 1m 45s
+Batch 590/612 | Loss: 2.4638 | ETA: 1m 45s
+Batch 595/612 | Loss: 2.4639 | ETA: 1m 45s
+Batch 600/612 | Loss: 2.4640 | ETA: 1m 45s
+Batch 605/612 | Loss: 2.4641 | ETA: 1m 45s
+Batch 610/612 | Loss: 2.4642 | ETA: 1m 45s
+Epoch 3/3 | Loss: 2.4644 (Pol: 2.3802 Val: 0.0842)
+New model saved to game_engine/model/candidate.pth
+
+✅ ITERATION 34 - PHASE 2 COMPLETE (Policy Loss: 2.3802, Value Loss: 0.0842)
+
+============================================================
+ITERATION 34 - PHASE 3: EVALUATION
+============================================================
+
+=== ITERATION 34: EVALUATION PHASE ===
+ [Arena] Playing 40 games...
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+Arena Game 1: 1-0 (Cand vs Champ) | Total Moves: 75
+Arena Game 1: 1-0 (Cand vs Champ) | Total Moves: 99
+Arena Game 1: 1-0 (Cand vs Champ) | Total Moves: 99
+Arena Game 2: 0-1 (Champ vs Cand) | Total Moves: 16
+Arena Game 1: 0-1 (Cand vs Champ) | Total Moves: 96
+Arena Game 1: 0-1 (Cand vs Champ) | Total Moves: 100
+Arena Game 1: 1-0 (Cand vs Champ) | Total Moves: 121
+Arena Game 1: 1-0 (Cand vs Champ) | Total Moves: 121
+Arena Game 1: 1-0 (Cand vs Champ) | Total Moves: 121
+ [Arena] Game 1 ended in FORCED DRAW (Max moves 150)
+Arena Game 1: * (Cand vs Champ) | Total Moves: 150
+Arena Game 2: 0-1 (Champ vs Cand) | Total Moves: 44
+ [Arena] Game 1 ended in FORCED DRAW (Max moves 150)
+Arena Game 1: * (Cand vs Champ) | Total Moves: 150
+Arena Game 2: 0-1 (Champ vs Cand) | Total Moves: 88
+Arena Game 2: 0-1 (Champ vs Cand) | Total Moves: 132
+Arena Game 3: 1-0 (Cand vs Champ) | Total Moves: 75
+Arena Game 2: 1-0 (Champ vs Cand) | Total Moves: 81
+Arena Game 3: 1-0 (Cand vs Champ) | Total Moves: 121
+Arena Game 2: 0-1 (Champ vs Cand) | Total Moves: 104
+Arena Game 2: 1-0 (Champ vs Cand) | Total Moves: 121
+ [Arena] Game 2 ended in FORCED DRAW (Max moves 150)
+Arena Game 2: * (Champ vs Cand) | Total Moves: 150
+ [Arena] Game 2 ended in FORCED DRAW (Max moves 150)
+Arena Game 2: * (Champ vs Cand) | Total Moves: 150
+ [Arena] Game 2 ended in FORCED DRAW (Max moves 150)
+Arena Game 2: * (Champ vs Cand) | Total Moves: 150
+Arena Game 3: 0-1 (Cand vs Champ) | Total Moves: 108
+Arena Game 3: 0-1 (Cand vs Champ) | Total Moves: 46
+Arena Game 3: 0-1 (Cand vs Champ) | Total Moves: 134
+ [Arena] Game 4 ended in FORCED DRAW (Max moves 150)
+Arena Game 4: * (Champ vs Cand) | Total Moves: 150
+   [Arena] Worker 4: 2W - 0D - 1L
+Arena Game 3: 0-1 (Cand vs Champ) | Total Moves: 70
+Arena Game 3: 1-0 (Cand vs Champ) | Total Moves: 139
+Arena Game 3: 1-0 (Cand vs Champ) | Total Moves: 121
+ [Arena] Game 3 ended in FORCED DRAW (Max moves 150)
+Arena Game 3: * (Cand vs Champ) | Total Moves: 150
+Arena Game 4: 0-1 (Champ vs Cand) | Total Moves: 68
+   [Arena] Worker 6: 1W - 0D - 1L
+Arena Game 4: 0-1 (Champ vs Cand) | Total Moves: 140
+   [Arena] Worker 9: 4W - 0D - 0L
+Arena Game 4: 0-1 (Champ vs Cand) | Total Moves: 60
+   [Arena] Worker 0: 3W - 0D - 1L
+ [Arena] Game 3 ended in FORCED DRAW (Max moves 150)
+Arena Game 3: * (Cand vs Champ) | Total Moves: 150
+Arena Game 4: 0-1 (Champ vs Cand) | Total Moves: 68
+   [Arena] Worker 7: 2W - 0D - 0L
+ [Arena] Game 4 ended in FORCED DRAW (Max moves 150)
+Arena Game 4: * (Champ vs Cand) | Total Moves: 150
+   [Arena] Worker 8: 1W - 0D - 2L
+ [Arena] Game 4 ended in FORCED DRAW (Max moves 150)
+Arena Game 4: * (Champ vs Cand) | Total Moves: 150
+   [Arena] Worker 3: 3W - 0D - 0L
+ [Arena] Game 4 ended in FORCED DRAW (Max moves 150)
+Arena Game 4: * (Champ vs Cand) | Total Moves: 150
+   [Arena] Worker 2: 1W - 0D - 2L
+ [Arena] Game 4 ended in FORCED DRAW (Max moves 150)
+Arena Game 4: * (Champ vs Cand) | Total Moves: 150
+   [Arena] Worker 1: 1W - 0D - 1L
+Arena Game 4: 0-1 (Champ vs Cand) | Total Moves: 140
+   [Arena] Worker 5: 2W - 0D - 0L
+✅ All arena workers finished.
+ [Arena] Final Result: 66.5% Win Rate (20W - 0D - 12FD - 8L)
+ [Arena] ⭐ Candidate PROMOTED! (WR > 55%) ⭐
+ [Stockfish/BayesElo] Playing 20 games vs Elo 1320...
+
+======================================================================
+📊 STOCKFISH EVALUATION - 20 GAMES
+======================================================================
+
+Game 1/20: 0-1 (Model vs Stockfish) | Total Moves: 92
+Game 2/20: 1-0 (Stockfish vs Model) | Total Moves: 47
+Game 3/20: 0-1 (Model vs Stockfish) | Total Moves: 52
+Game 4/20: 1-0 (Stockfish vs Model) | Total Moves: 57
+Game 5/20: 0-1 (Model vs Stockfish) | Total Moves: 54
+Game 6/20: 1-0 (Stockfish vs Model) | Total Moves: 69
+Game 7/20: 0-1 (Model vs Stockfish) | Total Moves: 70
+Game 8/20: 1-0 (Stockfish vs Model) | Total Moves: 71
+Game 9/20: 0-1 (Model vs Stockfish) | Total Moves: 78
+Game 10/20: 1-0 (Stockfish vs Model) | Total Moves: 57
+Game 11/20: 0-1 (Model vs Stockfish) | Total Moves: 52
+Game 12/20: 1-0 (Stockfish vs Model) | Total Moves: 45
+Game 13/20: 0-1 (Model vs Stockfish) | Total Moves: 46
+Game 14/20: 1-0 (Stockfish vs Model) | Total Moves: 43
+Game 15/20: 0-1 (Model vs Stockfish) | Total Moves: 48
+Game 16/20: 1-0 (Stockfish vs Model) | Total Moves: 21
+Game 17/20: 0-1 (Model vs Stockfish) | Total Moves: 52
+Game 18/20: 1-0 (Stockfish vs Model) | Total Moves: 41
+Game 19/20: 0-1 (Model vs Stockfish) | Total Moves: 18
+Game 20/20: 1-0 (Stockfish vs Model) | Total Moves: 37
+
+✅ Saved 20 games to game_engine/evaluation/pgn/iter_34_1765588902.pgn
+🔄 Running BayesElo on iter_34_1765588902.pgn...
+✅ BayesElo Complete
+   Model: 1086 ± 131 Elo
+   vs Stockfish (1320)
+   Difference: +-234 Elo
+
+======================================================================
+🏆 BAYESELO RESULTS
+======================================================================
+Model Strength:     1086 ± 131 Elo
+Vs Stockfish:       1320 Elo
+Difference:         +-234 Elo [-576, -52]
+======================================================================
+
+
+======================================================================
+✅ TEST SUCCESSFUL
+======================================================================
+Your Model:     1086 Elo
+Stockfish:      1320 Elo
+Difference:     +-234 Elo
+Win Rate:       0.0%
+Record:         0-20-0
+❌ BayesElo Error: name 'pgn_path' is not defined
+ [BayesElo] ❌ Failed to compute
+
+✅ ITERATION 34 - PHASE 3 COMPLETE
+
+============================================================
+✅ ITERATION 34 COMPLETE: 8h 26m 28.50s
+============================================================
+
+✅ Iteration 34 completed - timeout reset
+[Main] ⚠️  Kill signal received. Exiting gracefully...
+
+[Main] Cleanup: Closing threads and processes...
+[Main] ✅ Shutdown complete
