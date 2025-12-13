@@ -259,7 +259,7 @@ def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model,
         w, d, l, fd = arena.play_match(num_games, temperature=0.0, use_dirichlet=False)
         
         # We create a simple result string for logging
-        result_str = f"Worker {worker_id}: {w}W - {d}D - {l}L"
+        result_str = f"Worker {worker_id}: {w}W - {d}D - {l}L - {fd}FD"
         print(f"   [Arena] {result_str}")
         
         queue.put({"wins": w, "draws": d, "losses": l, "forced_draws": fd})
