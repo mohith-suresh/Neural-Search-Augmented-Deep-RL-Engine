@@ -70985,3 +70985,386 @@ Batch 185/329 | Loss: 2.3887 | ETA: 1m 45s
 Batch 190/329 | Loss: 2.3889 | ETA: 1m 45s
 Batch 195/329 | Loss: 2.3896 | ETA: 1m 45s
 Batch 200/329 | Loss: 2.3903 | ETA: 1m 45s
+Batch 205/329 | Loss: 2.3906 | ETA: 1m 45s
+Batch 210/329 | Loss: 2.3908 | ETA: 1m 45s
+Batch 215/329 | Loss: 2.3914 | ETA: 1m 45s
+Batch 220/329 | Loss: 2.3920 | ETA: 1m 45s
+Batch 225/329 | Loss: 2.3926 | ETA: 1m 45s
+Batch 230/329 | Loss: 2.3932 | ETA: 1m 45s
+Batch 235/329 | Loss: 2.3937 | ETA: 1m 45s
+Batch 240/329 | Loss: 2.3943 | ETA: 1m 45s
+Batch 245/329 | Loss: 2.3949 | ETA: 1m 45s
+Batch 250/329 | Loss: 2.3949 | ETA: 1m 45s
+Batch 255/329 | Loss: 2.3953 | ETA: 1m 45s
+Batch 260/329 | Loss: 2.3959 | ETA: 1m 45s
+Batch 265/329 | Loss: 2.3962 | ETA: 1m 45s
+Batch 270/329 | Loss: 2.3967 | ETA: 1m 45s
+Batch 275/329 | Loss: 2.3970 | ETA: 1m 45s
+Batch 280/329 | Loss: 2.3974 | ETA: 1m 45s
+Batch 285/329 | Loss: 2.3979 | ETA: 1m 45s
+Batch 290/329 | Loss: 2.3986 | ETA: 1m 45s
+Batch 295/329 | Loss: 2.3989 | ETA: 1m 45s
+Batch 300/329 | Loss: 2.3991 | ETA: 1m 45s
+Batch 305/329 | Loss: 2.4001 | ETA: 1m 45s
+Batch 310/329 | Loss: 2.4006 | ETA: 1m 45s
+Batch 315/329 | Loss: 2.4010 | ETA: 1m 45s
+Batch 320/329 | Loss: 2.4014 | ETA: 1m 45s
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+Batch 325/329 | Loss: 2.4018 | ETA: 1m 45s
+Epoch 3/3 | Loss: 2.4019 (Pol: 2.3204 Val: 0.0815)
+New model saved to game_engine/model/candidate.pth
+
+✅ ITERATION 37 - PHASE 2 COMPLETE (Policy Loss: 2.3204, Value Loss: 0.0815)
+
+[Main] ⚠️  Kill signal received AFTER Phase 2
+[Main] Saving state and exiting. Eval will run on next startup.
+
+[Main] Cleanup: Closing threads and processes...
+[Main] ✅ Shutdown complete
+⏱️ Deadlock timeout: 8 hour per iteration
+============================================================
+STARTING RUN
+Resuming from Iteration: 38
+Workers: 42 | Sims: 1600 | Batch: 8
+============================================================
+
+============================================================
+ITERATION 38 - PHASE 1: SELF-PLAY
+============================================================
+
+=== ITERATION 38: SELF-PLAY PHASE (Batched MCTS) ===
+Server: Loading model from game_engine/model/best_model.pth
+Server Ready: Batch=1024, Streams=8, Device=cuda
+   [Worker 2] Starting 5 games in parallel...
+   [Worker 0] Starting 5 games in parallel...
+   [Worker 1] Starting 5 games in parallel...
+   [Worker 4] Starting 5 games in parallel...
+   [Worker 12] Starting 5 games in parallel...
+   [Worker 3] Starting 5 games in parallel...
+   [Worker 6] Starting 5 games in parallel...
+   [Worker 5] Starting 5 games in parallel...
+   [Worker 10] Starting 5 games in parallel...
+   [Worker 7] Starting 5 games in parallel...
+   [Worker 22] Starting 5 games in parallel...
+   [Worker 23] Starting 5 games in parallel...
+   [Worker 8] Starting 5 games in parallel...
+   [Worker 9] Starting 5 games in parallel...
+   [Worker 11] Starting 5 games in parallel...
+   [Worker 15] Starting 5 games in parallel...
+   [Worker 17] Starting 5 games in parallel...
+   [Worker 16] Starting 5 games in parallel...
+   [Worker 13] Starting 5 games in parallel...
+   [Worker 14] Starting 5 games in parallel...
+   [Worker 27] Starting 5 games in parallel...
+   [Worker 25] Starting 5 games in parallel...
+   [Worker 20] Starting 5 games in parallel...
+   [Worker 18] Starting 5 games in parallel...
+   [Worker 24] Starting 5 games in parallel...
+   [Worker 19] Starting 5 games in parallel...
+   [Worker 21] Starting 5 games in parallel...
+   [Worker 26] Starting 5 games in parallel...
+   [Worker 30] Starting 5 games in parallel...
+   [Worker 28] Starting 5 games in parallel...
+   [Worker 29] Starting 5 games in parallel...
+   [Worker 32] Starting 5 games in parallel...
+   [Worker 35] Starting 5 games in parallel...
+   [Worker 31] Starting 5 games in parallel...
+   [Worker 34] Starting 5 games in parallel...
+   [Worker 33] Starting 5 games in parallel...
+   [Worker 38] Starting 5 games in parallel...
+   [Worker 36] Starting 5 games in parallel...
+   [Worker 39] Starting 5 games in parallel...
+   [Worker 37] Starting 5 games in parallel...
+   [Worker 41] Starting 5 games in parallel...
+   [Worker 40] Starting 5 games in parallel...
+   [Worker 0] G1 Move 1: d2d3 (18.46s | 87 sim/s)
+   [Worker 10] G1 Move 1: e2e4 (17.82s | 90 sim/s)
+   [Worker 5] G1 Move 1: a2a3 (18.22s | 88 sim/s)
+   [Worker 15] G1 Move 1: e2e4 (18.39s | 87 sim/s)
+   [Worker 25] G1 Move 1: a2a4 (18.91s | 85 sim/s)
+   [Worker 35] G1 Move 1: e2e4 (19.01s | 84 sim/s)
+   [Worker 30] G1 Move 1: h2h3 (19.37s | 83 sim/s)
+   [Worker 40] G1 Move 1: a2a4 (19.10s | 84 sim/s)
+   [Worker 20] G1 Move 1: e2e4 (20.87s | 77 sim/s)
+   [Worker 0] G2 Move 1: e2e4 (18.47s | 87 sim/s)
+   [Worker 10] G2 Move 1: e2e4 (18.57s | 86 sim/s)
+   [Worker 5] G2 Move 1: d2d3 (18.66s | 86 sim/s)
+   [Worker 15] G2 Move 1: f2f4 (18.61s | 86 sim/s)
+   [Worker 25] G2 Move 1: a2a3 (18.39s | 87 sim/s)
+   [Worker 35] G2 Move 1: c2c3 (18.55s | 86 sim/s)
+   [Worker 30] G2 Move 1: e2e4 (18.57s | 86 sim/s)
+   [Worker 40] G2 Move 1: e2e4 (18.50s | 86 sim/s)
+   [Worker 20] G2 Move 1: f2f4 (20.61s | 78 sim/s)
+   [Worker 0] G3 Move 1: e2e4 (18.77s | 85 sim/s)
+   [Worker 10] G3 Move 1: a2a4 (18.88s | 85 sim/s)
+   [Worker 5] G3 Move 1: e2e4 (18.58s | 86 sim/s)
+   [Worker 15] G3 Move 1: f2f3 (18.68s | 86 sim/s)
+   [Worker 25] G3 Move 1: c2c4 (18.70s | 86 sim/s)
+   [Worker 35] G3 Move 1: g2g3 (18.63s | 86 sim/s)
+   [Worker 30] G3 Move 1: e2e4 (18.59s | 86 sim/s)
+   [Worker 40] G3 Move 1: g1h3 (18.75s | 85 sim/s)
+   [Worker 20] G3 Move 1: e2e4 (20.69s | 77 sim/s)
+   [Worker 0] G4 Move 1: e2e4 (18.33s | 87 sim/s)
+   [Worker 10] G4 Move 1: e2e4 (18.26s | 88 sim/s)
+   [Worker 5] G4 Move 1: b2b4 (18.30s | 87 sim/s)
+   [Worker 15] G4 Move 1: g1h3 (18.33s | 87 sim/s)
+   [Worker 25] G4 Move 1: c2c3 (18.39s | 87 sim/s)
+   [Worker 35] G4 Move 1: e2e4 (17.79s | 90 sim/s)
+   [Worker 30] G4 Move 1: e2e4 (18.28s | 88 sim/s)
+   [Worker 40] G4 Move 1: b1c3 (17.87s | 90 sim/s)
+   [Worker 20] G4 Move 1: e2e4 (19.93s | 80 sim/s)
+   [Worker 0] G5 Move 1: e2e4 (18.11s | 88 sim/s)
+   [Worker 10] G5 Move 1: e2e4 (17.87s | 90 sim/s)
+   [Worker 5] G5 Move 1: e2e4 (18.18s | 88 sim/s)
+   [Worker 15] G5 Move 1: e2e3 (18.09s | 88 sim/s)
+   [Worker 25] G5 Move 1: e2e4 (18.20s | 88 sim/s)
+   [Worker 35] G5 Move 1: e2e4 (18.01s | 89 sim/s)
+   [Worker 30] G5 Move 1: e2e4 (17.97s | 89 sim/s)
+   [Worker 40] G5 Move 1: g2g4 (17.93s | 89 sim/s)
+   [Worker 20] G5 Move 1: b1a3 (19.58s | 82 sim/s)
+   [Worker 10] G1 Move 2: f7f6 (17.98s | 89 sim/s)
+   [Worker 5] G1 Move 2: h7h6 (17.79s | 90 sim/s)
+   [Worker 0] G1 Move 2: d7d5 (18.59s | 86 sim/s)
+   [Worker 15] G1 Move 2: e7e5 (18.42s | 87 sim/s)
+   [Worker 25] G1 Move 2: c7c6 (17.87s | 90 sim/s)
+   [Worker 35] G1 Move 2: b8a6 (18.21s | 88 sim/s)
+   [Worker 30] G1 Move 2: b7b6 (18.03s | 89 sim/s)
+   [Worker 40] G1 Move 2: f7f6 (18.00s | 89 sim/s)
+   [Worker 20] G1 Move 2: b8c6 (20.14s | 79 sim/s)
+   [Worker 10] G2 Move 2: g8h6 (18.02s | 89 sim/s)
+   [Worker 0] G2 Move 2: f7f6 (18.11s | 88 sim/s)
+   [Worker 5] G2 Move 2: d7d5 (18.68s | 86 sim/s)
+   [Worker 25] G2 Move 2: f7f6 (17.44s | 92 sim/s)
+   [Worker 15] G2 Move 2: g8h6 (18.02s | 89 sim/s)
+   [Worker 35] G2 Move 2: c7c6 (18.02s | 89 sim/s)
+   [Worker 40] G2 Move 2: b7b5 (17.88s | 89 sim/s)
+   [Worker 30] G2 Move 2: c7c5 (18.05s | 89 sim/s)
+⏱️ Deadlock timeout: 8 hour per iteration
+============================================================
+STARTING RUN
+Resuming from Iteration: 38
+Workers: 42 | Sims: 1600 | Batch: 8
+============================================================
+
+============================================================
+ITERATION 38 - PHASE 1: SELF-PLAY
+============================================================
+
+=== ITERATION 38: SELF-PLAY PHASE (Batched MCTS) ===
+Server: Loading model from game_engine/model/best_model.pth
+Server Ready: Batch=1024, Streams=8, Device=cuda
+   [Worker 4] Starting 5 games in parallel...
+   [Worker 2] Starting 5 games in parallel...
+   [Worker 0] Starting 5 games in parallel...
+   [Worker 1] Starting 5 games in parallel...
+   [Worker 6] Starting 5 games in parallel...
+   [Worker 9] Starting 5 games in parallel...
+   [Worker 7] Starting 5 games in parallel...
+   [Worker 3] Starting 5 games in parallel...
+   [Worker 8] Starting 5 games in parallel...
+   [Worker 5] Starting 5 games in parallel...
+   [Worker 19] Starting 5 games in parallel...
+   [Worker 10] Starting 5 games in parallel...
+   [Worker 12] Starting 5 games in parallel...
+   [Worker 21] Starting 5 games in parallel...
+   [Worker 11] Starting 5 games in parallel...
+   [Worker 26] Starting 5 games in parallel...
+   [Worker 14] Starting 5 games in parallel...
+   [Worker 16] Starting 5 games in parallel...
+   [Worker 18] Starting 5 games in parallel...
+   [Worker 13] Starting 5 games in parallel...
+   [Worker 17] Starting 5 games in parallel...
+   [Worker 15] Starting 5 games in parallel...
+   [Worker 20] Starting 5 games in parallel...
+   [Worker 22] Starting 5 games in parallel...
+   [Worker 24] Starting 5 games in parallel...
+   [Worker 27] Starting 5 games in parallel...
+   [Worker 28] Starting 5 games in parallel...
+   [Worker 23] Starting 5 games in parallel...
+   [Worker 25] Starting 5 games in parallel...
+   [Worker 33] Starting 5 games in parallel...
+   [Worker 29] Starting 5 games in parallel...
+   [Worker 39] Starting 5 games in parallel...
+   [Worker 30] Starting 5 games in parallel...
+   [Worker 32] Starting 5 games in parallel...
+   [Worker 34] Starting 5 games in parallel...
+   [Worker 31] Starting 5 games in parallel...
+   [Worker 36] Starting 5 games in parallel...
+   [Worker 35] Starting 5 games in parallel...
+   [Worker 38] Starting 5 games in parallel...
+   [Worker 40] Starting 5 games in parallel...
+   [Worker 37] Starting 5 games in parallel...
+   [Worker 41] Starting 5 games in parallel...
+   [Worker 5] G1 Move 1: e2e4 (12.76s | 125 sim/s)
+   [Worker 10] G1 Move 1: e2e4 (13.12s | 122 sim/s)
+   [Worker 0] G1 Move 1: e2e4 (13.83s | 116 sim/s)
+   [Worker 15] G1 Move 1: e2e4 (13.59s | 118 sim/s)
+   [Worker 20] G1 Move 1: e2e4 (14.10s | 114 sim/s)
+   [Worker 25] G1 Move 1: e2e4 (13.78s | 116 sim/s)
+   [Worker 35] G1 Move 1: e2e4 (13.52s | 118 sim/s)
+   [Worker 30] G1 Move 1: e2e4 (13.77s | 116 sim/s)
+   [Worker 40] G1 Move 1: b2b3 (13.64s | 117 sim/s)
+   [Worker 5] G2 Move 1: g2g3 (13.70s | 117 sim/s)
+   [Worker 10] G2 Move 1: b2b4 (13.79s | 116 sim/s)
+   [Worker 0] G2 Move 1: h2h4 (13.77s | 116 sim/s)
+   [Worker 15] G2 Move 1: h2h3 (13.32s | 120 sim/s)
+   [Worker 20] G2 Move 1: e2e4 (13.72s | 117 sim/s)
+   [Worker 35] G2 Move 1: e2e4 (13.60s | 118 sim/s)
+   [Worker 25] G2 Move 1: g1h3 (13.85s | 116 sim/s)
+   [Worker 30] G2 Move 1: g2g3 (13.88s | 115 sim/s)
+   [Worker 40] G2 Move 1: h2h4 (13.85s | 116 sim/s)
+   [Worker 5] G3 Move 1: e2e4 (14.40s | 111 sim/s)
+   [Worker 0] G3 Move 1: e2e4 (14.21s | 113 sim/s)
+   [Worker 10] G3 Move 1: e2e4 (14.41s | 111 sim/s)
+   [Worker 15] G3 Move 1: f2f3 (14.54s | 110 sim/s)
+   [Worker 35] G3 Move 1: d2d4 (14.01s | 114 sim/s)
+   [Worker 20] G3 Move 1: a2a4 (14.16s | 113 sim/s)
+   [Worker 25] G3 Move 1: e2e4 (14.28s | 112 sim/s)
+   [Worker 30] G3 Move 1: a2a4 (13.98s | 114 sim/s)
+   [Worker 40] G3 Move 1: h2h4 (14.23s | 112 sim/s)
+   [Worker 5] G4 Move 1: e2e4 (13.91s | 115 sim/s)
+   [Worker 10] G4 Move 1: e2e4 (13.78s | 116 sim/s)
+   [Worker 0] G4 Move 1: e2e4 (14.17s | 113 sim/s)
+   [Worker 15] G4 Move 1: e2e3 (13.98s | 114 sim/s)
+   [Worker 30] G4 Move 1: e2e4 (13.48s | 119 sim/s)
+   [Worker 35] G4 Move 1: e2e4 (14.15s | 113 sim/s)
+   [Worker 25] G4 Move 1: e2e4 (13.85s | 116 sim/s)
+   [Worker 20] G4 Move 1: e2e3 (14.46s | 111 sim/s)
+   [Worker 40] G4 Move 1: e2e4 (14.00s | 114 sim/s)
+   [Worker 5] G5 Move 1: e2e4 (14.03s | 114 sim/s)
+   [Worker 0] G5 Move 1: e2e4 (13.82s | 116 sim/s)
+   [Worker 10] G5 Move 1: a2a4 (14.40s | 111 sim/s)
+   [Worker 15] G5 Move 1: e2e4 (14.29s | 112 sim/s)
+   [Worker 30] G5 Move 1: b2b3 (14.46s | 111 sim/s)
+   [Worker 35] G5 Move 1: h2h4 (14.30s | 112 sim/s)
+   [Worker 25] G5 Move 1: f2f3 (14.39s | 111 sim/s)
+   [Worker 40] G5 Move 1: e2e4 (14.14s | 113 sim/s)
+   [Worker 20] G5 Move 1: e2e4 (14.34s | 112 sim/s)
+   [Worker 0] G1 Move 2: e7e5 (14.37s | 111 sim/s)
+   [Worker 5] G1 Move 2: b8c6 (15.04s | 106 sim/s)
+   [Worker 10] G1 Move 2: b7b5 (15.27s | 105 sim/s)
+   [Worker 15] G1 Move 2: b7b5 (14.65s | 109 sim/s)
+   [Worker 40] G1 Move 2: h7h6 (14.00s | 114 sim/s)
+   [Worker 30] G1 Move 2: c7c6 (14.71s | 109 sim/s)
+   [Worker 35] G1 Move 2: d7d5 (14.86s | 108 sim/s)
+   [Worker 25] G1 Move 2: f7f6 (14.97s | 107 sim/s)
+   [Worker 20] G1 Move 2: f7f6 (14.92s | 107 sim/s)
+   [Worker 0] G2 Move 2: d7d6 (14.16s | 113 sim/s)
+   [Worker 5] G2 Move 2: d7d6 (14.14s | 113 sim/s)
+   [Worker 10] G2 Move 2: d7d6 (14.17s | 113 sim/s)
+   [Worker 15] G2 Move 2: d7d5 (14.25s | 112 sim/s)
+   [Worker 30] G2 Move 2: h7h5 (13.92s | 115 sim/s)
+   [Worker 40] G2 Move 2: h7h5 (14.46s | 111 sim/s)
+   [Worker 35] G2 Move 2: f7f6 (14.53s | 110 sim/s)
+   [Worker 25] G2 Move 2: c7c6 (14.85s | 108 sim/s)
+   [Worker 20] G2 Move 2: b7b5 (14.87s | 108 sim/s)
+   [Worker 0] G3 Move 2: e7e5 (14.17s | 113 sim/s)
+   [Worker 5] G3 Move 2: a7a5 (14.70s | 109 sim/s)
+   [Worker 10] G3 Move 2: b8c6 (14.36s | 111 sim/s)
+   [Worker 30] G3 Move 2: g7g5 (13.78s | 116 sim/s)
+   [Worker 15] G3 Move 2: e7e5 (14.50s | 110 sim/s)
+   [Worker 40] G3 Move 2: a7a5 (14.23s | 112 sim/s)
+   [Worker 25] G3 Move 2: e7e5 (14.42s | 111 sim/s)
+   [Worker 20] G3 Move 2: d7d6 (14.36s | 111 sim/s)
+   [Worker 35] G3 Move 2: d7d5 (15.21s | 105 sim/s)
+   [Worker 0] G4 Move 2: d7d6 (14.63s | 109 sim/s)
+   [Worker 5] G4 Move 2: b8c6 (14.04s | 114 sim/s)
+   [Worker 30] G4 Move 2: e7e5 (14.25s | 112 sim/s)
+   [Worker 10] G4 Move 2: c7c6 (14.66s | 109 sim/s)
+   [Worker 15] G4 Move 2: e7e5 (14.60s | 110 sim/s)
+   [Worker 40] G4 Move 2: c7c6 (14.48s | 110 sim/s)
+   [Worker 25] G4 Move 2: a7a5 (14.43s | 111 sim/s)
+   [Worker 35] G4 Move 2: b8c6 (14.19s | 113 sim/s)
+   [Worker 20] G4 Move 2: g7g6 (14.67s | 109 sim/s)
+   [Worker 0] G5 Move 2: b8a6 (14.02s | 114 sim/s)
+   [Worker 5] G5 Move 2: f7f6 (14.02s | 114 sim/s)
+   [Worker 30] G5 Move 2: e7e6 (13.94s | 115 sim/s)
+   [Worker 10] G5 Move 2: d7d6 (13.97s | 114 sim/s)
+   [Worker 15] G5 Move 2: b8c6 (14.26s | 112 sim/s)
+   [Worker 40] G5 Move 2: d7d5 (14.42s | 111 sim/s)
+   [Worker 35] G5 Move 2: f7f5 (13.71s | 117 sim/s)
+   [Worker 25] G5 Move 2: b7b5 (14.29s | 112 sim/s)
+   [Worker 20] G5 Move 2: b7b5 (14.29s | 112 sim/s)
+   [Worker 10] G1 Move 3: b1a3 (13.51s | 118 sim/s)
+   [Worker 5] G1 Move 3: a2a4 (14.98s | 107 sim/s)
+   [Worker 0] G1 Move 3: d2d4 (15.46s | 103 sim/s)
+   [Worker 30] G1 Move 3: d1h5 (14.50s | 110 sim/s)
+   [Worker 15] G1 Move 3: f1b5 (13.91s | 115 sim/s)
+   [Worker 40] G1 Move 3: g2g4 (13.61s | 118 sim/s)
+   [Worker 35] G1 Move 3: a2a4 (14.52s | 110 sim/s)
+   [Worker 20] G1 Move 3: f2f3 (13.80s | 116 sim/s)
+   [Worker 25] G1 Move 3: f2f3 (14.63s | 109 sim/s)
+   [Worker 10] G2 Move 3: b1c3 (13.81s | 116 sim/s)
+   [Worker 5] G2 Move 3: f1g2 (14.04s | 114 sim/s)
+   [Worker 40] G2 Move 3: h1h3 (13.16s | 122 sim/s)
+   [Worker 0] G2 Move 3: f2f4 (14.17s | 113 sim/s)
+   [Worker 15] G2 Move 3: b2b3 (13.72s | 117 sim/s)
+   [Worker 30] G2 Move 3: e2e4 (14.64s | 109 sim/s)
+   [Worker 35] G2 Move 3: f2f4 (14.12s | 113 sim/s)
+   [Worker 20] G2 Move 3: a2a4 (14.14s | 113 sim/s)
+   [Worker 25] G2 Move 3: b2b4 (14.28s | 112 sim/s)
+   [Worker 40] G3 Move 3: a2a4 (13.53s | 118 sim/s)
+   [Worker 10] G3 Move 3: a2a4 (14.65s | 109 sim/s)
+   [Worker 15] G3 Move 3: b2b4 (14.06s | 114 sim/s)
+   [Worker 5] G3 Move 3: c2c4 (14.66s | 109 sim/s)
+   [Worker 30] G3 Move 3: e2e4 (14.31s | 112 sim/s)
+   [Worker 0] G3 Move 3: d2d4 (15.20s | 105 sim/s)
+   [Worker 35] G3 Move 3: c2c4 (14.60s | 110 sim/s)
+   [Worker 20] G3 Move 3: c2c3 (14.40s | 111 sim/s)
+   [Worker 25] G3 Move 3: d2d4 (15.11s | 106 sim/s)
+   [Worker 40] G4 Move 3: d1h5 (14.39s | 111 sim/s)
+   [Worker 10] G4 Move 3: d1h5 (14.64s | 109 sim/s)
+   [Worker 5] G4 Move 3: a2a4 (14.49s | 110 sim/s)
+   [Worker 15] G4 Move 3: b1a3 (14.72s | 109 sim/s)
+   [Worker 0] G4 Move 3: c2c4 (14.59s | 110 sim/s)
+   [Worker 30] G4 Move 3: d2d4 (15.78s | 101 sim/s)
+   [Worker 35] G4 Move 3: d2d4 (14.52s | 110 sim/s)
+   [Worker 20] G4 Move 3: c2c4 (14.66s | 109 sim/s)
+   [Worker 25] G4 Move 3: c2c4 (14.77s | 108 sim/s)
+   [Worker 40] G5 Move 3: b2b3 (14.70s | 109 sim/s)
+   [Worker 10] G5 Move 3: f2f4 (14.34s | 112 sim/s)
+   [Worker 5] G5 Move 3: f1e2 (14.20s | 113 sim/s)
+   [Worker 15] G5 Move 3: f2f3 (14.65s | 109 sim/s)
+   [Worker 35] G5 Move 3: f2f4 (13.42s | 119 sim/s)
+   [Worker 0] G5 Move 3: g1f3 (15.00s | 107 sim/s)
+   [Worker 30] G5 Move 3: e2e3 (14.65s | 109 sim/s)
+   [Worker 20] G5 Move 3: d2d4 (13.86s | 115 sim/s)
+   [Worker 25] G5 Move 3: c2c3 (13.70s | 117 sim/s)
+   [Worker 40] G1 Move 4: c7c6 (13.02s | 123 sim/s)
+   [Worker 10] G1 Move 4: f7f6 (14.49s | 110 sim/s)
+   [Worker 5] G1 Move 4: h7h5 (14.64s | 109 sim/s)
+   [Worker 15] G1 Move 4: g8h6 (14.06s | 114 sim/s)
+   [Worker 30] G1 Move 4: g7g6 (14.52s | 110 sim/s)
+   [Worker 20] G1 Move 4: c7c5 (14.49s | 110 sim/s)
+   [Worker 35] G1 Move 4: d5e4 (15.38s | 104 sim/s)
+   [Worker 0] G1 Move 4: b8c6 (15.40s | 104 sim/s)
+   [Worker 25] G1 Move 4: h7h6 (14.55s | 110 sim/s)
+   [Worker 40] G2 Move 4: g8h6 (14.40s | 111 sim/s)
+   [Worker 10] G2 Move 4: c8g4 (14.17s | 113 sim/s)
+   [Worker 15] G2 Move 4: d5d4 (13.93s | 115 sim/s)
+   [Worker 5] G2 Move 4: e7e5 (14.82s | 108 sim/s)
+   [Worker 0] G2 Move 4: g8h6 (13.61s | 118 sim/s)
+   [Worker 30] G2 Move 4: g8f6 (13.95s | 115 sim/s)
+   [Worker 35] G2 Move 4: b7b5 (14.05s | 114 sim/s)
+   [Worker 20] G2 Move 4: f7f5 (14.32s | 112 sim/s)
+   [Worker 25] G2 Move 4: e7e5 (14.25s | 112 sim/s)
+   [Worker 40] G3 Move 4: c7c5 (13.20s | 121 sim/s)
+   [Worker 10] G3 Move 4: c6b4 (13.40s | 119 sim/s)
+   [Worker 15] G3 Move 4: f7f5 (14.09s | 114 sim/s)
+   [Worker 5] G3 Move 4: g7g6 (13.54s | 118 sim/s)
+   [Worker 30] G3 Move 4: d7d5 (13.74s | 116 sim/s)
+   [Worker 20] G3 Move 4: g8f6 (13.77s | 116 sim/s)
+   [Worker 0] G3 Move 4: e5d4 (15.29s | 105 sim/s)
+   [Worker 35] G3 Move 4: c8g4 (15.23s | 105 sim/s)
+   [Worker 25] G3 Move 4: e8e7 (15.09s | 106 sim/s)
+   [Worker 40] G4 Move 4: g7g6 (14.44s | 111 sim/s)
+   [Worker 10] G4 Move 4: d8b6 (14.61s | 110 sim/s)
+   [Worker 5] G4 Move 4: a7a6 (13.74s | 116 sim/s)
+   [Worker 15] G4 Move 4: c7c5 (14.88s | 108 sim/s)
+   [Worker 20] G4 Move 4: g8f6 (14.00s | 114 sim/s)
+   [Worker 30] G4 Move 4: e8e7 (15.75s | 102 sim/s)
+   [Worker 0] G4 Move 4: g8f6 (14.68s | 109 sim/s)
+   [Worker 35] G4 Move 4: a7a6 (14.50s | 110 sim/s)
+   [Worker 25] G4 Move 4: c7c5 (13.99s | 114 sim/s)
