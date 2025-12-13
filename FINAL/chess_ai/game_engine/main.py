@@ -192,15 +192,16 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
             else:
                 current_temp = 0.25
             
-            # Get move from MCTS
+            queue_before = input_queue.qsize()
             move_start = time.time()
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
+            queue_after = input_queue.qsize()
             
-            # Logging (YOUR PROVEN LOGIC - NO CHANGES)
-            if (worker_id % 5) == 0:
+            # Logging
+            if (worker_id % 20) == 0:
                 dur = time.time() - move_start
                 nps = SIMULATIONS / dur if dur > 0 else 0
-                print(f"   [Worker {worker_id}] G{game_id+1} Move {move_count+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
+                print(f" [Worker {worker_id}] G{game_id+1} Move {move_count+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s) | Queue: {queue_before}→{queue_after}")
             
             # Store state (YOUR PROVEN LOGIC - NO CHANGES)
             game_data.append({
@@ -272,8 +273,8 @@ else:
     DRAW_PENALTY = -0.30        
 
 # Training
-TRAIN_EPOCHS = 3 
-TRAIN_WINDOW = 40           
+TRAIN_EPOCHS = 4 
+TRAIN_WINDOW = 50           
 TRAIN_BATCH_SIZE = 2816
 TRAIN_LR = 0.000075       
 
