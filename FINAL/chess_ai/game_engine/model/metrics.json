@@ -169,15 +169,6 @@
     },
     {
         "iteration": 34,
-        "timestamp": "2025-12-13T02:11:47.391349",
-        "policy_loss": 2.380210095371296,
-        "value_loss": 0.08418744735517143,
-        "arena_win_rate": 0.665,
-        "elo": null,
-        "stockfish_elo": null
-    },
-    {
-        "iteration": 34,
         "timestamp": "2025-12-13T02:11:47.391933",
         "policy_loss": 2.380210095371296,
         "value_loss": 0.08418744735517143,
@@ -191,6 +182,15 @@
         "policy_loss": 2.3225303048607686,
         "value_loss": 0.08110886149155269,
         "arena_win_rate": 0.5487500000000001,
+        "elo": null,
+        "stockfish_elo": null
+    },
+        {
+        "iteration": 37,
+        "timestamp": "2025-12-13T04:58:41.324291",
+        "policy_loss": 2.3204,
+        "value_loss": 0.0815,
+        "arena_win_rate": 0.525,
         "elo": null,
         "stockfish_elo": null
     }

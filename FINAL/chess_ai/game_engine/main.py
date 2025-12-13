@@ -107,10 +107,13 @@ def cleanup_memory():
         torch.cuda.empty_cache()
 
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration):
+    """Parallel games - NO tree clearing needed (fresh tree each search)."""
     np.random.seed(int(time.time()) + worker_id)
     if hasattr(os, 'sched_setaffinity'):
-        try: os.sched_setaffinity(0, {worker_id})
-        except: pass
+        try:
+            os.sched_setaffinity(0, {worker_id})
+        except:
+            pass
 
     setup_child_logging()
     time.sleep(worker_id * 0.05)
@@ -118,74 +121,101 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
     iter_dir = os.path.join(DATA_DIR, f"iter_{iteration}")
     os.makedirs(iter_dir, exist_ok=True)
     
-    worker = MCTSWorker(worker_id, input_queue, output_queue, 
-                        simulations=SIMULATIONS, 
+    worker = MCTSWorker(worker_id, input_queue, output_queue,
+                        simulations=SIMULATIONS,
                         batch_size=WORKER_BATCH_SIZE)
     
-    for i in range(game_limit):
-        print(f"   [Worker {worker_id}] Starting Game {i+1}...")
-        game_start = time.time()
-        game = ChessGame()
-        game_data = []
-        
-        forced_draw = False
-        while not game.is_over:
-            if len(game.moves) >= MAX_MOVES_PER_GAME: 
-                forced_draw = True
-                break 
-
-            move_start = time.time()
-            move_count = len(game.moves)
-            if move_count < 15:
-                current_temp = 1.2  # Open book exploration
-            elif move_count < 40:
-                current_temp = 0.6  # Middlegame focus
-            elif move_count < 80:
-                current_temp = 0.4  # Early endgame, still searching
-            else:
-                current_temp = 0.25 # Deep endgame, very focused
+    # Initialize all games at once
+    games = [ChessGame() for _ in range(game_limit)]
+    game_data_all = [[] for _ in range(game_limit)]
+    game_start_times = [time.time()] * game_limit
+    active_games = set(range(game_limit))
+    
+    print(f"   [Worker {worker_id}] Starting {game_limit} games in parallel...")
+    
+    # Play all games concurrently
+    while active_games:
+        for game_id in list(active_games):
+            game = games[game_id]
+            game_data = game_data_all[game_id]
             
+            # Check if game is finished
+            if game.is_over or len(game.moves) >= MAX_MOVES_PER_GAME:
+                # Determine result (YOUR PROVEN LOGIC)
+                if len(game.moves) >= MAX_MOVES_PER_GAME:
+                    result = "1/2-1/2"
+                else:
+                    result = game.result
+                
+                # Backfill values (YOUR PROVEN LOGIC)
+                final_winner = 0.0
+                if result == "1-0": 
+                    final_winner = 1.0
+                elif result == "0-1": 
+                    final_winner = 0.0
+                elif result == "1/2-1/2": 
+                    final_winner = 0.5
+                
+                values = []
+                for g in game_data:
+                    if final_winner == 0.5: 
+                        values.append(DRAW_PENALTY)
+                    elif g["turn"] == final_winner: 
+                        values.append(1.0)
+                    else: 
+                        values.append(-1.0)
+                
+                # Save game (YOUR PROVEN LOGIC)
+                timestamp = int(time.time())
+                filename = f"{iter_dir}/w{worker_id}_g{game_id}_{timestamp}.npz"
+                np.savez_compressed(filename,
+                    states=np.array([g["state"] for g in game_data]),
+                    policies=np.array([g["policy"] for g in game_data]),
+                    values=np.array(values, dtype=np.float32))
+                
+                elapsed = time.time() - game_start_times[game_id]
+                print(f"   [Worker {worker_id}] Game {game_id+1} finished in {elapsed:.1f}s | {len(game.moves)} moves | {result}")
+                
+                active_games.discard(game_id)
+                continue
+            
+            # Play one move (YOUR PROVEN LOGIC - NO CHANGES)
+            move_count = len(game.moves)
+            
+            # Temperature schedule
+            if move_count < 15:
+                current_temp = 1.2
+            elif move_count < 40:
+                current_temp = 0.6
+            elif move_count < 80:
+                current_temp = 0.4
+            else:
+                current_temp = 0.25
+            
+            # Get move from MCTS
+            move_start = time.time()
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
             
+            # Logging (YOUR PROVEN LOGIC - NO CHANGES)
             if (worker_id % 5) == 0:
                 dur = time.time() - move_start
                 nps = SIMULATIONS / dur if dur > 0 else 0
-                print(f"   [Worker {worker_id}] Move {len(game.moves)+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
+                print(f"   [Worker {worker_id}] G{game_id+1} Move {move_count+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
             
+            # Store state (YOUR PROVEN LOGIC - NO CHANGES)
             game_data.append({
                 "state": game.to_tensor(),
                 "policy": mcts_policy,
                 "turn": game.turn_player
             })
+            
+            # Make move
             game.push(best_move)
         
-        # LOG FORCED DRAWS
-        if forced_draw:
-            print(f"   [Worker {worker_id}] Game {i+1} ended in FORCED DRAW (Max moves {MAX_MOVES_PER_GAME})")
-            result = "1/2-1/2"
-        else:
-            result = game.result
-
-        final_winner = 0.0
-        if result == "1-0": final_winner = 1.0
-        elif result == "0-1": final_winner = 0.0
-        elif result == "1/2-1/2": final_winner = 0.5
-        
-        values = []
-        for g in game_data:
-            if final_winner == 0.5: values.append(DRAW_PENALTY)
-            elif g["turn"] == final_winner: values.append(1.0)
-            else: values.append(-1.0)
-            
-        timestamp = int(time.time())
-        filename = f"{iter_dir}/w{worker_id}_g{i}_{timestamp}.npz"
-        np.savez_compressed(filename, 
-                            states=np.array([g["state"] for g in game_data]), 
-                            policies=np.array([g["policy"] for g in game_data]), 
-                            values=np.array(values, dtype=np.float32))
-        
-        print(f"   [Worker {worker_id}] Finished Game {i+1} in {time.time()-game_start:.1f}s |  Total Moves {len(game.moves)} | Result {result}")
-        gc.collect()
+        time.sleep(0.001)
+    
+    print(f"   [Worker {worker_id}] All {game_limit} games completed")
+    gc.collect()
 
 def run_server_wrapper(server):
     setup_child_logging()
@@ -216,9 +246,9 @@ CUDA_STREAMS = 8
 
 # --- EXECUTION ---
 ITERATIONS = 1000
-NUM_WORKERS = 35            
+NUM_WORKERS = 42            
 WORKER_BATCH_SIZE = 8       
-GAMES_PER_WORKER = 6        
+GAMES_PER_WORKER = 5        
 
 # --- QUALITY ---
 SIMULATIONS = 1600           
@@ -244,7 +274,7 @@ else:
 # Training
 TRAIN_EPOCHS = 3 
 TRAIN_WINDOW = 40           
-TRAIN_BATCH_SIZE = 2048
+TRAIN_BATCH_SIZE = 2816
 TRAIN_LR = 0.000075       
 
 # --- DRY WORKER WRAPPERS ---
@@ -314,7 +344,7 @@ def run_self_play_phase(iteration):
         p.start()
         workers.append(p)
         
-    # NEW CODE - ACTIVE MONITORING LOOP
+    # ACTIVE MONITORING LOOP
     try:
         while True:
             # 1. Check if Server is alive

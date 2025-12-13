@@ -8,6 +8,7 @@ import numpy as np
 import os
 import glob
 import sys
+import time
 import collections
 from tqdm import tqdm
 
@@ -192,6 +193,7 @@ def train_model(data_path="data/self_play",
 
     # 4. Training Loop
     for epoch in range(epochs):
+        epoch_start_time = time.time()
         total_loss = 0
         p_loss_total = 0
         v_loss_total = 0
@@ -231,7 +233,14 @@ def train_model(data_path="data/self_play",
 
             if (batch_idx + 1) % 5 == 0:  # Every 5 batches
                 avg_loss = total_loss / batch_count
-                print(f"Batch {batch_idx+1}/{len(dataloader)} | Loss: {avg_loss:.4f} | ETA: 1m 45s")
+                if batch_idx > 0:
+                    elapsed = time.time() - epoch_start_time
+                    eta_secs = int((elapsed / (batch_idx + 1)) * (len(dataloader) - batch_idx - 1))
+                    eta_str = f"{eta_secs//60}m {eta_secs%60}s" if eta_secs >= 60 else f"{eta_secs}s"
+                    print(f"Batch {batch_idx+1}/{len(dataloader)} | Loss: {avg_loss:.4f} | ETA: {eta_str}")
+                else:
+                    print(f"Batch {batch_idx+1}/{len(dataloader)} | Loss: {avg_loss:.4f} | ETA: calculating...")
+
         
         if batch_count > 0:
             last_p_loss = p_loss_total / batch_count
