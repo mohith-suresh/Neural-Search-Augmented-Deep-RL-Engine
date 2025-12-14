@@ -138,7 +138,7 @@ class InferenceServer:
                     avg_gpu = sum(gpu_times[-50:]) / 50 if gpu_times else 0
                     avg_queue = sum(queue_sizes[-50:]) / 50 if queue_sizes else 0
                     max_queue = max(queue_sizes[-50:]) if queue_sizes else 0
-                    print(f"[Server GPU] Batch {batch_count}: Avg GPU {avg_gpu*1000:.1f}ms | Avg queue {avg_queue:.1f} | Max queue {max_queue}")
+                    print(f"[Server GPU] Batch {batch_count}: Avg GPU {avg_gpu:.1f}ms | Avg queue {avg_queue:.1f} | Max queue {max_queue}")
                     if torch.cuda.is_available():
                         vram = torch.cuda.memory_allocated() / 1e9
                         print(f"[Server GPU] VRAM: {vram:.2f} GB")
@@ -146,5 +146,5 @@ class InferenceServer:
                 # Update last successful batch time
                 last_successful_batch_time = time.time()
                 if len(batch_data) > 20:
-                    print(f"[Server] Batch submitted: {len(batch_data)} requests")
+                    # print(f"[Server] Batch submitted: {len(batch_data)} requests")
                     pass
