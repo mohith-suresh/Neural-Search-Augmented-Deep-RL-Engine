@@ -273,7 +273,7 @@ def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Batched MCTS) ===")
     cleanup_memory() # Clear RAM before starting
     
-    server = InferenceServer(BEST_MODEL, batch_size=4096, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
+    server = InferenceServer(BEST_MODEL, batch_size=1024, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
     
     server_process = mp.Process(target=run_server_wrapper, args=(server,))
