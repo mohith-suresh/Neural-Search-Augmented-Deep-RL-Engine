@@ -242,7 +242,7 @@ BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
 
 # --- CUDA ---
-CUDA_TIMEOUT_INFERENCE = 0.3 
+CUDA_TIMEOUT_INFERENCE = 0.1 
 CUDA_STREAMS = 8 
 
 # --- EXECUTION ---
