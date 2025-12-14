@@ -110,7 +110,7 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
     np.random.seed(int(time.time()) + worker_id)
     if hasattr(os, 'sched_setaffinity'):
         try:
-            os.sched_setaffinity(0, {worker_id})
+            os.sched_setaffinity(0, {worker_id % 44})
         except:
             pass
 
@@ -246,9 +246,9 @@ CUDA_STREAMS = 8
 
 # --- EXECUTION ---
 ITERATIONS = 1000
-NUM_WORKERS = 210            
+NUM_WORKERS = 60            
 WORKER_BATCH_SIZE = 32       
-GAMES_PER_WORKER = 1        
+GAMES_PER_WORKER = 4        
 
 # --- QUALITY ---
 SIMULATIONS = 1600           
