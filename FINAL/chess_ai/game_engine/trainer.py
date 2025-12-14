@@ -135,23 +135,6 @@ class ChessDataset(Dataset):
             'value': data['values'][local_idx].float()
         }
 
-def get_optimized_dataloader(dataset, batch_size, shuffle=True):
-    """
-    Creates a DataLoader with CPU-optimized settings for faster batch loading.
-    
-    Uses 20 workers to parallelize I/O and numpy operations.
-    Prefetches batches to hide disk latency.
-    """
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=40,          # use 40 CPU cores for loading
-        pin_memory=True,         # fast GPU transfer
-        prefetch_factor=4,       # buffer 4 batches per worker
-        persistent_workers=True  # keep workers alive between epochs
-    )
-
 def train_model(data_path="data/self_play", 
                 input_model_path="game_engine/model/best_model.pth", 
                 output_model_path="game_engine/model/candidate.pth", 
@@ -173,7 +156,15 @@ def train_model(data_path="data/self_play",
         return 0.0, 0.0
 
     # Optimization: num_workers > 0 and pin_memory=True for faster GPU transfer
-    dataloader = get_optimized_dataloader(dataset, batch_size, shuffle=True)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=10,          
+        pin_memory=True,      
+        prefetch_factor=2,       
+        persistent_workers=True  
+    )
 
     # 2. Load Model
     model = ChessCNN().to(device)
