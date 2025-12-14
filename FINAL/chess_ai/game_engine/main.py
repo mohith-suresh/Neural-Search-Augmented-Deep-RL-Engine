@@ -34,7 +34,7 @@ class TimeoutHandler:
         if self.start_time:
             signal.alarm(self.timeout_seconds)
 
-timeout_handler = TimeoutHandler(timeout_seconds=32000)
+timeout_handler = TimeoutHandler(timeout_seconds=43200)
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
@@ -482,7 +482,7 @@ if __name__ == "__main__":
         torch.save(ChessCNN().state_dict(), BEST_MODEL)
 
     timeout_handler.start()
-    print("⏱️ Deadlock timeout: 8 hour per iteration")
+    print("⏱️ Deadlock timeout: 12 hour per iteration")
 
     # RESUMPTION LOGIC
     start_iter = get_start_iteration(DATA_DIR)
