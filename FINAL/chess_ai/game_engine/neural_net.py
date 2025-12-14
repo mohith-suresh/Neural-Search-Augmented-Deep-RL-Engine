@@ -77,16 +77,8 @@ class InferenceServer:
         # Deadlock detection: track last successful batch time
         last_successful_batch_time = time.time()
         deadlock_timeout = 60  # 60 seconds without progress = deadlock
-        
-        batch_count = 0              
-        gpu_times = []               
-        queue_sizes = []             
-
-
+                            
         while True:
-            queue_size = self.input_queue.qsize()
-            queue_sizes.append(queue_size)
-
             batch_data = []
             current_time = time.time()
             
@@ -125,23 +117,8 @@ class InferenceServer:
             if batch_data:
                 stream = self.streams[self.current_stream_idx]
                 self.current_stream_idx = (self.current_stream_idx + 1) % self.num_streams
-
-                gpu_start = time.time()
                 
                 executor.submit(self.process_batch, batch_data, stream, model, self.device)
-                
-                gpu_time = time.time() - gpu_start
-                gpu_times.append(gpu_time)
-                batch_count += 1
-                
-                if batch_count % 50 == 0:
-                    avg_gpu = sum(gpu_times[-50:]) / 50 if gpu_times else 0
-                    avg_queue = sum(queue_sizes[-50:]) / 50 if queue_sizes else 0
-                    max_queue = max(queue_sizes[-50:]) if queue_sizes else 0
-                    print(f"[Server GPU] Batch {batch_count}: Avg GPU {avg_gpu:.1f}ms | Avg queue {avg_queue:.1f} | Max queue {max_queue}")
-                    if torch.cuda.is_available():
-                        vram = torch.cuda.memory_allocated() / 1e9
-                        print(f"[Server GPU] VRAM: {vram:.2f} GB")
 
                 # Update last successful batch time
                 last_successful_batch_time = time.time()
