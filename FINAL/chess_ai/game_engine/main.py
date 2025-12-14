@@ -510,29 +510,21 @@ if __name__ == "__main__":
             print(f"\n{'='*60}")
             print(f"ITERATION {it} - PHASE 1: SELF-PLAY")
             print(f"{'='*60}")
-
-            # Check if this iteration should skip self-play
+            
             if RESUME_ITERATION is not None and it == RESUME_ITERATION:
-                self_play_dir = os.path.join(DATA_DIR, f"iter_{it}")
-                if os.path.exists(self_play_dir) and len(os.listdir(self_play_dir)) > 0:
-                    print(f"\n⏭️  ITERATION {it} configured to skip self-play (RESUME_ITERATION={RESUME_ITERATION})")
-                    print(f"    Existing self-play data found. Proceeding directly to training...")
-                    print(f"\n✅ ITERATION {it} - PHASE 1 COMPLETE (skipped)")
-                else:
-                    print(f"\n❌ ERROR: RESUME_ITERATION={it}, but no self-play data found in {self_play_dir}")
-                    print("    Cannot skip self-play without existing data.")
-                    raise FileNotFoundError(f"Self-play data missing for iteration {it}")
+                print(f"⏭️  ITERATION {it} - SKIPPING SELF-PLAY (using existing data)")
+                print(f"✅ ITERATION {it} - PHASE 1 COMPLETE (skipped)")
             else:
                 try:
                     run_self_play_phase(it)
-                    print(f"\n✅ ITERATION {it} - PHASE 1 COMPLETE")
+                    print(f"✅ ITERATION {it} - PHASE 1 COMPLETE")
                 except Exception as e:
-                    print(f"\n❌ ITERATION {it} - PHASE 1 FAILED: {e}")
+                    print(f"❌ ITERATION {it} - PHASE 1 FAILED: {e}")
                     if killer.kill_now:
                         print("[Main] Kill signal during Phase 1. Exiting...")
                         break
                     raise
-
+            
             # CHECK AFTER PHASE 1
             if killer.kill_now:
                 print("\n[Main] ⚠️  Kill signal received AFTER Phase 1")
