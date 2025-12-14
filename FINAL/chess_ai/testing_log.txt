@@ -1,0 +1,340 @@
+⏱️ Deadlock timeout: 8 hour per iteration
+============================================================
+STARTING RUN
+Resuming from Iteration: 1
+Workers: 4 | Sims: 800 | Batch: 8
+============================================================
+
+============================================================
+ITERATION 1 - PHASE 1: SELF-PLAY
+============================================================
+
+=== ITERATION 1: SELF-PLAY PHASE (Batched MCTS) ===
+Server: Loading model from game_engine/model/best_model.pth
+Server Ready: Batch=1024, Streams=8, Device=cuda
+   [Worker 0] Starting 2 games in parallel...
+   [Worker 1] Starting 2 games in parallel...
+   [Worker 2] Starting 2 games in parallel...
+   [Worker 3] Starting 2 games in parallel...
+   [Worker 0] G1 Move 1: h2h3 (3.77s | 212 sim/s)
+   [Worker 0] G2 Move 1: f2f4 (2.29s | 349 sim/s)
+   [Worker 0] G1 Move 2: e7e5 (2.35s | 340 sim/s)
+   [Worker 0] G2 Move 2: g8h6 (2.51s | 318 sim/s)
+   [Worker 0] G1 Move 3: e2e4 (2.48s | 322 sim/s)
+   [Worker 0] G2 Move 3: g2g3 (2.44s | 328 sim/s)
+   [Worker 0] G1 Move 4: g8f6 (2.83s | 283 sim/s)
+   [Worker 0] G2 Move 4: b7b6 (2.39s | 335 sim/s)
+   [Worker 0] G1 Move 5: f2f4 (2.68s | 298 sim/s)
+   [Worker 0] G2 Move 5: c2c4 (2.52s | 318 sim/s)
+   [Worker 0] G1 Move 6: e5f4 (2.71s | 295 sim/s)
+   [Worker 0] G2 Move 6: b6b5 (2.60s | 307 sim/s)
+   [Worker 0] G1 Move 7: e4e5 (2.69s | 298 sim/s)
+   [Worker 0] G2 Move 7: b1a3 (2.64s | 303 sim/s)
+   [Worker 0] G1 Move 8: f6e4 (3.24s | 247 sim/s)
+   [Worker 0] G2 Move 8: b5c4 (3.28s | 244 sim/s)
+   [Worker 0] G1 Move 9: h1h2 (3.64s | 220 sim/s)
+   [Worker 0] G2 Move 9: g1h3 (3.50s | 229 sim/s)
+   [Worker 0] G1 Move 10: b7b6 (3.97s | 202 sim/s)
+   [Worker 0] G2 Move 10: h6g4 (3.03s | 264 sim/s)
+   [Worker 0] G1 Move 11: f1a6 (3.84s | 209 sim/s)
+   [Worker 0] G2 Move 11: e2e4 (3.33s | 240 sim/s)
+   [Worker 0] G1 Move 12: d7d6 (3.99s | 200 sim/s)
+   [Worker 0] G2 Move 12: c7c5 (3.47s | 231 sim/s)
+   [Worker 0] G1 Move 13: g1f3 (3.90s | 205 sim/s)
+   [Worker 0] G2 Move 13: a3c4 (3.76s | 212 sim/s)
+   [Worker 0] G1 Move 14: e4g3 (3.64s | 220 sim/s)
+   [Worker 0] G2 Move 14: g4e5 (3.40s | 235 sim/s)
+   [Worker 0] G1 Move 15: d2d3 (3.88s | 206 sim/s)
+   [Worker 0] G2 Move 15: b2b3 (3.33s | 241 sim/s)
+   [Worker 0] G1 Move 16: c8a6 (3.70s | 216 sim/s)
+   [Worker 0] G2 Move 16: c8a6 (3.43s | 233 sim/s)
+   [Worker 0] G1 Move 17: h2h1 (3.83s | 209 sim/s)
+   [Worker 0] G2 Move 17: b3b4 (3.83s | 209 sim/s)
+   [Worker 0] G1 Move 18: a6c4 (4.66s | 172 sim/s)
+   [Worker 0] G2 Move 18: g7g6 (3.74s | 214 sim/s)
+   [Worker 0] G1 Move 19: c2c3 (5.08s | 157 sim/s)
+   [Worker 0] G2 Move 19: f4e5 (4.18s | 191 sim/s)
+   [Worker 0] G1 Move 20: b8d7 (4.95s | 162 sim/s)
+   [Worker 0] G2 Move 20: a6b5 (4.06s | 197 sim/s)
+   [Worker 0] G1 Move 21: b2b4 (4.71s | 170 sim/s)
+   [Worker 0] G2 Move 21: h3f4 (4.39s | 182 sim/s)
+   [Worker 0] G1 Move 22: a7a6 (4.57s | 175 sim/s)
+   [Worker 0] G2 Move 22: b8c6 (4.18s | 192 sim/s)
+   [Worker 0] G1 Move 23: a2a4 (5.21s | 154 sim/s)
+   [Worker 0] G2 Move 23: b4c5 (4.33s | 185 sim/s)
+   [Worker 0] G1 Move 24: d7b8 (4.69s | 170 sim/s)
+   [Worker 0] G2 Move 24: c6e5 (4.97s | 161 sim/s)
+   [Worker 0] G1 Move 25: d1c2 (4.36s | 184 sim/s)
+   [Worker 0] G2 Move 25: d2d4 (4.23s | 189 sim/s)
+   [Worker 0] G1 Move 26: c4e6 (4.71s | 170 sim/s)
+   [Worker 0] G2 Move 26: d7d6 (4.56s | 176 sim/s)
+   [Worker 0] G1 Move 27: a4a5 (4.69s | 171 sim/s)
+   [Worker 0] G2 Move 27: c1e3 (5.07s | 158 sim/s)
+   [Worker 0] G1 Move 28: g7g6 (4.80s | 167 sim/s)
+   [Worker 0] G2 Move 28: g6g5 (4.64s | 172 sim/s)
+   [Worker 3] Game 2 finished in 213.6s | 30 moves | 0-1
+   [Worker 0] G1 Move 29: a1a2 (5.00s | 160 sim/s)
+   [Worker 0] G2 Move 29: e1f2 (4.72s | 169 sim/s)
+   [Worker 0] G1 Move 30: d6d5 (5.09s | 157 sim/s)
+   [Worker 0] G2 Move 30: e5c4 (5.07s | 158 sim/s)
+   [Worker 0] G1 Move 31: c2b2 (5.34s | 150 sim/s)
+   [Worker 0] G2 Move 31: e4e5 (4.80s | 167 sim/s)
+   [Worker 0] G1 Move 32: f8g7 (5.53s | 145 sim/s)
+   [Worker 0] G2 Move 32: d6e5 (4.76s | 168 sim/s)
+   [Worker 0] G1 Move 33: c1f4 (5.25s | 152 sim/s)
+   [Worker 0] G2 Move 33: f1c4 (5.06s | 158 sim/s)
+   [Worker 0] G1 Move 34: b8d7 (5.02s | 159 sim/s)
+   [Worker 0] G2 Move 34: b5c4 (5.31s | 151 sim/s)
+   [Worker 0] G1 Move 35: f4g3 (5.50s | 145 sim/s)
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+🚨 CRITICAL: Inference Server died unexpectedly! Terminating workers...
+❌ Exception in Phase 1 Loop: Inference Server died during self-play.
+🧹 Cleaning up Phase 1 processes...
+
+❌ ITERATION 1 - PHASE 1 FAILED: Inference Server died during self-play.
+[Main] Kill signal during Phase 1. Exiting...
+
+[Main] Cleanup: Closing threads and processes...
+[Main] ✅ Shutdown complete
+⏱️ Deadlock timeout: 8 hour per iteration
+============================================================
+STARTING RUN
+Resuming from Iteration: 2
+Workers: 4 | Sims: 1600 | Batch: 8
+============================================================
+
+[Main] Cleanup: Closing threads and processes...
+[Main] ✅ Shutdown complete
+⏱️ Deadlock timeout: 8 hour per iteration
+============================================================
+STARTING RUN
+Resuming from Iteration: 2
+Workers: 4 | Sims: 1600 | Batch: 8
+============================================================
+
+[Main] Cleanup: Closing threads and processes...
+[Main] ✅ Shutdown complete
+⏱️ Deadlock timeout: 8 hour per iteration
+============================================================
+STARTING RUN
+Resuming from Iteration: 2
+Workers: 4 | Sims: 800 | Batch: 8
+============================================================
+
+[Main] Cleanup: Closing threads and processes...
+[Main] ✅ Shutdown complete
+⏱️ Deadlock timeout: 8 hour per iteration
+============================================================
+STARTING RUN
+Resuming from Iteration: 1
+Workers: 4 | Sims: 800 | Batch: 8
+============================================================
+
+============================================================
+ITERATION 1 - PHASE 1: SELF-PLAY
+============================================================
+
+=== ITERATION 1: SELF-PLAY PHASE (Batched MCTS) ===
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+Server: Loading model from game_engine/model/best_model.pth
+Server Ready: Batch=1024, Streams=8, Device=cuda
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+🚨 CRITICAL: Inference Server died unexpectedly! Terminating workers...
+❌ Exception in Phase 1 Loop: Inference Server died during self-play.
+🧹 Cleaning up Phase 1 processes...
+
+❌ ITERATION 1 - PHASE 1 FAILED: Inference Server died during self-play.
+[Main] Kill signal during Phase 1. Exiting...
+
+[Main] Cleanup: Closing threads and processes...
+[Main] ✅ Shutdown complete
+⏱️ Deadlock timeout: 8 hour per iteration
+============================================================
+STARTING RUN
+Resuming from Iteration: 1
+Workers: 4 | Sims: 1600 | Batch: 8
+============================================================
+
+============================================================
+ITERATION 1 - PHASE 1: SELF-PLAY
+============================================================
+
+=== ITERATION 1: SELF-PLAY PHASE (Batched MCTS) ===
+Server: Loading model from game_engine/model/best_model.pth
+Server Ready: Batch=1024, Streams=8, Device=cuda
+   [Worker 0] Starting 2 games in parallel...
+   [Worker 1] Starting 2 games in parallel...
+   [Worker 2] Starting 2 games in parallel...
+   [Worker 3] Starting 2 games in parallel...
+   [Worker 0] G1 Move 1: d2d4 (5.66s | 283 sim/s)
+   [Worker 0] G2 Move 1: g2g3 (5.09s | 314 sim/s)
+   [Worker 0] G1 Move 2: e7e6 (5.03s | 318 sim/s)
+   [Worker 0] G2 Move 2: f7f6 (4.87s | 329 sim/s)
+   [Worker 0] G1 Move 3: c2c4 (5.97s | 268 sim/s)
+   [Worker 0] G2 Move 3: f1h3 (5.76s | 278 sim/s)
+   [Worker 0] G1 Move 4: b8c6 (6.23s | 257 sim/s)
+   [Worker 0] G2 Move 4: h7h5 (4.99s | 321 sim/s)
+   [Worker 0] G1 Move 5: d1a4 (5.95s | 269 sim/s)
+   [Worker 0] G2 Move 5: e2e4 (5.00s | 320 sim/s)
+   [Worker 0] G1 Move 6: h7h6 (5.85s | 274 sim/s)
+   [Worker 0] G2 Move 6: c7c5 (5.39s | 297 sim/s)
+   [Worker 0] G1 Move 7: e2e3 (6.47s | 247 sim/s)
+   [Worker 0] G2 Move 7: f2f3 (5.61s | 285 sim/s)
+   [Worker 0] G1 Move 8: f8e7 (6.51s | 246 sim/s)
+   [Worker 0] G2 Move 8: a7a6 (5.88s | 272 sim/s)
+   [Worker 0] G1 Move 9: f2f4 (6.77s | 236 sim/s)
+   [Worker 0] G2 Move 9: b2b3 (5.94s | 269 sim/s)
+   [Worker 0] G1 Move 10: g8f6 (7.14s | 224 sim/s)
+   [Worker 2] Game 2 finished in 110.2s | 11 moves | 1-0
+   [Worker 0] G2 Move 10: b7b6 (5.71s | 280 sim/s)
+   [Worker 0] G1 Move 11: e1d2 (7.05s | 227 sim/s)
+   [Worker 0] G2 Move 11: g3g4 (6.21s | 258 sim/s)
+   [Worker 0] G1 Move 12: e8g8 (7.31s | 219 sim/s)
+   [Worker 0] G2 Move 12: a8a7 (5.89s | 272 sim/s)
+   [Worker 0] G1 Move 13: d4d5 (6.78s | 236 sim/s)
+   [Worker 0] G2 Move 13: g4h5 (6.55s | 244 sim/s)
+   [Worker 0] G1 Move 14: e6d5 (7.85s | 204 sim/s)
+   [Worker 0] G2 Move 14: a7a8 (6.53s | 245 sim/s)
+   [Worker 0] G1 Move 15: h2h4 (8.16s | 196 sim/s)
+   [Worker 0] G2 Move 15: h3d7 (6.96s | 230 sim/s)
+   [Worker 0] G1 Move 16: e7d6 (7.63s | 210 sim/s)
+   [Worker 0] G2 Move 16: c8d7 (6.77s | 236 sim/s)
+   [Worker 0] G1 Move 17: c4d5 (8.18s | 196 sim/s)
+   [Worker 0] G2 Move 17: h2h4 (6.94s | 230 sim/s)
+   [Worker 0] G1 Move 18: f6d5 (8.38s | 191 sim/s)
+   [Worker 0] G2 Move 18: g7g5 (6.46s | 248 sim/s)
+   [Worker 0] G1 Move 19: b1c3 (7.30s | 219 sim/s)
+   [Worker 0] G2 Move 19: h5g6 (6.30s | 254 sim/s)
+   [Worker 0] G1 Move 20: d5c3 (7.14s | 224 sim/s)
+   [Worker 0] G2 Move 20: f8g7 (7.35s | 218 sim/s)
+   [Worker 0] G1 Move 21: d2c3 (7.36s | 217 sim/s)
+   [Worker 0] G2 Move 21: h4h5 (6.93s | 231 sim/s)
+   [Worker 0] G1 Move 22: b7b6 (6.95s | 230 sim/s)
+   [Worker 0] G2 Move 22: d7g4 (7.49s | 214 sim/s)
+   [Worker 0] G1 Move 23: c3c4 (7.39s | 216 sim/s)
+   [Worker 0] G2 Move 23: f3g4 (7.44s | 215 sim/s)
+   [Worker 0] G1 Move 24: f7f5 (8.02s | 199 sim/s)
+   [Worker 0] G2 Move 24: e7e5 (7.46s | 215 sim/s)
+   [Worker 0] G1 Move 25: c4b5 (8.36s | 191 sim/s)
+   [Worker 0] G2 Move 25: g1f3 (7.85s | 204 sim/s)
+   [Worker 0] G1 Move 26: c6a5 (7.16s | 223 sim/s)
+   [Worker 0] G2 Move 26: g8h6 (7.23s | 221 sim/s)
+   [Worker 0] G1 Move 27: a4b4 (7.52s | 213 sim/s)
+   [Worker 0] G2 Move 27: f3h4 (9.06s | 177 sim/s)
+   [Worker 0] G1 Move 28: a7a6 (8.15s | 196 sim/s)
+   [Worker 0] G2 Move 28: d8d6 (8.32s | 192 sim/s)
+   [Worker 0] G1 Move 29: b5a4 (8.14s | 196 sim/s)
+   [Worker 0] G2 Move 29: c1a3 (8.22s | 195 sim/s)
+   [Worker 0] G1 Move 30: a8b8 (7.69s | 208 sim/s)
+   [Worker 0] G2 Move 30: h8g8 (8.18s | 196 sim/s)
+   [Worker 0] G1 Move 31: e3e4 (7.73s | 207 sim/s)
+   [Worker 0] G2 Move 31: e1f1 (8.74s | 183 sim/s)
+   [Worker 0] G1 Move 32: f5e4 (7.46s | 214 sim/s)
+   [Worker 0] G2 Move 32: g7f8 (7.89s | 203 sim/s)
+   [Worker 0] G1 Move 33: b4d6 (8.05s | 199 sim/s)
+   [Worker 0] G2 Move 33: b3b4 (10.31s | 155 sim/s)
+   [Worker 0] G1 Move 34: c7d6 (8.28s | 193 sim/s)
+   [Worker 0] G2 Move 34: c5c4 (7.97s | 201 sim/s)
+   [Worker 0] G1 Move 35: c1d2 (8.58s | 186 sim/s)
+   [Worker 0] G2 Move 35: d2d4 (8.72s | 183 sim/s)
+   [Worker 0] G1 Move 36: d8h4 (8.09s | 198 sim/s)
+   [Worker 0] G2 Move 36: e5d4 (9.33s | 171 sim/s)
+   [Worker 0] G1 Move 37: h1h4 (7.76s | 206 sim/s)
+   [Worker 0] G2 Move 37: e4e5 (8.66s | 185 sim/s)
+   [Worker 0] G1 Move 38: a5b3 (7.20s | 222 sim/s)
+   [Worker 0] G2 Move 38: d6d7 (8.52s | 188 sim/s)
+   [Worker 0] G1 Move 39: f1c4 (7.60s | 210 sim/s)
+   [Worker 0] G2 Move 39: h4f3 (9.26s | 173 sim/s)
+   [Worker 0] G1 Move 40: d6d5 (8.38s | 191 sim/s)
+   [Worker 0] G2 Move 40: d7d8 (9.93s | 161 sim/s)
+   [Worker 0] G1 Move 41: c4b3 (8.08s | 198 sim/s)
+   [Worker 0] G2 Move 41: e5f6 (9.43s | 170 sim/s)
+   [Worker 0] G1 Move 42: c8b7 (8.01s | 200 sim/s)
+   [Worker 0] G2 Move 42: h6f5 (9.80s | 163 sim/s)
+   [Worker 0] G1 Move 43: b3c2 (8.48s | 189 sim/s)
+   [Worker 0] G2 Move 43: g4f5 (9.32s | 172 sim/s)
+   [Worker 0] G1 Move 44: d7d6 (9.02s | 177 sim/s)
+   [Worker 0] G2 Move 44: d8d6 (9.95s | 161 sim/s)
+   [Worker 0] G1 Move 45: h4h1 (8.22s | 195 sim/s)
+   [Worker 0] G2 Move 45: f3d4 (9.44s | 169 sim/s)
+   [Worker 0] G1 Move 46: g7g5 (7.91s | 202 sim/s)
+   [Worker 0] G2 Move 46: a8a7 (9.05s | 177 sim/s)
+   [Worker 0] G1 Move 47: f4g5 (8.22s | 195 sim/s)
+   [Worker 0] G2 Move 47: d1f3 (10.95s | 146 sim/s)
+   [Worker 0] G1 Move 48: h6g5 (8.67s | 185 sim/s)
+   [Worker 0] G2 Move 48: d6e5 (11.46s | 140 sim/s)
+   [Worker 0] G1 Move 49: g1e2 (8.59s | 186 sim/s)
+   [Worker 0] G2 Move 49: h5h6 (11.50s | 139 sim/s)
+   [Worker 0] G1 Move 50: f8f7 (9.41s | 170 sim/s)
+   [Worker 0] G2 Move 50: e8d7 (11.23s | 143 sim/s)
+   [Worker 0] G1 Move 51: a4b4 (9.59s | 167 sim/s)
+   [Worker 0] G2 Move 51: b1d2 (11.73s | 136 sim/s)
+   [Worker 0] G1 Move 52: b8f8 (9.24s | 173 sim/s)
+   [Worker 0] G2 Move 52: b6b5 (12.32s | 130 sim/s)
+   [Worker 0] G1 Move 53: a1f1 (8.97s | 178 sim/s)
+   [Worker 0] G2 Move 53: f1g1 (10.60s | 151 sim/s)
+   [Worker 0] G1 Move 54: f7f5 (9.38s | 171 sim/s)
+   [Worker 0] G2 Move 54: e5d4 (11.68s | 137 sim/s)
+   [Worker 0] G1 Move 55: f1f5 (9.09s | 176 sim/s)
+   [Worker 0] G2 Move 55: g1f1 (10.99s | 146 sim/s)
+   [Worker 0] G1 Move 56: f8f5 (9.30s | 172 sim/s)
+   [Worker 0] G2 Move 56: d4a1 (11.15s | 143 sim/s)
+   [Worker 0] G1 Move 57: c2b3 (8.72s | 183 sim/s)
+   [Worker 0] G2 Move 57: d2b1 (10.71s | 149 sim/s)
+   [Worker 0] G1 Move 58: f5f2 (8.14s | 197 sim/s)
+   [Worker 0] G2 Move 58: a1b1 (11.00s | 145 sim/s)
+   [Worker 0] G1 Move 59: d2g5 (8.40s | 191 sim/s)
+   [Worker 0] G2 Move 59: f1g2 (9.85s | 162 sim/s)
+   [Worker 0] G1 Move 60: e4e3 (8.16s | 196 sim/s)
+   [Worker 0] G2 Move 60: b1h1 (10.03s | 160 sim/s)
+   [Worker 0] G1 Move 61: g5f6 (8.31s | 193 sim/s)
+   [Worker 0] G2 Move 61: g2h1 (8.38s | 191 sim/s)
+   [Worker 0] G1 Move 62: g8f7 (8.83s | 181 sim/s)
+   [Worker 0] G2 Move 62: g8g7 (8.74s | 183 sim/s)
+   [Worker 0] G1 Move 63: f6d4 (8.58s | 187 sim/s)
+   [Worker 0] G2 Move 63: f3d1 (9.63s | 166 sim/s)
+   [Worker 0] G1 Move 64: f2e2 (8.31s | 193 sim/s)
+   [Worker 0] G2 Move 64: d7c7 (9.79s | 163 sim/s)
+   [Worker 0] G1 Move 65: h1b1 (8.22s | 195 sim/s)
+   [Worker 0] G2 Move 65: a3c1 (9.43s | 170 sim/s)
+   [Worker 0] G1 Move 66: e2d2 (8.09s | 198 sim/s)
+   [Worker 0] G2 Move 66: g7h7 (9.94s | 161 sim/s)
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+🚨 CRITICAL: Inference Server died unexpectedly! Terminating workers...
+❌ Exception in Phase 1 Loop: Inference Server died during self-play.
+🧹 Cleaning up Phase 1 processes...
+
+❌ ITERATION 1 - PHASE 1 FAILED: Inference Server died during self-play.
+[Main] Kill signal during Phase 1. Exiting...
+
+[Main] Cleanup: Closing threads and processes...
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+[Main] ✅ Shutdown complete
