@@ -109,7 +109,7 @@ def cleanup_memory():
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration):
     np.random.seed(int(time.time()) + worker_id)
     if hasattr(os, 'sched_setaffinity'):
-        try: os.sched_setaffinity(0, {worker_id})
+        try: os.sched_setaffinity(0, {worker_id % 44})
         except: pass
 
     setup_child_logging()

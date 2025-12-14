@@ -30,7 +30,7 @@ df -h . | awk 'NR==2 {print "Available: "$4 " / Used: "$3}'
 echo "=================================================="
 
 # Install dependencies
-sudo apt install -y python3-pip git tmux stockfish
+sudo apt install -y python3-pip git tmux stockfish nvtop
 
 pip3 install torch numpy python-chess gdown matplotlib --break-system-packages
 
@@ -54,7 +54,6 @@ gdown "1MM3YepePOI599dGRjNMkiQ5FHWNRAwX8" -O game_engine/model/best_model.pth
 python3 game_engine/migrate_model.py
 
 # Install nvtop
-sudo apt install nvtop
 nvtop
 
 # Run training
