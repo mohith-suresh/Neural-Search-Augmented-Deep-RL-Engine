@@ -81,7 +81,7 @@ def queue_monitor_thread(queue):
     while True:
         try:
             size = queue.qsize()
-            if size > 100: 
+            if size > 500: 
                 print(f"   [Server Monitor] High Load: {size} requests pending")
             time.sleep(2.0)
         except: break
@@ -107,7 +107,6 @@ def cleanup_memory():
         torch.cuda.empty_cache()
 
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration):
-    """Parallel games - NO tree clearing needed (fresh tree each search)."""
     np.random.seed(int(time.time()) + worker_id)
     if hasattr(os, 'sched_setaffinity'):
         try:
@@ -242,7 +241,7 @@ BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
 
 # --- CUDA ---
-CUDA_TIMEOUT_INFERENCE = 0.05 
+CUDA_TIMEOUT_INFERENCE = 0.02 
 CUDA_STREAMS = 8 
 
 # --- EXECUTION ---
