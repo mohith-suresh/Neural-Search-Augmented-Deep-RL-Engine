@@ -421,7 +421,7 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
         total_losses += res['losses']
         total_forced_draws += res['forced_draws']
     
-    total_score = total_wins + 0.55 * total_forced_draws + 0.5 * total_draws
+    total_score = total_wins + 0.6 * total_forced_draws + 0.5 * total_draws
     total_game_count = total_wins + total_draws + total_forced_draws + total_losses
     win_rate = total_score / total_game_count if total_game_count > 0 else 0
     
