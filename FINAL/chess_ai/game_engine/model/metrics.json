@@ -185,12 +185,21 @@
         "elo": null,
         "stockfish_elo": null
     },
-        {
+    {
         "iteration": 37,
         "timestamp": "2025-12-13T04:58:41.324291",
         "policy_loss": 2.3204,
         "value_loss": 0.0815,
         "arena_win_rate": 0.525,
+        "elo": null,
+        "stockfish_elo": null
+    },
+    {
+        "iteration": 41,
+        "timestamp": "2025-12-14T20:49:09.900230",
+        "policy_loss": 2.279835966398131,
+        "value_loss": 0.08127655701817206,
+        "arena_win_rate": 0.47874999999999995,
         "elo": null,
         "stockfish_elo": null
     }
