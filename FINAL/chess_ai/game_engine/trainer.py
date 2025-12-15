@@ -160,7 +160,7 @@ def train_model(data_path="data/self_play",
         dataset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=2,
+        num_workers=5,
         prefetch_factor=2,          
         pin_memory=True,            
         persistent_workers=True  
