@@ -191,7 +191,7 @@ def train_model(data_path="data/self_play",
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-3)
 
     # Add exponential LR decay for controlled convergence
-    scheduler = ExponentialLR(optimizer, gamma=0.5)  # Halves LR each epoch
+    scheduler = ExponentialLR(optimizer, gamma=0.7)  # Halves LR each epoch
     
     # 3. Loss Functions
     mse_loss = nn.MSELoss()
@@ -237,7 +237,7 @@ def train_model(data_path="data/self_play",
 
             # Unscale and clip gradients for stability
             scaler.unscale_(optimizer)
-            total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0)
 
             scaler.step(optimizer)
             scaler.update()
@@ -267,7 +267,7 @@ def train_model(data_path="data/self_play",
             print(f"Epoch {epoch+1}/{epochs} | Loss: {total_loss/batch_count:.4f} (Pol: {last_p_loss:.4f} Val: {last_v_loss:.4f})")
 
             # Step LR scheduler (aggressive decay)
-            if epoch < 2:  # Only decay for first 2 epochs
+            if epoch < 3:  # Only decay for first 2 epochs
                 scheduler.step()
                 print(f"LR decayed to: {scheduler.get_last_lr()[0]:.6f}")
 
