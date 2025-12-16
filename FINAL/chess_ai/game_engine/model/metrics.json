@@ -213,7 +213,7 @@
         "stockfish_elo": null
     },
     {
-        "iteration": 44,
+        "iteration": 43,
         "timestamp": "2025-12-15T13:30:02.487749",
         "policy_loss": 2.27686035674915,
         "value_loss": 0.08649295226000903,
@@ -222,7 +222,7 @@
         "stockfish_elo": null
     },
     {
-        "iteration": 45,
+        "iteration": 44,
         "timestamp": "2025-12-15T21:50:22.596217",
         "policy_loss": 2.1749288881191213,
         "value_loss": 0.07838529495859309,
@@ -231,7 +231,7 @@
         "stockfish_elo": null
     },
     {
-        "iteration": 46,
+        "iteration": 45,
         "timestamp": "2025-12-16T06:15:04.292614",
         "policy_loss": 2.1134674706879784,
         "value_loss": 0.0907413837061647,
