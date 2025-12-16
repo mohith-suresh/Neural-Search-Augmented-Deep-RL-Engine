@@ -232,11 +232,9 @@ class MCTSWorker:
                 node.value_sum -= value
 
     def _add_noise_recursive(self, node, depth=0):
-        '''Recursively add Dirichlet noise to exploration tree'''
-        self.add_exploration_noise(node, depth)
-        if depth < 3:  # Up to 3 plies deep
-            for child in node.children.values():
-                self._add_noise_recursive(child, depth + 1)
+        '''Add Dirichlet noise ONLY at the root node'''
+        if depth == 0:
+            self.add_exploration_noise(node, depth=0)
 
     def add_exploration_noise(self, node, depth=0):
         '''Add Dirichlet noise with depth-aware scaling'''

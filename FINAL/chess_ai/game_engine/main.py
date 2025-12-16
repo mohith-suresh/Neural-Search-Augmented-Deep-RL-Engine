@@ -136,15 +136,10 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
 
             move_start = time.time()
             move_count = len(game.moves)
-            if move_count < 15:
-                current_temp = 1.2  # Open book exploration
-            elif move_count < 40:
-                current_temp = 0.6  # Middlegame focus
-            elif move_count < 80:
-                current_temp = 0.4  # Early endgame, still searching
+            if move_count < 16:
+                current_temp = 1.0
             else:
-                current_temp = 0.25 # Deep endgame, very focused
-            
+                current_temp = 0.0   # pure argmax from MCTS
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
             
             if (worker_id % 5) == 0:
