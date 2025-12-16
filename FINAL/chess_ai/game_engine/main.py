@@ -11,6 +11,7 @@ import math
 import chess 
 import signal
 import sys
+import json
 
 class TimeoutHandler:
     """Handle process timeouts to prevent deadlocks"""
@@ -221,13 +222,13 @@ SIMULATIONS = 1600
 EVAL_SIMULATIONS = 1200      
 
 # --- EVALUATION CONFIG ---
-EVAL_WORKERS = 10           
-GAMES_PER_EVAL_WORKER = 4   
+EVAL_WORKERS = 20           
+GAMES_PER_EVAL_WORKER = 2   
 STOCKFISH_GAMES = 20
 STOCKFISH_ELO = 1320        
 
 # --- RULES ---
-MAX_MOVES_PER_GAME = 200   
+MAX_MOVES_PER_GAME = 150   
 EVAL_MAX_MOVES_PER_GAME = 200 
 current_iter = get_start_iteration(DATA_DIR) - 1
 if current_iter < 10:
@@ -428,17 +429,36 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
     if win_rate >= 0.55:
         print(f" [Arena] ⭐ Candidate PROMOTED! (WR > 55%) ⭐")
         shutil.copyfile(CANDIDATE_MODEL, BEST_MODEL)
+    else:
+        print(f" [Arena] Candidate rejected (WR <= 55%). Running Stockfish evaluation anyway...")
         
-        # 3. STOCKFISH EVALUATION WITH BAYESELO (only if promoted)
+        # 3. FETCH LAST CHAMPION ELO FROM METRICS
+        last_champion_elo = None
+        try:
+            if os.path.exists("game_engine/model/metrics.json"):
+                with open("game_engine/model/metrics.json", "r") as f:
+                    metrics_history = json.load(f)
+                    if metrics_history and len(metrics_history) > 0:
+                        # Get last entry with valid model elo (not stockfish_elo)
+                        for entry in reversed(metrics_history):
+                            if entry.get("elo") is not None:  # ← FIXED: 'elo' not 'stockfish_elo'
+                                last_champion_elo = entry.get("elo")
+                                print(f" [Metrics] Last Champion Model Elo: {last_champion_elo:.0f}")
+                                break
+        except Exception as e:
+            print(f" [Metrics] Warning: Could not read metrics.json: {e}")
+
+        
+        # 4. STOCKFISH EVALUATION
         print(f" [Stockfish/BayesElo] Playing {STOCKFISH_GAMES} games vs Elo {STOCKFISH_ELO}...")
         cleanup_memory()
-
+        
         try:
             sf_eval = StockfishEvaluator(STOCKFISH_PATH, EVAL_SIMULATIONS)
             pgn_path = f"game_engine/evaluation/pgn/iter_{iteration}_{int(time.time())}.pgn"
             
             bayeselo_results = sf_eval.evaluate_with_bayeselo(
-                model_path=BEST_MODEL,
+                model_path=CANDIDATE_MODEL,
                 pgn_output_path=pgn_path,
                 num_games=STOCKFISH_GAMES,
                 stockfish_elo=STOCKFISH_ELO,
@@ -449,6 +469,17 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
                 est_elo = bayeselo_results['model_elo']
                 print(f" [BayesElo] ✅ Model Elo: {est_elo:.0f}")
                 print(f" [BayesElo] Record: {bayeselo_results['win_count']}-{bayeselo_results['draw_count']}-{bayeselo_results['loss_count']}")
+                
+                # 5. PROMOTION LOGIC: STOCKFISH-BASED
+                if last_champion_elo is not None and est_elo > last_champion_elo:
+                    print(f" [Stockfish] 🚀 CANDIDATE PROMOTED! ({est_elo:.0f} > {last_champion_elo:.0f})")
+                    shutil.copyfile(CANDIDATE_MODEL, BEST_MODEL)
+                elif last_champion_elo is None and est_elo > 1000:
+                    # Fallback: if no last Elo, promote if >1000 (basic competence)
+                    print(f" [Stockfish] 🚀 CANDIDATE PROMOTED! (First Elo: {est_elo:.0f})")
+                    shutil.copyfile(CANDIDATE_MODEL, BEST_MODEL)
+                else:
+                    print(f" [Stockfish] ❌ Candidate not promoted. ({est_elo:.0f} <= {last_champion_elo:.0f if last_champion_elo else 'N/A'})")
             else:
                 est_elo = None
                 print(f" [BayesElo] ❌ Failed to compute")
@@ -459,9 +490,6 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
             traceback.print_exc()
             est_elo = None
             
-    else:
-        print(f" [Arena] Candidate rejected (WR <= 55%). Skipping Stockfish evaluation.")
-    
     logger.log(iteration, p_loss, v_loss, win_rate, est_elo, stockfish_elo=STOCKFISH_ELO)
 
 if __name__ == "__main__":
