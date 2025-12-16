@@ -213,9 +213,9 @@ CUDA_STREAMS = 8
 # --- EXECUTION ---
 RESUME_ITERATION = None
 ITERATIONS = 1000
-NUM_WORKERS = 64            
+NUM_WORKERS = 44            
 WORKER_BATCH_SIZE = 8       
-GAMES_PER_WORKER = 2        
+GAMES_PER_WORKER = 4        
 
 # --- QUALITY ---
 SIMULATIONS = 1600           
