@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 # Import AMP for Mixed Precision Training
 from torch.cuda.amp import GradScaler, autocast
+from torch.optim.lr_scheduler import ExponentialLR
 import numpy as np
 import os
 import glob
@@ -188,6 +189,9 @@ def train_model(data_path="data/self_play",
 
     model.train()
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-3)
+
+    # Add exponential LR decay for controlled convergence
+    scheduler = ExponentialLR(optimizer, gamma=0.5)  # Halves LR each epoch
     
     # 3. Loss Functions
     mse_loss = nn.MSELoss()
@@ -230,23 +234,30 @@ def train_model(data_path="data/self_play",
             
             # --- Scaled Backward Pass ---
             scaler.scale(loss).backward()
+
+            # Unscale and clip gradients for stability
+            scaler.unscale_(optimizer)
+            total_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
             scaler.step(optimizer)
             scaler.update()
-            
+
             total_loss += loss.item()
             p_loss_total += p_loss.item()
             v_loss_total += v_loss.item()
             batch_count += 1
 
-            if (batch_idx + 1) % 5 == 0:  # Every 5 batches
+            # SIMPLE LOGGING FIX
+            if (batch_idx + 1) % 5 == 0:
                 avg_loss = total_loss / batch_count
-                if batch_idx > 0:
-                    elapsed = time.time() - epoch_start_time
-                    eta_secs = int((elapsed / (batch_idx + 1)) * (len(dataloader) - batch_idx - 1))
-                    eta_str = f"{eta_secs//60}m {eta_secs%60}s" if eta_secs >= 60 else f"{eta_secs}s"
-                    print(f"Batch {batch_idx+1}/{len(dataloader)} | Loss: {avg_loss:.4f} | ETA: {eta_str}")
-                else:
-                    print(f"Batch {batch_idx+1}/{len(dataloader)} | Loss: {avg_loss:.4f} | ETA: calculating...")
+                elapsed = time.time() - epoch_start_time
+                eta_secs = int((elapsed / (batch_idx + 1)) * (len(dataloader) - batch_idx - 1))
+                eta_str = f"{eta_secs//60}m {eta_secs%60}s" if eta_secs >= 60 else f"{eta_secs}s"
+                print(f"Batch {batch_idx+1}/{len(dataloader)} Loss {avg_loss:.4f} ETA {eta_str}")
+
+            # Optional: Log gradient norm occasionally (every 50 batches)
+            if (batch_idx + 1) % 50 == 0 and batch_idx > 0:
+                print(f"  Grad Norm: {total_norm:.4f}")
 
         
         if batch_count > 0:
@@ -254,6 +265,11 @@ def train_model(data_path="data/self_play",
             last_v_loss = v_loss_total / batch_count
 
             print(f"Epoch {epoch+1}/{epochs} | Loss: {total_loss/batch_count:.4f} (Pol: {last_p_loss:.4f} Val: {last_v_loss:.4f})")
+
+            # Step LR scheduler (aggressive decay)
+            if epoch < 2:  # Only decay for first 2 epochs
+                scheduler.step()
+                print(f"LR decayed to: {scheduler.get_last_lr()[0]:.6f}")
 
     # 5. Save Model
     os.makedirs(os.path.dirname(output_model_path), exist_ok=True)
