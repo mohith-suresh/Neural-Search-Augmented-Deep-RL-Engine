@@ -115,7 +115,7 @@ class MCTSWorker:
         self.batch_size = batch_size 
         self.cpu = 1.0 
 
-    def get_policy_vector(self, root, alpha: float = 1.5):
+    def get_policy_vector(self, root, alpha: float = 1.3):
         policy_vector = np.zeros(8192, dtype=np.float32)
         
         # Collect raw visit counts
@@ -171,13 +171,20 @@ class MCTSWorker:
             for _ in range(self.batch_size):
                 node = root
                 path = [node]
-                
+
                 while node.is_expanded():
                     action, node = node.select_child()
                     path.append(node)
                     node.virtual_loss += VIRTUAL_LOSS
-                    node.value_sum -= VIRTUAL_LOSS 
+                    node.value_sum -= VIRTUAL_LOSS
                 
+                # Early termination for clearly decided positions
+                if node.visit_count > 500 and abs(node.value()) > 0.95:
+                    # Position is clearly won/lost, don't waste simulations
+                    reward = node.state.get_reward_for_turn(node.state.turn_player)
+                    self.backpropagate(path, reward, node.state.turn_player, is_terminal=True)
+                    continue  # Skip to next batch element
+ 
                 # --- PDF FIX: Check for Repetition/Draw Claims ---
                 if node.state.is_over or node.state.board.can_claim_draw():
                     if node.state.is_over:

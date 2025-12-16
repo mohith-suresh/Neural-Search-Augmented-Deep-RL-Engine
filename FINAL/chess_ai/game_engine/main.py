@@ -215,11 +215,11 @@ CUDA_TIMEOUT_INFERENCE = 0.02
 CUDA_STREAMS = 8 
 
 # --- EXECUTION ---
-RESUME_ITERATION = 42
+RESUME_ITERATION = 46
 ITERATIONS = 1000
 NUM_WORKERS = 44            
 WORKER_BATCH_SIZE = 8       
-GAMES_PER_WORKER = 5        
+GAMES_PER_WORKER = 4        
 
 # --- QUALITY ---
 SIMULATIONS = 1600           
@@ -232,21 +232,21 @@ STOCKFISH_GAMES = 20
 STOCKFISH_ELO = 1320        
 
 # --- RULES ---
-MAX_MOVES_PER_GAME = 140   
+MAX_MOVES_PER_GAME = 200   
 EVAL_MAX_MOVES_PER_GAME = 200 
 current_iter = get_start_iteration(DATA_DIR) - 1
 if current_iter < 10:
-    DRAW_PENALTY = -0.15
+    DRAW_PENALTY = -0.1
 elif current_iter < 20:
-    DRAW_PENALTY = -0.25
+    DRAW_PENALTY = -0.2
 else:
-    DRAW_PENALTY = -0.30        
+    DRAW_PENALTY = -0.25        
 
 # Training
-TRAIN_EPOCHS = 4 
-TRAIN_WINDOW = 50           
-TRAIN_BATCH_SIZE = 2816
-TRAIN_LR = 0.000075       
+TRAIN_EPOCHS = 5 
+TRAIN_WINDOW = 20           
+TRAIN_BATCH_SIZE = 1536
+TRAIN_LR = 0.0003       
 
 # --- DRY WORKER WRAPPERS ---
 
@@ -463,14 +463,11 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
             import traceback
             traceback.print_exc()
             est_elo = None
-
-        logger.log(iteration, p_loss, v_loss, win_rate, est_elo)
-
             
     else:
         print(f" [Arena] Candidate rejected (WR <= 55%). Skipping Stockfish evaluation.")
     
-    logger.log(iteration, p_loss, v_loss, win_rate, est_elo)
+    logger.log(iteration, p_loss, v_loss, win_rate, est_elo, stockfish_elo=STOCKFISH_ELO)
 
 if __name__ == "__main__":
     setup_child_logging()
