@@ -424,52 +424,55 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
     print(f" [Arena] Final Result: {win_rate*100:.1f}% Win Rate ({total_wins}W - {total_draws}D - {total_forced_draws}FD - {total_losses}L)")
     
     est_elo = None
+    arena_promoted = False
 
     # 2. PROMOTION LOGIC
     if win_rate >= 0.55:
         print(f" [Arena] ⭐ Candidate PROMOTED! (WR > 55%) ⭐")
         shutil.copyfile(CANDIDATE_MODEL, BEST_MODEL)
-    else:
+        arena_promoted = True  # ← ADD THIS LINE
+    else:  # ← MOVE THIS FROM WRONG PLACE
         print(f" [Arena] Candidate rejected (WR <= 55%). Running Stockfish evaluation anyway...")
         
-        # 3. FETCH LAST CHAMPION ELO FROM METRICS
-        last_champion_elo = None
-        try:
-            if os.path.exists("game_engine/model/metrics.json"):
-                with open("game_engine/model/metrics.json", "r") as f:
-                    metrics_history = json.load(f)
-                    if metrics_history and len(metrics_history) > 0:
-                        # Get last entry with valid model elo (not stockfish_elo)
-                        for entry in reversed(metrics_history):
-                            if entry.get("elo") is not None:  # ← FIXED: 'elo' not 'stockfish_elo'
-                                last_champion_elo = entry.get("elo")
-                                print(f" [Metrics] Last Champion Model Elo: {last_champion_elo:.0f}")
-                                break
-        except Exception as e:
-            print(f" [Metrics] Warning: Could not read metrics.json: {e}")
+    # 3. FETCH LAST CHAMPION ELO FROM METRICS
+    last_champion_elo = None
+    try:
+        if os.path.exists("game_engine/model/metrics.json"):
+            with open("game_engine/model/metrics.json", "r") as f:
+                metrics_history = json.load(f)
+                if metrics_history and len(metrics_history) > 0:
+                    # Get last entry with valid model elo (not stockfish_elo)
+                    for entry in reversed(metrics_history):
+                        if entry.get("elo") is not None:  # ← FIXED: 'elo' not 'stockfish_elo'
+                            last_champion_elo = entry.get("elo")
+                            print(f" [Metrics] Last Champion Model Elo: {last_champion_elo:.0f}")
+                            break
+    except Exception as e:
+        print(f" [Metrics] Warning: Could not read metrics.json: {e}")
 
+    
+    # 4. STOCKFISH EVALUATION
+    print(f" [Stockfish/BayesElo] Playing {STOCKFISH_GAMES} games vs Elo {STOCKFISH_ELO}...")
+    cleanup_memory()
+    
+    try:
+        sf_eval = StockfishEvaluator(STOCKFISH_PATH, EVAL_SIMULATIONS)
+        pgn_path = f"game_engine/evaluation/pgn/iter_{iteration}_{int(time.time())}.pgn"
         
-        # 4. STOCKFISH EVALUATION
-        print(f" [Stockfish/BayesElo] Playing {STOCKFISH_GAMES} games vs Elo {STOCKFISH_ELO}...")
-        cleanup_memory()
+        bayeselo_results = sf_eval.evaluate_with_bayeselo(
+            model_path=CANDIDATE_MODEL,
+            pgn_output_path=pgn_path,
+            num_games=STOCKFISH_GAMES,
+            stockfish_elo=STOCKFISH_ELO,
+            max_moves=EVAL_MAX_MOVES_PER_GAME
+        )
         
-        try:
-            sf_eval = StockfishEvaluator(STOCKFISH_PATH, EVAL_SIMULATIONS)
-            pgn_path = f"game_engine/evaluation/pgn/iter_{iteration}_{int(time.time())}.pgn"
+        if bayeselo_results:
+            est_elo = bayeselo_results['model_elo']
+            print(f" [BayesElo] ✅ Model Elo: {est_elo:.0f}")
+            print(f" [BayesElo] Record: {bayeselo_results['win_count']}-{bayeselo_results['draw_count']}-{bayeselo_results['loss_count']}")
             
-            bayeselo_results = sf_eval.evaluate_with_bayeselo(
-                model_path=CANDIDATE_MODEL,
-                pgn_output_path=pgn_path,
-                num_games=STOCKFISH_GAMES,
-                stockfish_elo=STOCKFISH_ELO,
-                max_moves=EVAL_MAX_MOVES_PER_GAME
-            )
-            
-            if bayeselo_results:
-                est_elo = bayeselo_results['model_elo']
-                print(f" [BayesElo] ✅ Model Elo: {est_elo:.0f}")
-                print(f" [BayesElo] Record: {bayeselo_results['win_count']}-{bayeselo_results['draw_count']}-{bayeselo_results['loss_count']}")
-                
+            if not arena_promoted:
                 # 5. PROMOTION LOGIC: STOCKFISH-BASED
                 if last_champion_elo is not None and est_elo > last_champion_elo:
                     print(f" [Stockfish] 🚀 CANDIDATE PROMOTED! ({est_elo:.0f} > {last_champion_elo:.0f})")
@@ -480,15 +483,15 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
                     shutil.copyfile(CANDIDATE_MODEL, BEST_MODEL)
                 else:
                     print(f" [Stockfish] ❌ Candidate not promoted. ({est_elo:.0f} <= {last_champion_elo:.0f if last_champion_elo else 'N/A'})")
-            else:
-                est_elo = None
-                print(f" [BayesElo] ❌ Failed to compute")
-                
-        except Exception as e:
-            print(f" [BayesElo] ❌ Error: {e}")
-            import traceback
-            traceback.print_exc()
+        else:
             est_elo = None
+            print(f" [BayesElo] ❌ Failed to compute")
+            
+    except Exception as e:
+        print(f" [BayesElo] ❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        est_elo = None
             
     logger.log(iteration, p_loss, v_loss, win_rate, est_elo, stockfish_elo=STOCKFISH_ELO)
 
