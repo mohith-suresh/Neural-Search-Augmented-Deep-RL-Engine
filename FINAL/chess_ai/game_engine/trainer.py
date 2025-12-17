@@ -168,7 +168,7 @@ def train_model(data_path="data/self_play",
     )
 
     # 2. Load Model
-    model = ChessCNN().to(device)
+    model = ChessCNN(upgraded=True).to(device)
     
     # Load existing weights (The Champion) to continue training
     if os.path.exists(input_model_path):

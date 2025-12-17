@@ -3,8 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Mish(nn.Module):
-    def forward(self, x): 
-        return x * torch.tanh(F.softplus(x))
+    def forward(self, x): return x * torch.tanh(F.softplus(x))
 
 class SEBlock(nn.Module):
     def __init__(self, channels: int, reduction: int = 4):
@@ -16,7 +15,6 @@ class SEBlock(nn.Module):
             nn.Linear(channels // reduction, channels, bias=False),
             nn.Sigmoid()
         )
-
     def forward(self, x):
         b, c, _, _ = x.size()
         y = self.squeeze(x).view(b, c)
@@ -32,44 +30,29 @@ class ResidualBlock(nn.Module):
         self.bn2 = nn.BatchNorm2d(channels)
         self.act = Mish()
         self.se = SEBlock(channels) if use_se else None
-
     def forward(self, x):
         residual = x
         out = self.act(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
-        if self.se: 
-            out = self.se(out)
+        if self.se: out = self.se(out)
         out += residual
         return self.act(out)
 
 class ChessCNN(nn.Module):
-    def __init__(self, upgraded: bool = False):
+    def __init__(self):
         super().__init__()
+        # UPDATED CONFIG: 16 Input Channels 
+        # (Added Total Moves + No Progress Planes)
+        input_channels = 16
+        filters = 192
         
-        # Configuration selection
-        if upgraded:
-            # UPGRADED CONFIG: 256 Channels, 20 Residual Blocks
-            input_channels = 16
-            filters = 256
-            num_res_blocks = 20
-            se_start_idx = 10  # SE blocks from layer 10 onwards
-        else:
-            # LEGACY CONFIG: 192 Channels, 10 Residual Blocks
-            input_channels = 16
-            filters = 192
-            num_res_blocks = 10
-            se_start_idx = 7
-
         self.input_conv = nn.Sequential(
             nn.Conv2d(input_channels, filters, 3, padding=1, bias=False),
             nn.BatchNorm2d(filters),
             Mish()
         )
-
-        self.res_blocks = nn.ModuleList(
-            [ResidualBlock(filters, use_se=(i >= se_start_idx)) 
-             for i in range(num_res_blocks)]
-        )
+        
+        self.res_blocks = nn.ModuleList([ResidualBlock(filters, use_se=(i>=7)) for i in range(10)])
 
         self.policy_head = nn.Sequential(
             nn.Conv2d(filters, 32, 1, bias=False),
@@ -92,6 +75,5 @@ class ChessCNN(nn.Module):
 
     def forward(self, x):
         x = self.input_conv(x)
-        for block in self.res_blocks: 
-            x = block(x)
+        for block in self.res_blocks: x = block(x)
         return self.policy_head(x), self.value_head(x)
