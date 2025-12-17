@@ -13,7 +13,7 @@ class Config:
     # Project paths
     PROJECT_ROOT = Path(__file__).parent.parent
     DATA_DIR = PROJECT_ROOT / "data"
-    MODEL_DIR = PROJECT_ROOT / "model"
+    MODEL_DIR = PROJECT_ROOT / "game_engine"
     EVALUATION_DIR = PROJECT_ROOT / "evaluation"
     BACKEND_DIR = PROJECT_ROOT / "backend"
     FRONTEND_DIR = PROJECT_ROOT / "frontend"
@@ -23,7 +23,7 @@ class Config:
     (DATA_DIR / "training_data").mkdir(exist_ok=True)
     (DATA_DIR / "lichess_raw").mkdir(exist_ok=True)
     (DATA_DIR / "played_games").mkdir(exist_ok=True)
-    (MODEL_DIR / "checkpoints").mkdir(exist_ok=True)
+    (MODEL_DIR / "model").mkdir(exist_ok=True)
     EVALUATION_DIR.mkdir(exist_ok=True)
     
     # Chess Environment Settings
