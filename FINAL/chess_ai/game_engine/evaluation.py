@@ -25,7 +25,7 @@ class EvalMCTS:
         else:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.model = ChessCNN().to(self.device)
+        self.model = ChessCNN(upgraded=True).to(self.device)
         
         if os.path.exists(model_path):
             checkpoint = torch.load(model_path, map_location=self.device)
