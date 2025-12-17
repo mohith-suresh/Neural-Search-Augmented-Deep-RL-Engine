@@ -240,7 +240,7 @@ else:
 
 # Training
 TRAIN_EPOCHS = 10 
-TRAIN_WINDOW = 40           
+TRAIN_WINDOW = 10           
 TRAIN_BATCH_SIZE = 1024
 TRAIN_LR = 0.001       
 
