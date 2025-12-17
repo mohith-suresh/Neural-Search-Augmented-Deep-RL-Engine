@@ -263,7 +263,7 @@
         "policy_loss": 1.8515023633199907,
         "value_loss": 0.16803813061825496,
         "arena_win_rate": 0.49375,
-        "elo": null,
+        "elo": 1086,
         "stockfish_elo": 1320
     }
 ]

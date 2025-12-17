@@ -482,7 +482,7 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
                     print(f" [Stockfish] 🚀 CANDIDATE PROMOTED! (First Elo: {est_elo:.0f})")
                     shutil.copyfile(CANDIDATE_MODEL, BEST_MODEL)
                 else:
-                    print(f" [Stockfish] ❌ Candidate not promoted. ({est_elo:.0f} <= {last_champion_elo:.0f if last_champion_elo else 'N/A'})")
+                    print(f" [Stockfish] ❌ Candidate not promoted. ({est_elo:.0f} <= {last_champion_elo if last_champion_elo else None})")
         else:
             est_elo = None
             print(f" [BayesElo] ❌ Failed to compute")
