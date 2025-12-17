@@ -5,7 +5,7 @@
         "policy_loss": 2.2849833402993545,
         "value_loss": 0.31157515886819587,
         "arena_win_rate": 0.0,
-        "elo": null
+        "elo": 800
     },
     {
         "iteration": 4,
@@ -69,7 +69,7 @@
         "policy_loss": 2.8626433771786806,
         "value_loss": 0.22910419616938463,
         "arena_win_rate": 0.25,
-        "elo": null
+        "elo": 725
     },
     {
         "iteration": 13,
@@ -227,7 +227,7 @@
         "policy_loss": 2.1749288881191213,
         "value_loss": 0.07838529495859309,
         "arena_win_rate": 0.66875,
-        "elo": 1086.0,
+        "elo": 1090.0,
         "stockfish_elo": null
     },
     {
@@ -254,7 +254,7 @@
         "policy_loss": 1.8591747728677896,
         "value_loss": 0.1729081839323044,
         "arena_win_rate": 0.5,
-        "elo": null,
+        "elo": 1103,
         "stockfish_elo": 1320
     },
     {
@@ -263,7 +263,7 @@
         "policy_loss": 1.8515023633199907,
         "value_loss": 0.16803813061825496,
         "arena_win_rate": 0.49375,
-        "elo": 1086,
+        "elo": 1178,
         "stockfish_elo": 1320
     }
 ]
