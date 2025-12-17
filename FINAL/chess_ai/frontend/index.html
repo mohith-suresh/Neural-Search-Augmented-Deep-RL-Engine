@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chess AI - AlphaZero</title>
+    <title>Chess AI - PocketZero</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         * {
@@ -580,7 +580,7 @@
     </div>
 
     <div class="container">
-        <h1>♟ Chess AI - AlphaZero ♟</h1>
+        <h1>♟ Chess AI - PocketZero ♟</h1>
 
         <div class="board-section">
             <div class="timer" id="blackTimerContainer">
@@ -641,14 +641,14 @@
             </div>
 
             <div class="panel">
-                <h3>🧠 AlphaZero Engine</h3>
+                <h3>🧠 PocketZero Engine</h3>
                 <div class="stat-item">
                     <span class="stat-label">Model:</span>
                     <span class="stat-value">CNN + MCTS</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-label">Simulations:</span>
-                    <span class="stat-value">200/move</span>
+                    <span class="stat-value">800/move</span>
                 </div>
                 <p style="font-size: 12px; color: #666; margin-top: 12px; line-height: 1.5;">
                     ✨ Deep reinforcement learning with Monte Carlo Tree Search. Real-time inference on GPU.
@@ -773,7 +773,7 @@
                 console.log('[Socket] ✅ Connected to server');
                 socketConnected = true;
                 updateConnectionStatus(true);
-                showStatus('Connected to AlphaZero server ✅', 'success');
+                showStatus('Connected to PocketZero server ✅', 'success');
             });
 
             socket.on('disconnect', () => {

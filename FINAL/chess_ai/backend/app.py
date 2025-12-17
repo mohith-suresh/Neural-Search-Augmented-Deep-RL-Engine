@@ -379,7 +379,7 @@ def on_request_analysis(data):
     """Handle analysis request"""
     game_id = data.get('game_id')
     emit('analysis_result', {
-        'message': 'Analysis feature will be available after AlphaZero engine is trained',
+        'message': 'Analysis feature will be available after PocketZero engine is trained',
         'game_id': game_id
     })
 
