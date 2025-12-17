@@ -15,7 +15,7 @@ class AIEngine:
     """Wrapper for model-based move selection using MCTS (non-blocking)."""
     
     def __init__(self, model_path="game_engine/model/best_model.pth", 
-                 simulations=200, batch_size=8):
+                 simulations=800, batch_size=8):
         """
         Initialize AI engine with trained model (lazy-loads in background).
         
@@ -187,7 +187,7 @@ class AIEngine:
         Returns:
             {
                 'move': 'e2e4',
-                'simulations': 200,
+                'simulations': 800,
                 'success': True,
                 'model_ready': bool
             }
@@ -210,7 +210,7 @@ _ai_engine_lock = threading.Lock()
 
 
 def get_ai_engine(model_path="game_engine/model/best_model.pth", 
-                  simulations=200, batch_size=8) -> AIEngine:
+                  simulations=800, batch_size=8) -> AIEngine:
     """
     Get or create global AI engine instance (singleton pattern - NON-BLOCKING).
     
