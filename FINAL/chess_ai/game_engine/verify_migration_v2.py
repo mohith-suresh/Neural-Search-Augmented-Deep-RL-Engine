@@ -18,7 +18,7 @@ sys.path.append(os.getcwd())
 from game_engine.cnn import ChessCNN
 
 MODEL_DIR = "game_engine/model"
-NEW_MODEL_PATH = f"{MODEL_DIR}/best_model_v2.pth"
+NEW_MODEL_PATH = f"{MODEL_DIR}/best_model.pth"
 
 def count_parameters(model):
     """Count total trainable parameters."""
