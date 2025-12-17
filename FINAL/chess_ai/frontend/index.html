@@ -1,503 +1,713 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <title>Chess AI</title>
-    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess AI - AlphaZero</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         * {
+            margin: 0;
+            padding: 0;
             box-sizing: border-box;
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding: 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
         }
 
         .container {
-            max-width: 1400px;
-            margin: 0 auto;
             background: white;
             border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 30px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        h1 {
-            text-align: center;
-            color: #333;
-            margin-bottom: 20px;
-        }
-
-        .mode-selection {
-            text-align: center;
-            margin-bottom: 20px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-
-        .mode-selection h3 {
-            margin-top: 0;
-            color: #667eea;
-        }
-
-        .mode-btn {
-            padding: 15px 30px;
-            margin: 10px;
-            border: 2px solid #667eea;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            background: white;
-            color: #667eea;
-            transition: all 0.3s;
-        }
-
-        .mode-btn:hover {
-            background: #667eea;
-            color: white;
-        }
-
-        .mode-btn.active {
-            background: #667eea;
-            color: white;
-        }
-
-        .ai-side-selection {
-            display: none;
-            margin-top: 15px;
-        }
-
-        .ai-side-selection.visible {
-            display: block;
-        }
-
-        .main-grid {
+            max-width: 1200px;
+            width: 100%;
             display: grid;
-            grid-template-columns: 500px 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 30px;
         }
 
+        h1 {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
         .board-section {
-            position: relative;
-        }
-
-        #board {
-            margin: 0 auto;
-        }
-
-        .player-info {
             display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 5px;
-            margin: 10px 0;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .board-wrapper {
+            position: relative;
+            background: #8B7355;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            border: 3px solid #5D4E37;
+            padding: 8px;
+        }
+
+        .chess-board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 0;
+            aspect-ratio: 1;
+            background: #A0826D;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .square {
+            width: 100%;
+            aspect-ratio: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            cursor: pointer;
+            position: relative;
+            border: 1px solid #3e2723;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+
+        /* Light squares - explicit pattern for 8x8 board */
+        .square:nth-child(1), .square:nth-child(3), .square:nth-child(5), .square:nth-child(7),
+        .square:nth-child(10), .square:nth-child(12), .square:nth-child(14), .square:nth-child(16),
+        .square:nth-child(17), .square:nth-child(19), .square:nth-child(21), .square:nth-child(23),
+        .square:nth-child(26), .square:nth-child(28), .square:nth-child(30), .square:nth-child(32),
+        .square:nth-child(33), .square:nth-child(35), .square:nth-child(37), .square:nth-child(39),
+        .square:nth-child(42), .square:nth-child(44), .square:nth-child(46), .square:nth-child(48),
+        .square:nth-child(49), .square:nth-child(51), .square:nth-child(53), .square:nth-child(55),
+        .square:nth-child(58), .square:nth-child(60), .square:nth-child(62), .square:nth-child(64) {
+            background-color: #F0D9B5;
+        }
+
+        /* Dark squares - explicit pattern for 8x8 board */
+        .square:nth-child(2), .square:nth-child(4), .square:nth-child(6), .square:nth-child(8),
+        .square:nth-child(9), .square:nth-child(11), .square:nth-child(13), .square:nth-child(15),
+        .square:nth-child(18), .square:nth-child(20), .square:nth-child(22), .square:nth-child(24),
+        .square:nth-child(25), .square:nth-child(27), .square:nth-child(29), .square:nth-child(31),
+        .square:nth-child(34), .square:nth-child(36), .square:nth-child(38), .square:nth-child(40),
+        .square:nth-child(41), .square:nth-child(43), .square:nth-child(45), .square:nth-child(47),
+        .square:nth-child(50), .square:nth-child(52), .square:nth-child(54), .square:nth-child(56),
+        .square:nth-child(57), .square:nth-child(59), .square:nth-child(61), .square:nth-child(63) {
+            background-color: #B58863;
+        }
+
+        .square.selected {
+            background-color: #BACA44 !important;
+            border-color: #BACA44;
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+        }
+
+        .square.legal-move {
+            box-shadow: inset 0 0 0 3px #52B051;
+        }
+
+        .square.legal-move::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #52B051;
+            border-radius: 50%;
+            opacity: 0.6;
+            box-shadow: 0 0 3px rgba(82, 176, 81, 0.5);
+        }
+
+        .square.last-move {
+            background-color: #BACA44 !important;
+            box-shadow: inset 0 0 0 2px #999;
+        }
+
+        .square:hover {
+            filter: brightness(1.08);
+        }
+
+        .piece {
+            font-size: 52px;
+            line-height: 1;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+            user-select: none;
+            filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.3));
             font-weight: bold;
         }
 
-        .player-info.active {
-            background: #bee3f8;
+        .piece.white {
+            color: #FFFFFF;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+            font-weight: 900;
+        }
+
+        .piece.black {
+            color: #000000;
+            text-shadow: 0px 0px 2px rgba(255, 255, 255, 0.3);
         }
 
         .timer {
-            font-family: monospace;
+            text-align: center;
             font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            padding: 12px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            transition: all 0.3s ease;
         }
 
-        .ai-thinking {
-            display: none !important;
+        .timer.warning {
+            background: linear-gradient(135deg, #fed7d7 0%, #fc8181 100%);
+            color: #742a2a;
+            animation: timerWarning 0.5s ease infinite;
+            border-color: #f56565;
         }
 
-
-        .ai-thinking.visible {
-            display: block;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 10px auto;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
+        @keyframes timerWarning {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(245, 101, 101, 0.3);
             }
-
-            100% {
-                transform: rotate(360deg);
+            50% {
+                box-shadow: 0 0 0 8px rgba(245, 101, 101, 0);
             }
         }
 
         .controls {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-        }
-
-        .controls h3 {
-            margin-top: 0;
-            color: #667eea;
-            font-size: 16px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            grid-column: 1 / -1;
         }
 
         button {
-            padding: 8px 16px;
-            margin: 4px;
+            flex: 1;
+            min-width: 100px;
+            padding: 12px 16px;
+            font-size: 13px;
             border: none;
             border-radius: 6px;
-            font-size: 13px;
-            font-weight: bold;
             cursor: pointer;
-            transition: all 0.3s;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        button:active {
+            transform: scale(0.96);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .btn-primary {
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
             color: white;
         }
 
-        .btn-primary:hover {
-            background: #5568d3;
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #5568d3 0%, #4555c0 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
         .btn-success {
-            background: #48bb78;
+            background: linear-gradient(135deg, #52B051 0%, #449D44 100%);
             color: white;
         }
 
-        .btn-success:hover {
-            background: #38a169;
-        }
-
-        .btn-warning {
-            background: #ed8936;
-            color: white;
-        }
-
-        .btn-warning:hover {
-            background: #dd6b20;
+        .btn-success:hover:not(:disabled) {
+            background: linear-gradient(135deg, #449D44 0%, #388838 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(82, 176, 81, 0.4);
         }
 
         .btn-danger {
-            background: #f56565;
+            background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%);
             color: white;
         }
 
-        .btn-danger:hover {
-            background: #e53e3e;
+        .btn-danger:hover:not(:disabled) {
+            background: linear-gradient(135deg, #C0392B 0%, #A93226 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
         }
 
-        .toggle-container {
-            margin: 10px 0;
-            display: flex;
-            align-items: center;
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
         }
 
-        .toggle-container label {
-            margin-right: 10px;
-            font-weight: bold;
+        .btn-secondary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #7f8c8d 0%, #6c7a7d 100%);
+            transform: translateY(-2px);
         }
 
-        .stats-panel,
-        .history-panel,
-        .analysis-panel {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
+        .mode-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
             margin-bottom: 15px;
         }
 
-        .stats-panel h3,
-        .history-panel h3,
-        .analysis-panel h3 {
-            margin-top: 0;
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-left: 4px solid #667eea;
+            padding: 18px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .panel h3 {
             color: #667eea;
-            font-size: 16px;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 8px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
         }
 
         .stat-item {
             display: flex;
             justify-content: space-between;
-            padding: 6px 0;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 13px;
+            margin: 10px 0;
+            font-size: 14px;
         }
 
         .stat-label {
-            font-weight: bold;
-            color: #4a5568;
+            color: #666;
+            font-weight: 600;
         }
 
         .stat-value {
-            color: #2d3748;
+            color: #667eea;
+            font-weight: 700;
         }
 
         .move-history {
-            max-height: 150px;
-            overflow-y: auto;
             background: white;
-            padding: 8px;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 11px;
-        }
-
-        .move-item {
-            padding: 3px;
-            margin: 2px 0;
-            background: #edf2f7;
-            border-radius: 3px;
-        }
-
-        #status {
-            padding: 8px;
-            background: #bee3f8;
-            border-radius: 5px;
-            text-align: center;
-            font-weight: bold;
-            color: #2c5282;
-            margin-top: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 12px;
+            max-height: 220px;
+            overflow-y: auto;
             font-size: 13px;
         }
 
-        .analysis-content {
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            text-align: center;
-            color: #718096;
-            font-size: 12px;
-            min-height: 80px;
+        .move-item {
+            padding: 6px 10px;
+            background: #f5f5f5;
+            margin: 4px 0;
+            border-radius: 4px;
+            border-left: 3px solid #667eea;
+            font-weight: 500;
         }
 
-        .right-panel {
-            max-height: 600px;
-            overflow-y: auto;
+        .status {
+            padding: 14px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-15px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.info {
+            background: #D1ECF1;
+            color: #0C5460;
+            border: 1px solid #BEE5EB;
+        }
+
+        .status.success {
+            background: #D4EDDA;
+            color: #155724;
+            border: 1px solid #C3E6CB;
+        }
+
+        .status.error {
+            background: #F8D7DA;
+            color: #721C24;
+            border: 1px solid #F5C6CB;
+        }
+
+        .status.warning {
+            background: #FFF3CD;
+            color: #856404;
+            border: 1px solid #FFEEBA;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            padding: 10px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .connection-status.connected {
+            background: #D4EDDA;
+            color: #155724;
+            border: 1px solid #C3E6CB;
+        }
+
+        .connection-status.disconnected {
+            background: #F8D7DA;
+            color: #721C24;
+            border: 1px solid #F5C6CB;
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .promotion-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .promotion-modal.show {
+            display: flex;
+        }
+
+        .promotion-box {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .promotion-box h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .promotion-options {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .promotion-piece {
+            font-size: 50px;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .promotion-piece:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            transform: scale(1.1);
+        }
+
+        .game-over-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .game-over-modal.show {
+            display: flex;
+        }
+
+        .game-over-box {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            max-width: 500px;
+            animation: popIn 0.3s ease;
+        }
+
+        @keyframes popIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .game-over-box h2 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+            margin-top: 0;
+        }
+
+        .game-over-box .result {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .game-over-box .reason {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .game-over-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .square {
+                font-size: 30px;
+            }
+
+            .piece {
+                font-size: 40px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
         }
     </style>
 </head>
-
 <body>
-    <div class="container">
-        <h1>Chess AI</h1>
+    <div class="connection-status disconnected" id="connectionStatus">
+        <span class="connection-dot"></span>
+        <span id="connectionText">Connecting...</span>
+    </div>
 
-        <div class="mode-selection" id="modeSelection">
-            <h3>Select Game Mode</h3>
-            <button class="mode-btn" onclick="selectMode('pvp')">Human vs Human</button>
-            <button class="mode-btn" onclick="selectMode('pve')">Human vs AI</button>
-
-            <div class="ai-side-selection" id="aiSideSelection">
-                <h4>Select Your Color:</h4>
-                <button class="mode-btn" onclick="startGame('white')">Play as White</button>
-                <button class="mode-btn" onclick="startGame('black')">Play as Black</button>
-            </div>
-        </div>
-
-        <div class="main-grid" id="gameArea" style="display: none;">
-            <div class="board-section">
-                <div class="player-info" id="blackPlayerInfo">
-                    <span id="blackPlayerName">Black</span>
-                    <span class="timer" id="blackTimer">10:00</span>
-                </div>
-
-                <div style="position: relative;">
-                    <div id="board" style="width: 500px"></div>
-                    <div class="ai-thinking" id="aiThinking">
-                        <div>AI is thinking...</div>
-                        <div class="spinner"></div>
-                    </div>
-                </div>
-
-                <div class="player-info" id="whitePlayerInfo">
-                    <span id="whitePlayerName">White</span>
-                    <span class="timer" id="whiteTimer">10:00</span>
-                </div>
-
-                <div id="status">Select game mode to start</div>
-            </div>
-
-            <div class="right-panel">
-                <div class="controls">
-                    <h3>Game Controls</h3>
-                    <button class="btn-primary" onclick="newGame()">New Game</button>
-                    <button class="btn-warning" onclick="undoMove()">Undo</button>
-                    <button class="btn-danger" onclick="resign()">Resign</button>
-
-                    <div class="toggle-container">
-                        <label for="highlightToggle">Highlight Moves:</label>
-                        <input type="checkbox" id="highlightToggle" checked onchange="toggleHighlights()">
-                    </div>
-                </div>
-
-                <div class="stats-panel">
-                    <h3>Game Statistics</h3>
-                    <div class="stat-item">
-                        <span class="stat-label">Mode:</span>
-                        <span class="stat-value" id="gameMode">-</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Total Moves:</span>
-                        <span class="stat-value" id="totalMoves">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Current Turn:</span>
-                        <span class="stat-value" id="currentTurn">White</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Game Status:</span>
-                        <span class="stat-value" id="gameStatus">In Progress</span>
-                    </div>
-                </div>
-
-                <div class="history-panel">
-                    <h3>Move History</h3>
-                    <div class="move-history" id="moveHistory">
-                        <em>No moves yet</em>
-                    </div>
-                </div>
-
-                <div class="analysis-panel">
-                    <h3>Post-Game Analysis</h3>
-                    <div class="analysis-content" id="analysisContent">
-                        <em>Analysis available after game ends<br>AlphaZero engine integration coming soon</em>
-                    </div>
-                </div>
+    <div class="promotion-modal" id="promotionModal">
+        <div class="promotion-box">
+            <h2>Pawn Promotion</h2>
+            <p style="margin-bottom: 20px; color: #666;">Choose a piece:</p>
+            <div class="promotion-options">
+                <div class="promotion-piece" onclick="completePromotion('q')">♕</div>
+                <div class="promotion-piece" onclick="completePromotion('r')">♖</div>
+                <div class="promotion-piece" onclick="completePromotion('b')">♗</div>
+                <div class="promotion-piece" onclick="completePromotion('n')">♘</div>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <div class="game-over-modal" id="gameOverModal">
+        <div class="game-over-box">
+            <h2 id="gameOverTitle">Game Over</h2>
+            <div class="result" id="gameOverResult">White Wins!</div>
+            <div class="reason" id="gameOverReason">Checkmate</div>
+            <div class="game-over-buttons">
+                <button class="btn-primary" onclick="newGame()">🔄 New Game</button>
+                <button class="btn-secondary" onclick="closeGameOverModal()">📊 Review</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>♟ Chess AI - AlphaZero ♟</h1>
+
+        <div class="board-section">
+            <div class="timer" id="blackTimerContainer">
+                <span>🤖 AI (Black)</span> | <span id="blackTimer">10:00</span>
+            </div>
+            <div class="board-wrapper">
+                <div class="chess-board" id="board"></div>
+            </div>
+            <div class="timer" id="whiteTimerContainer">
+                <span>👤 You (White)</span> | <span id="whiteTimer">10:00</span>
+            </div>
+            <div id="statusMessage" class="status"></div>
+        </div>
+
+        <div class="side-panel">
+            <div class="panel">
+                <h3>🎮 Game Mode</h3>
+                <div class="mode-selector">
+                    <button class="btn-success" onclick="startGame('pve', 'black')">▶ Play vs AI</button>
+                    <button class="btn-secondary" onclick="startGame('pvp', 'white')">👥 2 Player</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>⚙️ Controls</h3>
+                <div class="controls">
+                    <button class="btn-primary" onclick="newGame()">🔄 New Game</button>
+                    <button class="btn-secondary" onclick="undoMove()">↶ Undo</button>
+                    <button class="btn-danger" onclick="resignGame()">🏳 Resign</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>📊 Game Statistics</h3>
+                <div class="stat-item">
+                    <span class="stat-label">Mode:</span>
+                    <span class="stat-value" id="gameMode">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total Moves:</span>
+                    <span class="stat-value" id="moveCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Current Turn:</span>
+                    <span class="stat-value" id="currentTurn">White</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Status:</span>
+                    <span class="stat-value" id="gameStatus">⏳ Ready</span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>📝 Move History</h3>
+                <div class="move-history" id="moveHistory">
+                    <em>No moves yet</em>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>🧠 AlphaZero Engine</h3>
+                <div class="stat-item">
+                    <span class="stat-label">Model:</span>
+                    <span class="stat-value">CNN + MCTS</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Simulations:</span>
+                    <span class="stat-value">200/move</span>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 12px; line-height: 1.5;">
+                    ✨ Deep reinforcement learning with Monte Carlo Tree Search. Real-time inference on GPU.
+                </p>
+            </div>
+        </div>
+    </div>
 
     <script>
-        let board = null;
+        // ==================== PIECE SYMBOLS ====================
+        const PIECE_SYMBOLS = {
+            'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',
+            'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚'
+        };
+
+        // ==================== GLOBAL STATE ====================
+        let gameState = {
+            gameId: null,
+            mode: null,
+            aiSide: null,
+            board: null,
+            legalMoves: [],
+            selectedSquare: null,
+            lastMove: null,
+            moves: [],
+            isGameOver: false,
+            turn: 'white',
+            whiteTime: 600,
+            blackTime: 600
+        };
+
         let socket = null;
-        let currentGameId = null;
-        let gameMode = null;
-        let aiSide = null;
-        let playerSide = null;
-        let highlightEnabled = true;
-        let selectedSquare = null;
-        let legalMoves = [];
-
-        let whiteTime = 600;
-        let blackTime = 600;
+        let socketConnected = false;
+        let promotionData = null;
         let timerInterval = null;
-        let currentTurn = 'white';
 
-        socket = io();
-
-        socket.on('connect', () => console.log('Connected'));
-
-        socket.on('game_created', (data) => {
-            currentGameId = data.game_id;
-            gameMode = data.mode;
-            aiSide = data.ai_side;
-            playerSide = (aiSide === 'white') ? 'black' : 'white';
-
-            whiteTime = 600;
-            blackTime = 600;
-            currentTurn = 'white';
-            updateTimerDisplay();
-            startTimer();
-
-            updateGameState(data);
-            updatePlayerLabels();
-            $('#status').text('Game started!').css('background', '#c6f6d5');
-        });
-
-        socket.on('move_made', (data) => {
-            updateGameState(data);
-
-            if (data.in_check) {
-                $('#status').text('Check!').css('background', '#fefcbf');
-            }
-
-            currentTurn = data.move_count % 2 === 0 ? 'white' : 'black';
-        });
-
-        socket.on('ai_thinking', () => {
-            // Do nothing - let timer continue
-        });
-
-        socket.on('ai_move', (data) => {
-            updateGameState(data);
-
-            currentTurn = data.move_count % 2 === 0 ? 'white' : 'black';
-
-            if (data.in_check) {
-                $('#status').text('Check!').css('background', '#fefcbf');
-            }
-        });
-
-        socket.on('move_undone', (data) => {
-            updateGameState(data);
-            currentTurn = data.move_count % 2 === 0 ? 'white' : 'black';
-            $('#status').text('Move undone').css('background', '#fefcbf');
-        });
-
-        socket.on('game_over', (data) => {
-            stopTimer();
-            updateGameState(data);
-
-            const message = data.message || `Game Over: ${data.result}`;
-            $('#status').html(`<strong>${message}</strong>`).css('background', '#fed7d7');
-
-            $('#analysisContent').html(`
-                <strong>Game Finished!</strong><br>
-                <strong>${data.game_ending_reason ? data.game_ending_reason.replace('_', ' ').toUpperCase() : 'GAME OVER'}</strong><br>
-                ${data.winner ? `Winner: ${data.winner}` : 'Draw'}<br>
-                Result: ${data.result}<br>
-                <button class="btn-primary" onclick="requestAnalysis()" style="margin-top: 10px;">Request Analysis</button>
-            `);
-
-            showGameEndModal(data);
-            saveGame();
-        });
-
-        socket.on('illegal_move', (data) => {
-            $('#status').text(`Illegal move: ${data.move}`).css('background', '#fed7d7');
-            setTimeout(() => {
-                $('#status').text('Your turn').css('background', '#bee3f8');
-            }, 2000);
-        });
-
-        socket.on('analysis_result', (data) => {
-            $('#analysisContent').html(`<em>${data.message}</em>`);
-        });
-
+        // ==================== TIMER SYSTEM ====================
         function startTimer() {
-            if (timerInterval) return;
-
+            if (timerInterval) clearInterval(timerInterval);
+            
             timerInterval = setInterval(() => {
-                if (currentTurn === 'white') {
-                    whiteTime--;
-                    if (whiteTime <= 0) {
-                        whiteTime = 0;
-                        stopTimer();
-                        timeOut('white');
+                if (gameState.isGameOver) {
+                    clearInterval(timerInterval);
+                    return;
+                }
+
+                if (gameState.turn === 'white') {
+                    gameState.whiteTime--;
+                    if (gameState.whiteTime <= 0) {
+                        gameState.whiteTime = 0;
+                        endGameTimeout('white');
+                        return;
                     }
                 } else {
-                    blackTime--;
-                    if (blackTime <= 0) {
-                        blackTime = 0;
-                        stopTimer();
-                        timeOut('black');
+                    gameState.blackTime--;
+                    if (gameState.blackTime <= 0) {
+                        gameState.blackTime = 0;
+                        endGameTimeout('black');
+                        return;
                     }
                 }
                 updateTimerDisplay();
@@ -512,8 +722,26 @@
         }
 
         function updateTimerDisplay() {
-            $('#whiteTimer').text(formatTime(whiteTime));
-            $('#blackTimer').text(formatTime(blackTime));
+            const whiteEl = document.getElementById('whiteTimer');
+            const blackEl = document.getElementById('blackTimer');
+            const whiteContainer = document.getElementById('whiteTimerContainer');
+            const blackContainer = document.getElementById('blackTimerContainer');
+
+            whiteEl.textContent = formatTime(gameState.whiteTime);
+            blackEl.textContent = formatTime(gameState.blackTime);
+
+            // Add warning class if time low
+            if (gameState.whiteTime <= 30) {
+                whiteContainer.classList.add('warning');
+            } else {
+                whiteContainer.classList.remove('warning');
+            }
+
+            if (gameState.blackTime <= 30) {
+                blackContainer.classList.add('warning');
+            } else {
+                blackContainer.classList.remove('warning');
+            }
         }
 
         function formatTime(seconds) {
@@ -522,243 +750,515 @@
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
-        function timeOut(player) {
-            socket.emit('resign', {
-                game_id: currentGameId,
-                player: player
-            });
-        }
-
-        function showGameEndModal(data) {
-            const modalHtml = `
-                <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center;" id="gameEndModal">
-                    <div style="background: white; padding: 40px; border-radius: 15px; text-align: center; max-width: 400px;">
-                        <h2 style="color: #667eea; margin-top: 0;">Game Over!</h2>
-                        <h3 style="margin: 10px 0;">${data.message || data.result}</h3>
-                        <p style="color: #666; margin: 15px 0;">
-                            ${data.game_ending_reason ? data.game_ending_reason.replace('_', ' ').toUpperCase() : ''}
-                        </p>
-                        <button class="btn-primary" onclick="closeModal()" style="margin: 10px; padding: 12px 24px;">Close</button>
-                        <button class="btn-success" onclick="newGame()" style="margin: 10px; padding: 12px 24px;">New Game</button>
-                    </div>
-                </div>
-            `;
-            $('body').append(modalHtml);
-        }
-
-        function closeModal() {
-            $('#gameEndModal').remove();
-        }
-
-        function selectMode(mode) {
-            gameMode = mode;
-            if (mode === 'pve') {
-                $('#aiSideSelection').addClass('visible');
-            } else {
-                startGame(null);
-            }
-        }
-
-        function startGame(playerColor) {
-            if (gameMode === 'pve') {
-                aiSide = (playerColor === 'white') ? 'black' : 'white';
-                playerSide = playerColor;
-            }
-
-            $('#modeSelection').hide();
-            $('#gameArea').show();
-
-            initBoard();
-            socket.emit('new_game', { mode: gameMode || 'pvp', ai_side: aiSide });
-        }
-
-        function initBoard() {
-            const config = {
-                draggable: true,
-                position: 'start',
-                pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
-                onDragStart: onDragStart,
-                onDrop: onDrop,
-                onSnapEnd: onSnapEnd,
-                onMouseoutSquare: onMouseoutSquare,
-                onMouseoverSquare: onMouseoverSquare
-            };
-
-            if (gameMode === 'pve' && playerSide === 'black') {
-                config.orientation = 'black';
-            }
-
-            board = Chessboard('board', config);
-        }
-
-        function onDragStart(source, piece) {
-            if (gameMode === 'pve') {
-                const pieceColor = piece[0] === 'w' ? 'white' : 'black';
-                if (pieceColor !== playerSide) return false;
-            }
-
-            selectedSquare = source;
-            if (highlightEnabled) highlightLegalMoves(source);
-        }
-
-        function onDrop(source, target) {
-            selectedSquare = null;
-            removeHighlights();
-
-            let move = source + target;
-
-            const piece = board.position()[source];
-            const isPawn = piece && (piece === 'wP' || piece === 'bP');
-            const isLastRank = (piece === 'wP' && target[1] === '8') || (piece === 'bP' && target[1] === '1');
-
-            if (isPawn && isLastRank) {
-                showPromotionDialog(source, target);
-                return 'snapback';
-            }
-
-            socket.emit('player_move', { game_id: currentGameId, move: move });
-            return 'snapback';
-        }
-
-        function showPromotionDialog(source, target) {
-            const pieceColor = board.position()[source][0];
-            const colorName = pieceColor === 'w' ? 'white' : 'black';
-            const piecePrefix = pieceColor === 'w' ? 'w' : 'b';
-
-            const modalHtml = `
-        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; align-items: center; justify-content: center;" id="promotionModal">
-            <div style="background: white; padding: 30px; border-radius: 15px; text-align: center;">
-                <h3 style="margin-top: 0; color: #667eea;">Promote Pawn To:</h3>
-                <div style="display: flex; gap: 15px; margin: 20px 0;">
-                    <button class="promotion-btn" onclick="selectPromotion('${source}', '${target}', 'q')" style="padding: 10px; border: 2px solid #667eea; border-radius: 10px; background: white; cursor: pointer;">
-                        <img src="https://chessboardjs.com/img/chesspieces/wikipedia/${piecePrefix}Q.png" width="60" height="60" style="display: block;">
-                    </button>
-                    <button class="promotion-btn" onclick="selectPromotion('${source}', '${target}', 'r')" style="padding: 10px; border: 2px solid #667eea; border-radius: 10px; background: white; cursor: pointer;">
-                        <img src="https://chessboardjs.com/img/chesspieces/wikipedia/${piecePrefix}R.png" width="60" height="60" style="display: block;">
-                    </button>
-                    <button class="promotion-btn" onclick="selectPromotion('${source}', '${target}', 'b')" style="padding: 10px; border: 2px solid #667eea; border-radius: 10px; background: white; cursor: pointer;">
-                        <img src="https://chessboardjs.com/img/chesspieces/wikipedia/${piecePrefix}B.png" width="60" height="60" style="display: block;">
-                    </button>
-                    <button class="promotion-btn" onclick="selectPromotion('${source}', '${target}', 'n')" style="padding: 10px; border: 2px solid #667eea; border-radius: 10px; background: white; cursor: pointer;">
-                        <img src="https://chessboardjs.com/img/chesspieces/wikipedia/${piecePrefix}N.png" width="60" height="60" style="display: block;">
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-
-            $('body').append(modalHtml);
-            $('.promotion-btn').hover(
-                function () { $(this).css('background', '#667eea'); },
-                function () { $(this).css('background', 'white'); }
+        function endGameTimeout(player) {
+            stopTimer();
+            gameState.isGameOver = true;
+            const loser = player === 'white' ? 'White' : 'Black';
+            const winner = player === 'white' ? 'Black' : 'White';
+            
+            showGameOverModal(
+                `⏰ Time's Up!`,
+                `${winner} Wins!`,
+                `${loser} ran out of time`
             );
+            showStatus(`⏰ ${loser} ran out of time - ${winner} wins!`, 'warning');
         }
 
-        function selectPromotion(source, target, promotion) {
-            $('#promotionModal').remove();
-            socket.emit('player_move', { game_id: currentGameId, move: source + target + promotion });
-        }
+        // ==================== SOCKET INITIALIZATION ====================
+        function initSocket() {
+            console.log('[Socket] Initializing socket.io connection...');
+            socket = io();
 
-        function onSnapEnd() { }
+            socket.on('connect', () => {
+                console.log('[Socket] ✅ Connected to server');
+                socketConnected = true;
+                updateConnectionStatus(true);
+                showStatus('Connected to AlphaZero server ✅', 'success');
+            });
 
-        function onMouseoverSquare(square, piece) {
-            if (highlightEnabled && piece && !selectedSquare) highlightLegalMoves(square);
-        }
+            socket.on('disconnect', () => {
+                console.log('[Socket] ❌ Disconnected from server');
+                socketConnected = false;
+                stopTimer();
+                updateConnectionStatus(false);
+                showStatus('Disconnected from server ❌', 'error');
+            });
 
-        function onMouseoutSquare() {
-            if (!selectedSquare) removeHighlights();
-        }
+            socket.on('game_created', (data) => {
+                console.log('[Game] game_created event received:', data);
+                gameState.gameId = data.game_id;
+                gameState.mode = data.mode;
+                gameState.aiSide = data.ai_side;
+                gameState.board = data.board_fen;
+                gameState.legalMoves = data.legal_moves;
+                gameState.moves = data.moves || [];
+                gameState.turn = data.turn;
+                gameState.isGameOver = data.is_over;
+                gameState.selectedSquare = null;
+                gameState.whiteTime = 600;
+                gameState.blackTime = 600;
+                
+                closeGameOverModal();
+                startTimer();
+                updateUI();
+                const modeText = data.mode === 'pve' ? 'Human vs AI' : '2 Player';
+                showStatus(`🎮 Game started! Mode: ${modeText}`, 'success');
+            });
 
-        function highlightLegalMoves(square) {
-            legalMoves.filter(m => m.startsWith(square)).forEach(move => {
-                $(`#board .square-${move.substring(2, 4)}`).addClass('highlight');
+            socket.on('move_made', (data) => {
+                console.log('[Game] move_made event received:', data);
+                gameState.board = data.board_fen;
+                gameState.legalMoves = data.legal_moves;
+                gameState.moves = data.moves || [];
+                gameState.lastMove = data.move;
+                gameState.turn = data.turn;
+                gameState.isGameOver = data.is_over;
+                gameState.selectedSquare = null;
+                
+                updateUI();
+            });
+
+            socket.on('ai_thinking', (data) => {
+                console.log('[AI] AI is thinking...');
+                showStatus('🤖 AI is thinking... ⏳', 'info');
+            });
+
+            socket.on('ai_move', (data) => {
+                console.log('[AI] ai_move event received:', data);
+                gameState.board = data.board_fen;
+                gameState.legalMoves = data.legal_moves;
+                gameState.moves = data.moves || [];
+                gameState.lastMove = data.move;
+                gameState.turn = data.turn;
+                gameState.isGameOver = data.is_over;
+                gameState.selectedSquare = null;
+                
+                const moveStr = `${data.move.substring(0, 2).toUpperCase()}-${data.move.substring(2, 4).toUpperCase()}`;
+                showStatus(`🤖 AI moved: ${moveStr}`, 'success');
+                updateUI();
+
+                if (data.is_over) {
+                    handleGameEnd(data);
+                }
+            });
+
+            socket.on('game_over', (data) => {
+                console.log('[Game] game_over event received:', data);
+                gameState.isGameOver = true;
+                gameState.board = data.board_fen;
+                gameState.turn = data.turn;
+                
+                handleGameEnd(data);
+                updateUI();
+            });
+
+            socket.on('move_undone', (data) => {
+                console.log('[Game] move_undone event received:', data);
+                gameState.board = data.board_fen;
+                gameState.legalMoves = data.legal_moves;
+                gameState.moves = data.moves || [];
+                gameState.lastMove = data.last_move || null;
+                gameState.turn = data.turn;
+                gameState.isGameOver = data.is_over;
+                gameState.selectedSquare = null;
+                
+                showStatus('↶ Last 2 moves undone', 'info');
+                updateUI();
+            });
+
+            socket.on('illegal_move', (data) => {
+                console.log('[Game] Illegal move:', data);
+                showStatus(`❌ Illegal move: ${data.move}`, 'error');
+                gameState.selectedSquare = null;
+                renderBoard();
+            });
+
+            socket.on('error', (data) => {
+                console.error('[Game] Error:', data);
+                showStatus(`❌ ${data.message}`, 'error');
             });
         }
 
-        function removeHighlights() {
-            $('#board .square-55d63').removeClass('highlight');
-        }
+        // ==================== GAME LOGIC ====================
 
-        function toggleHighlights() {
-            highlightEnabled = $('#highlightToggle').is(':checked');
-            if (!highlightEnabled) removeHighlights();
-        }
-
-        function updateGameState(data) {
-            board.position(data.fen);
-            legalMoves = data.legal_moves || [];
-
-            $('#gameMode').text(gameMode === 'pvp' ? 'Human vs Human' : 'Human vs AI');
-            $('#totalMoves').text(data.move_count || 0);
-            $('#currentTurn').text(data.move_count % 2 === 0 ? 'White' : 'Black');
-            $('#gameStatus').text(data.is_over ? 'Game Over' : 'In Progress');
-
-            if (data.move_count % 2 === 0) {
-                $('#whitePlayerInfo').addClass('active');
-                $('#blackPlayerInfo').removeClass('active');
-            } else {
-                $('#blackPlayerInfo').addClass('active');
-                $('#whitePlayerInfo').removeClass('active');
+        function startGame(mode, aiSide) {
+            console.log('[Game] Starting game:', mode, aiSide);
+            if (!socketConnected) {
+                showStatus('❌ Not connected to server', 'error');
+                return;
             }
 
-            updateMoveHistory();
-        }
-
-        function updateMoveHistory() {
-            fetch(`/game_stats/${currentGameId}`)
-                .then(r => r.json())
-                .then(data => {
-                    const history = $('#moveHistory');
-                    if (data.move_history && data.move_history.length > 0) {
-                        let html = '';
-                        data.move_history.forEach((move, idx) => {
-                            const moveNum = Math.floor(idx / 2) + 1;
-                            html += idx % 2 === 0 ? `<div class="move-item">${moveNum}. ${move}` : ` ${move}</div>`;
-                        });
-                        history.html(html);
-                        history.scrollTop(history[0].scrollHeight);
-                    } else {
-                        history.html('<em>No moves yet</em>');
-                    }
-                });
-        }
-
-        function updatePlayerLabels() {
-            if (gameMode === 'pve') {
-                $('#whitePlayerName').text(aiSide === 'white' ? 'AI' : 'You');
-                $('#blackPlayerName').text(aiSide === 'black' ? 'AI' : 'You');
-            } else {
-                $('#whitePlayerName').text('Player 1 (White)');
-                $('#blackPlayerName').text('Player 2 (Black)');
-            }
+            socket.emit('new_game', {
+                mode: mode,
+                ai_side: aiSide
+            });
         }
 
         function newGame() {
+            console.log('[Game] New game button clicked');
             stopTimer();
-            location.reload();
+            gameState = {
+                gameId: null,
+                mode: null,
+                aiSide: null,
+                board: null,
+                legalMoves: [],
+                selectedSquare: null,
+                lastMove: null,
+                moves: [],
+                isGameOver: false,
+                turn: 'white',
+                whiteTime: 600,
+                blackTime: 600
+            };
+            hidePromotionModal();
+            closeGameOverModal();
+            updateUI();
+        }
+
+        function makeMove(from, to) {
+            if (!gameState.gameId) {
+                showStatus('❌ No active game', 'error');
+                return;
+            }
+
+            if (!socketConnected) {
+                showStatus('❌ Not connected to server', 'error');
+                return;
+            }
+
+            // Get the piece at the from square
+            const fenParts = gameState.board.split(' ');
+            const position = fenParts[0];
+            const ranks = position.split('/');
+            const fromFile = from.charCodeAt(0) - 97;
+            const fromRank = 8 - parseInt(from[1]);
+            
+            let piece = '';
+            let fileCount = 0;
+            const rankStr = ranks[fromRank];
+            
+            for (let i = 0; i < rankStr.length; i++) {
+                const char = rankStr[i];
+                if (/\d/.test(char)) {
+                    fileCount += parseInt(char);
+                } else {
+                    if (fileCount === fromFile) {
+                        piece = char;
+                        break;
+                    }
+                    fileCount++;
+                }
+            }
+            
+            // Check for promotion
+            const toRank = parseInt(to[1]);
+            const fromRankNum = parseInt(from[1]);
+            
+            if ((piece === 'P' && toRank === 8 && fromRankNum === 7) || 
+                (piece === 'p' && toRank === 1 && fromRankNum === 2)) {
+                promotionData = { from, to };
+                showPromotionModal();
+                return;
+            }
+
+            const move = from + to;
+            console.log('[Game] Making move:', move);
+
+            socket.emit('player_move', {
+                game_id: gameState.gameId,
+                move: move
+            });
+        }
+
+        function completePromotion(piece) {
+            if (!promotionData) return;
+            
+            const { from, to } = promotionData;
+            const move = from + to + piece;
+            console.log('[Promotion] Completed with piece:', piece, 'Move:', move);
+            
+            hidePromotionModal();
+            promotionData = null;
+            
+            socket.emit('player_move', {
+                game_id: gameState.gameId,
+                move: move
+            });
         }
 
         function undoMove() {
-            socket.emit('undo_move', { game_id: currentGameId });
+            if (!gameState.gameId) {
+                showStatus('❌ No active game', 'error');
+                return;
+            }
+
+            if (!socketConnected) {
+                showStatus('❌ Not connected to server', 'error');
+                return;
+            }
+
+            if (gameState.moves.length < 2) {
+                showStatus('❌ At least 2 moves required to undo', 'error');
+                return;
+            }
+
+            console.log('[Game] Undoing move');
+            socket.emit('undo_move', {
+                game_id: gameState.gameId
+            });
         }
 
-        function resign() {
-            socket.emit('resign', { game_id: currentGameId, player: $('#currentTurn').text().toLowerCase() });
+        function resignGame() {
+            if (!gameState.gameId) {
+                showStatus('❌ No active game', 'error');
+                return;
+            }
+
+            if (!socketConnected) {
+                showStatus('❌ Not connected to server', 'error');
+                return;
+            }
+
+            if (confirm('Resign game? You will lose.')) {
+                console.log('[Game] Resigning game');
+                stopTimer();
+                socket.emit('resign', {
+                    game_id: gameState.gameId,
+                    player: 'white'
+                });
+            }
         }
 
-        function requestAnalysis() {
-            socket.emit('request_analysis', { game_id: currentGameId });
+        function handleGameEnd(data) {
+            console.log('[Game] Game ended:', data);
+            stopTimer();
+            const reason = data.game_ending_reason || data.reason || 'unknown';
+            
+            let title = 'Game Over';
+            let result = 'Draw';
+            let message = '';
+
+            switch(reason) {
+                case 'checkmate':
+                    title = '🏆 Checkmate!';
+                    result = `${data.winner} Wins!`;
+                    message = 'Checkmate - Game Over';
+                    break;
+                case 'stalemate':
+                    title = '🤝 Stalemate';
+                    result = 'Draw';
+                    message = 'Stalemate - Game is a draw';
+                    break;
+                case 'insufficient_material':
+                    title = '🤝 Draw';
+                    result = 'Draw';
+                    message = 'Insufficient material - Game is a draw';
+                    break;
+                case 'resignation':
+                    title = '🏳 Resignation';
+                    result = `${data.reason}`;
+                    message = `Opponent resigned`;
+                    break;
+                default:
+                    title = 'Game Over';
+                    result = data.message || 'Game Over';
+                    message = data.message || 'Game Over';
+            }
+            
+            showGameOverModal(title, result, message);
+            showStatus(`${title} - ${message}`, 'warning');
         }
 
-        function saveGame() {
-            fetch(`/save_game/${currentGameId}`, { method: 'POST' })
-                .then(r => r.json())
-                .then(data => console.log('Game saved:', data.filename));
+        // ==================== UI RENDERING ====================
+
+        function updateUI() {
+            renderBoard();
+            updateStats();
+            updateMoveHistory();
+            updateTimerDisplay();
         }
 
-        $('<style>').text('.highlight { box-shadow: inset 0 0 20px rgba(102, 126, 234, 0.5); }').appendTo('head');
+        function renderBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+
+            if (!gameState.board) {
+                const placeholder = document.createElement('div');
+                placeholder.style.gridColumn = '1/-1';
+                placeholder.style.textAlign = 'center';
+                placeholder.style.padding = '50px';
+                placeholder.style.color = '#999';
+                placeholder.textContent = 'Select a game mode to start playing';
+                board.appendChild(placeholder);
+                return;
+            }
+
+            const fenParts = gameState.board.split(' ');
+            const position = fenParts[0];
+            const ranks = position.split('/');
+
+            let squareIndex = 0;
+            for (let rank = 0; rank < 8; rank++) {
+                const rankStr = ranks[rank];
+                let file = 0;
+
+                for (let i = 0; i < rankStr.length; i++) {
+                    const char = rankStr[i];
+
+                    if (/\d/.test(char)) {
+                        for (let j = 0; j < parseInt(char); j++) {
+                            createSquare(board, file, rank, '', squareIndex++);
+                            file++;
+                        }
+                    } else {
+                        createSquare(board, file, rank, char, squareIndex++);
+                        file++;
+                    }
+                }
+            }
+        }
+
+        function createSquare(board, file, rank, piece, index) {
+            const square = document.createElement('div');
+            square.className = 'square';
+            const squareName = String.fromCharCode(97 + file) + (8 - rank);
+            square.id = squareName;
+
+            if (gameState.lastMove && 
+                (squareName === gameState.lastMove.substring(0, 2) || 
+                 squareName === gameState.lastMove.substring(2, 4))) {
+                square.classList.add('last-move');
+            }
+
+            if (gameState.selectedSquare === squareName) {
+                square.classList.add('selected');
+            }
+
+            if (gameState.selectedSquare) {
+                const possibleMoves = gameState.legalMoves.filter(m => m.startsWith(gameState.selectedSquare));
+                possibleMoves.forEach(move => {
+                    if (squareName === move.substring(2, 4)) {
+                        square.classList.add('legal-move');
+                    }
+                });
+            }
+
+            if (piece) {
+                const pieceElement = document.createElement('div');
+                pieceElement.className = 'piece';
+                const isWhite = piece === piece.toUpperCase();
+                pieceElement.classList.add(isWhite ? 'white' : 'black');
+                pieceElement.textContent = PIECE_SYMBOLS[piece] || piece;
+                square.appendChild(pieceElement);
+            }
+
+            square.onclick = () => handleSquareClick(squareName);
+            board.appendChild(square);
+        }
+
+        function handleSquareClick(squareName) {
+            if (!gameState.gameId || gameState.isGameOver) {
+                return;
+            }
+
+            if (gameState.selectedSquare === null) {
+                if (gameState.legalMoves.some(m => m.startsWith(squareName))) {
+                    gameState.selectedSquare = squareName;
+                    renderBoard();
+                    return;
+                }
+            } else {
+                const move = gameState.selectedSquare + squareName;
+                if (gameState.legalMoves.includes(move) || 
+                    gameState.legalMoves.some(m => m.startsWith(move))) {
+                    makeMove(gameState.selectedSquare, squareName);
+                    gameState.selectedSquare = null;
+                } else {
+                    gameState.selectedSquare = null;
+                    if (gameState.legalMoves.some(m => m.startsWith(squareName))) {
+                        gameState.selectedSquare = squareName;
+                    }
+                    renderBoard();
+                }
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('gameMode').textContent = gameState.mode ? (gameState.mode === 'pve' ? 'Human vs AI' : '2 Player') : '-';
+            document.getElementById('moveCount').textContent = gameState.moves.length;
+            document.getElementById('currentTurn').textContent = gameState.turn === 'white' ? '👤 White' : '🤖 Black';
+            document.getElementById('gameStatus').textContent = gameState.isGameOver ? '✅ Game Over' : '🔄 In Progress';
+        }
+
+        function updateMoveHistory() {
+            const history = document.getElementById('moveHistory');
+            if (gameState.moves.length === 0) {
+                history.innerHTML = '<em>No moves yet</em>';
+                return;
+            }
+
+            history.innerHTML = gameState.moves.map((move, idx) => {
+                const moveStr = `${move.substring(0, 2).toUpperCase()}-${move.substring(2, 4).toUpperCase()}`;
+                const moveType = idx % 2 === 0 ? '👤' : '🤖';
+                return `<div class="move-item">${moveType} ${idx + 1}. ${moveStr}</div>`;
+            }).join('');
+
+            history.scrollTop = history.scrollHeight;
+        }
+
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status show ${type}`;
+            
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusEl.classList.remove('show');
+                }, 5000);
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            const textEl = document.getElementById('connectionText');
+            
+            if (connected) {
+                statusEl.className = 'connection-status connected';
+                textEl.textContent = '🟢 Connected';
+            } else {
+                statusEl.className = 'connection-status disconnected';
+                textEl.textContent = '🔴 Disconnected';
+            }
+        }
+
+        function showPromotionModal() {
+            document.getElementById('promotionModal').classList.add('show');
+        }
+
+        function hidePromotionModal() {
+            document.getElementById('promotionModal').classList.remove('show');
+        }
+
+        function showGameOverModal(title, result, reason) {
+            document.getElementById('gameOverTitle').textContent = title;
+            document.getElementById('gameOverResult').textContent = result;
+            document.getElementById('gameOverReason').textContent = reason;
+            document.getElementById('gameOverModal').classList.add('show');
+        }
+
+        function closeGameOverModal() {
+            document.getElementById('gameOverModal').classList.remove('show');
+        }
+
+        // ==================== INITIALIZATION ====================
+
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('[Init] Page loaded, initializing socket.io...');
+            initSocket();
+            updateConnectionStatus(false);
+            renderBoard();
+        });
     </script>
-
 </body>
-
 </html>

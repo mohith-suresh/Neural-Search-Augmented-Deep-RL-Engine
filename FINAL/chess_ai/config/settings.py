@@ -101,6 +101,14 @@ class Config:
         "stockfish_path": "/usr/bin/stockfish"
     }
 
+    # AI Engine Configuration
+    AI = {
+        "model_path": "game_engine/model/best_model.pth",
+        "simulations": 200,  # Sims per move (200-400 for fast frontend play)
+        "batch_size": 8,
+        "device": "cuda",  # or "cpu"
+    }
+
 
 class DevelopmentConfig(Config):
     """Development configuration"""
