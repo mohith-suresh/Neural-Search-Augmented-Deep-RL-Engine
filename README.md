@@ -1,43 +1,43 @@
-# Chess AI - Email Notifications
+# EE542 Chess AI Project
 
-Training now sends epoch summaries (loss/accuracy/correlation) plus attachments (`training_curves.png`, `qualitative_log.txt`) to the configured recipients.
+## 1. Download the Model
 
-## Configure SMTP credentials
+1. Visit: https://drive.google.com/file/d/1FHQQI9hNmIxAZd6zmX6QO8oow5ekjgGs/view?usp=sharing
+2. Click the download button
+3. Place the downloaded model file in `game_engine/model/best_model.pth`
 
-Two options:
-1) **.env file (preferred for local/dev)**  
-   Create `.env` in the repo root with:
-   ```
-   SMTP_HOST=smtp.example.com
-   SMTP_PORT=587
-   SMTP_USER=you@example.com
-   SMTP_PASS=your-password-or-app-password
-   SMTP_FROM=you@example.com   # optional; defaults to SMTP_USER
-   ```
-   The code auto-loads `.env` if `python-dotenv` is installed (already handled in `cnn.py`).
+## 2. Environment Setup
 
-2) **Environment variables (good for GCP/prod)**  
-   Export before running:
-   ```bash
-   export SMTP_HOST=...
-   export SMTP_PORT=587
-   export SMTP_USER=...
-   export SMTP_PASS=...
-   export SMTP_FROM=...    # optional
-   ```
-   Or prefix a command:
-   ```bash
-   SMTP_HOST=... SMTP_PORT=587 SMTP_USER=... SMTP_PASS=... python game_engine/cnn.py
-   ```
-
-## Recipients
-
-Hardcoded recipients (per requirements): `adithya@usc.edu`, `krishmod@usc.edu`, `mohiths@usc.edu`. Update the list in `FINAL/chess_ai/game_engine/cnn.py` if you need changes.
-
-## Run training
-
-From `FINAL/chess_ai`:
 ```bash
-source ../.venv/bin/activate   # adjust path to your venv
-python game_engine/cnn.py      # or bash scripts/run_overnight.sh
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
+
+## 3. Run the Application
+
+```bash
+# Start playing against the model
+python app.py
+```
+
+The app will prompt you to open a browser. Visit the local URL (usually `http://localhost:5000`) to play against the model.
+
+---
+
+## Verification Checklist
+
+Before running, ensure:
+- ✓ `game_engine/model/best_model.pth` exists
+- ✓ `requirements.txt` exists in project root
+- ✓ Virtual environment is activated
+- ✓ All dependencies installed: `pip list`
+- ✓ `app.py` exists and is executable
