@@ -62,12 +62,13 @@ class GracefulKiller:
 class Logger(object):
     def __init__(self):
         self.terminal = sys.stdout
-        self.log = open(LOG_FILE, "a", buffering=1, encoding='utf-8')
+        self.log = open(LOG_FILE, "a", buffering=0, encoding='utf-8')
     def write(self, message):
         try:
             self.terminal.write(message)
             self.log.write(message)
-        except: pass 
+            self.log.flush()
+        except: pass
     def flush(self):
         try:
             self.terminal.flush()
@@ -75,7 +76,7 @@ class Logger(object):
         except: pass
 
 def setup_child_logging():
-    sys.stdout = Logger()
+    sys.stdout = open(os.devnull, 'w')  
     sys.stderr = sys.stderr
 
 def queue_monitor_thread(queue):
@@ -143,9 +144,10 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
                 current_temp = 0.0   # pure argmax from MCTS
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
             
-            dur = time.time() - move_start
-            nps = SIMULATIONS / dur if dur > 0 else 0
-            print(f"   [Worker {worker_id}] Move {len(game.moves)+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
+            if (worker_id % 10) == 0
+                dur = time.time() - move_start
+                nps = SIMULATIONS / dur if dur > 0 else 0
+                print(f"   [Worker {worker_id}] Move {len(game.moves)+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
             
             game_data.append({
                 "state": game.to_tensor(),

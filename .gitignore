@@ -306,3 +306,4 @@ secrets/
 !setup.py
 
 commands.txt
+token.txt
