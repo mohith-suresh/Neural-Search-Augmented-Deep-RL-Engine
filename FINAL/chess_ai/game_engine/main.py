@@ -144,7 +144,7 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
                 current_temp = 0.0   # pure argmax from MCTS
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
             
-            if (worker_id % 10) == 0
+            if (worker_id % 10) == 0:
                 dur = time.time() - move_start
                 nps = SIMULATIONS / dur if dur > 0 else 0
                 print(f"   [Worker {worker_id}] Move {len(game.moves)+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
@@ -217,7 +217,7 @@ CUDA_TIMEOUT_INFERENCE = 0.025
 CUDA_STREAMS = 8 
 
 # --- EXECUTION ---
-RESUME_ITERATION = None
+RESUME_ITERATION = 52
 ITERATIONS = 1000
 NUM_WORKERS = 176            
 WORKER_BATCH_SIZE = 400       
