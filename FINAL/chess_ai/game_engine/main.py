@@ -232,8 +232,8 @@ STOCKFISH_GAMES = 20
 STOCKFISH_ELO = 1320        
 
 # --- RULES ---
-MAX_MOVES_PER_GAME = 400   
-EVAL_MAX_MOVES_PER_GAME = 400 
+MAX_MOVES_PER_GAME = 800   
+EVAL_MAX_MOVES_PER_GAME = 800 
 current_iter = get_start_iteration(DATA_DIR) - 1
 if current_iter < 10:
     DRAW_PENALTY = -0.1
