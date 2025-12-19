@@ -76,8 +76,9 @@ class Logger(object):
         except: pass
 
 def setup_child_logging():
-    sys.stdout = open(os.devnull, 'w')  
-    sys.stderr = sys.stderr
+    # For child processes only
+    sys.stdout = open(os.devnull, 'w')
+    sys.stderr = open(os.devnull, 'w')
 
 def queue_monitor_thread(queue):
     while True:
@@ -514,7 +515,7 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
     logger.log(iteration, p_loss, v_loss, win_rate, est_elo, stockfish_elo=STOCKFISH_ELO)
 
 if __name__ == "__main__":
-    setup_child_logging()
+    sys.stdout = Logger()          # Main process writes to training_log.txt
     mp.set_start_method('spawn', force=True)
     os.makedirs(MODEL_DIR, exist_ok=True)
     
