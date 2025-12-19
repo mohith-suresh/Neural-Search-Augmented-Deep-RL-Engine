@@ -151,9 +151,9 @@ class MCTSWorker:
         self.input_queue.put((self.worker_id, tensor)) 
         
         try:
-            policy, value = self.output_queue.get(timeout=30)
+            policy, value = self.output_queue.get(timeout=60)
         except Exception:
-            print(f"[Worker {self.worker_id}] ❌ Server timeout - no response in 30s")
+            print(f"[Worker {self.worker_id}] ❌ Server timeout - no response in 60")
             raise RuntimeError("Server communication timeout")
 
         root.expand(root.state.legal_moves(), policy)
@@ -198,9 +198,9 @@ class MCTSWorker:
             self.input_queue.put((self.worker_id, batch_tensor))
             
             try:
-                policies, values = self.output_queue.get(timeout=30)
+                policies, values = self.output_queue.get(timeout=60)
             except Exception:
-                print(f"[Worker {self.worker_id}] ❌ Server timeout - no response in 30s")
+                print(f"[Worker {self.worker_id}] ❌ Server timeout - no response in 60")
                 raise RuntimeError("Server communication timeout")
 
             # Expansion & Backprop Phase
