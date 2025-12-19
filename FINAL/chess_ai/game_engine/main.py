@@ -218,8 +218,8 @@ WORKER_BATCH_SIZE = 8
 GAMES_PER_WORKER = 2        
 
 # --- QUALITY ---
-SIMULATIONS = 800           
-EVAL_SIMULATIONS = 800      
+SIMULATIONS = 1200           
+EVAL_SIMULATIONS = 1200      
 
 # --- EVALUATION CONFIG ---
 EVAL_WORKERS = 10           
@@ -228,8 +228,8 @@ STOCKFISH_GAMES = 20
 STOCKFISH_ELO = 1320        
 
 # --- RULES ---
-MAX_MOVES_PER_GAME = 150   
-EVAL_MAX_MOVES_PER_GAME = 200 
+MAX_MOVES_PER_GAME = 400   
+EVAL_MAX_MOVES_PER_GAME = 400 
 current_iter = get_start_iteration(DATA_DIR) - 1
 if current_iter < 10:
     DRAW_PENALTY = -0.1
@@ -250,19 +250,29 @@ def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model,
     setup_child_logging()
     np.random.seed(worker_id + int(time.time()) % 10000)
     torch.manual_seed(worker_id + int(time.time()) % 10000)
-
     try:
-        arena = Arena(cand_model, champ_model, sims, max_moves)
-        w, d, l, fd = arena.play_match(num_games, temperature=0.0, use_dirichlet=False)
+        arena = Arena(cand_model, champ_model, sims)
+        w, d, l, fd = 0, 0, 0, 0
+        for game_num in range(num_games):
+            result = arena.play_game(game_num, max_moves=max_moves)
+            if result == "CAND_WIN":
+                w += 1
+            elif result == "CHAMP_WIN":
+                l += 1
+            elif result == "DRAW":
+                d += 1
+            elif result == "DRAW_FORCED":
+                fd += 1
         
-        # We create a simple result string for logging
         result_str = f"Worker {worker_id}: {w}W - {d}D - {l}L - {fd}FD"
-        print(f"   [Arena] {result_str}")
-        
+        print(f" [Arena] {result_str}")
         queue.put({"wins": w, "draws": d, "losses": l, "forced_draws": fd})
-    except Exception as e:
-        print(f"Arena Worker {worker_id} Failed: {e}")
-        queue.put({"wins": w, "draws": d, "losses": l, "forced_draws": fd})
+    
+    except Exception as e:  # ← ADD THIS
+        print(f"[Arena Worker {worker_id}] ❌ CRASHED: {e}")
+        import traceback
+        traceback.print_exc()
+        queue.put({"wins": 0, "draws": 0, "losses": 0, "forced_draws": 0})  # ← ALWAYS send result
 
 # --- PHASES ---
 

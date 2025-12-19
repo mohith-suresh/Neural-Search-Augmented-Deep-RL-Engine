@@ -63,7 +63,7 @@ class ChessGame:
         Planes 6-11: Black Pieces [P, N, B, R, Q, K]
         Plane 12: Turn (1.0 if Black's turn, else 0.0)
         Plane 13: Repetition (1.0 if position has occurred >= 1 time before)
-        Plane 14: Total Move Count (Normalized: count / 200.0)
+        Plane 14: Total Move Count (Normalized: count / 400.0)  <-- UPDATED
         Plane 15: No Progress Count (Normalized: halfmoves / 100.0)
         """
         tensor = np.zeros((16, 8, 8), dtype=np.float32)
@@ -93,8 +93,8 @@ class ChessGame:
             tensor[13, :, :] = 1.0
 
         # Plane 14: Total Move Count (Normalized 0-1)
-        # We cap at 200 moves (400 plies) to keep range 0.0 - 1.0
-        move_count_norm = min(self.board.fullmove_number, 200) / 200.0
+        # UPDATED: Cap at 400 moves (800 plies) to allow deep endgames
+        move_count_norm = min(self.board.fullmove_number, 400) / 400.0
         tensor[14, :, :] = move_count_norm
 
         # Plane 15: No Progress Count (Normalized 0-1)

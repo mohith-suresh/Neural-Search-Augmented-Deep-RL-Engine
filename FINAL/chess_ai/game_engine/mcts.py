@@ -46,6 +46,8 @@ class Node:
         return len(self.children) > 0
 
     def value(self):
+        # Virtual loss increases the denominator (visits) and decreases numerator (value_sum)
+        # This effectively reduces the win rate, discouraging other threads.
         visits = self.visit_count + self.virtual_loss
         if visits <= 0: return 0
         return self.value_sum / visits
@@ -64,7 +66,7 @@ class Node:
         for action, child in self.children.items():
             child_visits = child.visit_count + child.virtual_loss
             
-            q_value = -child.value()
+            q_value = -child.value() # Negate because child value is from opponent's perspective
             
             u_value = cpuct * child.prior * sqrt_parent_visits / (1 + child_visits)
             score = q_value + u_value
@@ -118,7 +120,6 @@ class MCTSWorker:
     def get_policy_vector(self, root, alpha: float = 1.3):
         policy_vector = np.zeros(8192, dtype=np.float32)
         
-        # Collect raw visit counts
         visits = {}
         for action_uci, child in root.children.items():
             idx = move_to_index(action_uci)
@@ -128,12 +129,12 @@ class MCTSWorker:
         if not visits:
             return policy_vector
         
-        # Apply exponent α for sharpening
         counts = np.array(list(visits.values()), dtype=np.float32)
         indices = np.array(list(visits.keys()), dtype=np.int32)
         
         sharpened = counts ** alpha
         total = sharpened.sum()
+        
         if total <= 0:
             return policy_vector
         
@@ -175,23 +176,15 @@ class MCTSWorker:
                 while node.is_expanded():
                     action, node = node.select_child()
                     path.append(node)
-                    node.virtual_loss += VIRTUAL_LOSS
-                    node.value_sum -= VIRTUAL_LOSS
                 
-                # Early termination for clearly decided positions
-                if node.visit_count > 500 and abs(node.value()) > 0.95:
-                    # Position is clearly won/lost, don't waste simulations
+                # CRITICAL FIX 1: Apply Virtual Loss ONLY to the leaf node (outside the loop)
+                # CRITICAL FIX 2: Correct signs (+= to VL count, -= to Value sum)
+                node.virtual_loss += VIRTUAL_LOSS
+                node.value_sum -= VIRTUAL_LOSS  # Penalize to repel other threads
+                
+                # Terminal state handling
+                if node.state.is_over: # Removed can_claim_draw() to fix peaceful loop
                     reward = node.state.get_reward_for_turn(node.state.turn_player)
-                    self.backpropagate(path, reward, node.state.turn_player, is_terminal=True)
-                    continue  # Skip to next batch element
- 
-                # --- PDF FIX: Check for Repetition/Draw Claims ---
-                if node.state.is_over or node.state.board.can_claim_draw():
-                    if node.state.is_over:
-                        reward = node.state.get_reward_for_turn(node.state.turn_player)
-                    else:
-                        reward = 0.0 # Treated as Draw
-                        
                     self.backpropagate(path, reward, node.state.turn_player, is_terminal=True)
                 else:
                     leaves.append(node)
@@ -210,7 +203,6 @@ class MCTSWorker:
                 print(f"[Worker {self.worker_id}] ❌ Server timeout - no response in 30s")
                 raise RuntimeError("Server communication timeout")
 
-            
             # Expansion & Backprop Phase
             for i, node in enumerate(leaves):
                 path = paths[i]
@@ -220,11 +212,13 @@ class MCTSWorker:
         return self.get_result(root, temperature)
 
     def backpropagate(self, path, value, leaf_turn_player, is_terminal):
+        # CRITICAL FIX: Remove Virtual Loss from the LEAF only
+        leaf = path[-1]
+        leaf.virtual_loss -= VIRTUAL_LOSS
+        leaf.value_sum += VIRTUAL_LOSS  # Add back to restore the real value (undo the penalty)
+
+        # Standard Backprop
         for node in reversed(path):
-            if node != path[0]:
-                node.virtual_loss -= VIRTUAL_LOSS 
-                node.value_sum += VIRTUAL_LOSS 
-            
             node.visit_count += 1
             if node.state.turn_player == leaf_turn_player:
                 node.value_sum += value
@@ -241,7 +235,6 @@ class MCTSWorker:
         actions = list(node.children.keys())
         if not actions: return
         
-        # Stronger at root, weaker mid-game
         alpha = 0.3 if depth == 0 else 0.1
         frac = 0.25 if depth == 0 else 0.05
         
@@ -271,18 +264,7 @@ class MCTSWorker:
     def search_direct(self, root_state, model, temperature=1.0, use_dirichlet=True):
         """
         Direct MCTS search without queue communication.
-        
         Used for evaluation where we have direct model access.
-        Identical algorithm to queue-based search() but calls model directly.
-        
-        Args:
-            root_state: Game state (ChessGame instance)
-            model: PyTorch model with forward(tensor) -> (policy, value)
-            temperature: Move selection temperature (0=deterministic, 1=proportional)
-            use_dirichlet: If True, add exploration noise at root
-        
-        Returns:
-            (best_action, policy_vector) - same as search()
         """
         root = Node(root_state)
         device = next(model.parameters()).device
@@ -294,11 +276,10 @@ class MCTSWorker:
         
         root.expand(root.state.legal_moves(), policy.cpu().numpy())
         
-        # 2. Add noise if enabled (conditional, vs always in queue version)
         if use_dirichlet:
             self._add_noise_recursive(root, depth=0)
         
-        # 3. Batch simulation loop (IDENTICAL TO search())
+        # 3. Batch simulation loop
         num_iterations = max(1, self.simulations // self.batch_size)
         
         for _ in range(num_iterations):
@@ -314,15 +295,14 @@ class MCTSWorker:
                 while node.is_expanded():
                     action, node = node.select_child()
                     path.append(node)
-                    node.virtual_loss += VIRTUAL_LOSS
-                    node.value_sum -= VIRTUAL_LOSS
                 
-                # Terminal state handling
-                if node.state.is_over or node.state.board.can_claim_draw():
-                    if node.state.is_over:
-                        reward = node.state.get_reward_for_turn(node.state.turn_player)
-                    else:
-                        reward = 0.0  # Draw
+                # CRITICAL FIX: Match logic with search()
+                # Apply VL only to leaf, correct signs
+                node.virtual_loss += VIRTUAL_LOSS
+                node.value_sum -= VIRTUAL_LOSS
+                
+                if node.state.is_over: # Removed can_claim_draw()
+                    reward = node.state.get_reward_for_turn(node.state.turn_player)
                     self.backpropagate(path, reward, node.state.turn_player, is_terminal=True)
                 else:
                     leaves.append(node)
@@ -332,12 +312,12 @@ class MCTSWorker:
             if not leaves:
                 continue
             
-            # Inference Phase (DIRECT MODEL CALL instead of queue)
+            # Inference Phase (Direct)
             batch_tensor = torch.from_numpy(np.array(tensors)).to(device)
             with torch.no_grad():
                 policies, values = model(batch_tensor)
             
-            # Expansion & Backprop Phase (IDENTICAL)
+            # Expansion & Backprop Phase
             for i, node in enumerate(leaves):
                 path = paths[i]
                 node.expand(node.state.legal_moves(), policies[i].cpu().numpy())
