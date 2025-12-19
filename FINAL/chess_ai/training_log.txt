@@ -31519,3 +31519,23 @@ Server Ready: Batch=4096, Streams=8, Device=cuda
    [Worker 28] Move 400: b6b3 (6.10s | 262 sim/s)
    [Worker 28] Game 4 ended in FORCED DRAW (Max moves 400)
    [Worker 28] Finished Game 4 in 5254.1s |  Total Moves 400 | Result 1/2-1/2
+[Eval] Loaded model from game_engine/model/candidate.pth
+[Eval] Loaded model from game_engine/model/candidate.pth
+[Eval] Loaded model from game_engine/model/candidate.pth
+[Eval] Loaded model from game_engine/model/candidate.pth
+[Eval] Loaded model from game_engine/model/candidate.pth
+[Eval] Loaded model from game_engine/model/candidate.pth
+[Eval] Loaded model from game_engine/model/candidate.pth
+[Eval] Loaded model from game_engine/model/candidate.pth
+[Eval] Loaded model from game_engine/model/candidate.pth
+[Eval] Loaded model from game_engine/model/candidate.pth
+[Eval] Loaded model from game_engine/model/best_model.pth
+[Eval] Loaded model from game_engine/model/best_model.pth
+[Eval] Loaded model from game_engine/model/best_model.pth
+[Eval] Loaded model from game_engine/model/best_model.pth
+[Eval] Loaded model from game_engine/model/best_model.pth
+[Eval] Loaded model from game_engine/model/best_model.pth
+[Eval] Loaded model from game_engine/model/best_model.pth
+[Eval] Loaded model from game_engine/model/best_model.pth
+[Eval] Loaded model from game_engine/model/best_model.pth
+[Eval] Loaded model from game_engine/model/best_model.pth
