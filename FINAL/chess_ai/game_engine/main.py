@@ -62,11 +62,12 @@ class GracefulKiller:
 class Logger(object):
     def __init__(self):
         self.terminal = sys.stdout
-        self.log = open(LOG_FILE, "a", buffering=1, encoding='utf-8')
+        self.log = open(LOG_FILE, "a", buffering=0, encoding='utf-8')
     def write(self, message):
         try:
             self.terminal.write(message)
             self.log.write(message)
+            self.log.flush()
         except: pass 
     def flush(self):
         try:

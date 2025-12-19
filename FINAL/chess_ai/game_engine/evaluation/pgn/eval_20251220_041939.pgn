@@ -1,0 +1,50 @@
+[Event "Model vs Stockfish"]
+[Site "Localhost"]
+[Date "2025.12.20"]
+[Round "1"]
+[White "Model"]
+[Black "Stockfish 1320"]
+[Result "0-1"]
+
+1. b4 e5 2. Ba3 Nf6 3. Nf3 d6 4. Ng5 d5 5. f3 a5 6. Nxf7 Kxf7 7. d3 Be6 8. b5 Bxa3 9. Nd2 d4 10. b6 cxb6 11. Nc4 Bxc4 12. dxc4 Qc7 13. c5 Qxc5 14. e4 a4 15. Bd3 Bb4+ 16. Kf1 Ba3 17. Rb1 Ke7 18. Bb5 Rd8 19. Bd3 Rc8 20. Bb5 Rf8 21. Bd3 Qc7 22. Rg1 h5 23. Rh1 Rf7 24. Kf2 Rf8 25. Ke2 Ke8 26. Kf2 Kd8 27. Ke2 Qc8 28. Kf2 Qc6 29. Bb5 Qc7 30. Bd3 Qc5 31. Bb5 Ra5 32. Bd3 Ra8 33. Bb5 Nxe4+ 34. Kg1 d3+ 35. Kf1 Qf2# 0-1
+
+[Event "Model vs Stockfish"]
+[Site "Localhost"]
+[Date "2025.12.20"]
+[Round "2"]
+[White "Stockfish 1320"]
+[Black "Model"]
+[Result "1-0"]
+
+1. d4 Na6 2. e4 Nh6 3. Bxh6 gxh6 4. c3 b6 5. Qf3 Rg8 6. Na3 Rh8 7. Bc4 Rg8 8. Qxf7# 1-0
+
+[Event "Model vs Stockfish"]
+[Site "Localhost"]
+[Date "2025.12.20"]
+[Round "3"]
+[White "Model"]
+[Black "Stockfish 1320"]
+[Result "0-1"]
+
+1. b4 Nf6 2. g3 g6 3. Nh3 Bg7 4. Ng1 a5 5. Bg2 O-O 6. Bf3 Nc6 7. Bg2 d5 8. Bf3 Nxb4 9. Nh3 Bxh3 10. Rg1 e5 11. Rh1 h5 12. a4 Na6 13. d3 Rb8 14. Bg4 Bxg4 15. Rg1 Re8 16. Rg2 e4 17. Rg1 Be6 18. Rh1 exd3 19. Qxd3 Bf5 20. Qc4 dxc4 21. f4 Bxc2 22. h4 Qd1+ 23. Kf2 Ng4+ 24. Kg2 Be4+ 25. Kh3 Nf2+ 26. Kh2 Qxh1# 0-1
+
+[Event "Model vs Stockfish"]
+[Site "Localhost"]
+[Date "2025.12.20"]
+[Round "4"]
+[White "Stockfish 1320"]
+[Black "Model"]
+[Result "1-0"]
+
+1. e4 Nh6 2. Nc3 Nc6 3. Nf3 Ng4 4. h3 Rg8 5. hxg4 Rh8 6. d4 Ne5 7. Nxe5 g6 8. g5 d5 9. a3 Bg7 10. Bb5+ Kf8 11. Nxd5 Rg8 12. Qf3 Rh8 13. Qxf7# 1-0
+
+[Event "Model vs Stockfish"]
+[Site "Localhost"]
+[Date "2025.12.20"]
+[Round "5"]
+[White "Model"]
+[Black "Stockfish 1320"]
+[Result "0-1"]
+
+1. b4 Nf6 2. g3 e6 3. Nh3 a5 4. bxa5 Be7 5. Ba3 Nc6 6. Ng5 Bxa3 7. d4 Be7 8. Nxh7 Nxh7 9. Rg1 Rxa5 10. Na3 Ng5 11. Nb5 Rxb5 12. Rh1 O-O 13. Rg1 Bb4+ 14. c3 Bxc3+ 15. Qd2 Bxd2+ 16. Kxd2 Qf6 17. Ke3 Qxd4# 0-1
+
