@@ -168,9 +168,14 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
         
         values = []
         for g in game_data:
-            if final_winner == 0.5: values.append(DRAW_PENALTY)
-            elif g["turn"] == final_winner: values.append(1.0)
-            else: values.append(-1.0)
+            if final_winner == 0.5:
+                # Use different penalty for forced vs normal draws
+                penalty = FORCED_DRAW_PENALTY if forced_draw else DRAW_PENALTY
+                values.append(penalty)
+            elif g["turn"] == final_winner:
+                values.append(1.0)
+            else:
+                values.append(-1.0)
             
         timestamp = int(time.time())
         filename = f"{iter_dir}/w{worker_id}_g{i}_{timestamp}.npz"
@@ -206,15 +211,15 @@ BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
 
 # --- CUDA ---
-CUDA_TIMEOUT_INFERENCE = 0.025
+CUDA_TIMEOUT_INFERENCE = 0.001
 CUDA_STREAMS = 8 
 
 # --- EXECUTION ---
 RESUME_ITERATION = None
 ITERATIONS = 1000
-NUM_WORKERS = 44            
-WORKER_BATCH_SIZE = 8       
-GAMES_PER_WORKER = 4        
+NUM_WORKERS = 88            
+WORKER_BATCH_SIZE = 64       
+GAMES_PER_WORKER = 3        
 
 # --- QUALITY ---
 SIMULATIONS = 1200           
@@ -236,6 +241,8 @@ elif current_iter < 20:
     DRAW_PENALTY = -0.2
 else:
     DRAW_PENALTY = -0.25        
+
+FORCED_DRAW_PENALTY = 0.0
 
 # Training
 TRAIN_EPOCHS = 6 
@@ -279,7 +286,7 @@ def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Batched MCTS) ===")
     cleanup_memory() # Clear RAM before starting
     
-    server = InferenceServer(BEST_MODEL, batch_size=1024, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
+    server = InferenceServer(BEST_MODEL, batch_size=4096, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
     
     server_process = mp.Process(target=run_server_wrapper, args=(server,))
