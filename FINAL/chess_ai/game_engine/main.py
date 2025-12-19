@@ -62,13 +62,12 @@ class GracefulKiller:
 class Logger(object):
     def __init__(self):
         self.terminal = sys.stdout
-        self.log = open(LOG_FILE, "a", buffering=0, encoding='utf-8')
+        self.log = open(LOG_FILE, "a", buffering=1, encoding='utf-8')
     def write(self, message):
         try:
             self.terminal.write(message)
             self.log.write(message)
-            self.log.flush()
-        except: pass
+        except: pass 
     def flush(self):
         try:
             self.terminal.flush()
@@ -76,9 +75,8 @@ class Logger(object):
         except: pass
 
 def setup_child_logging():
-    # For child processes only
-    sys.stdout = open(os.devnull, 'w')
-    sys.stderr = open(os.devnull, 'w')
+    sys.stdout = Logger()
+    sys.stderr = sys.stderr
 
 def queue_monitor_thread(queue):
     while True:
@@ -214,7 +212,7 @@ BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
 
 # --- CUDA ---
-CUDA_TIMEOUT_INFERENCE = 0.025
+CUDA_TIMEOUT_INFERENCE = 0.02
 CUDA_STREAMS = 8 
 
 # --- EXECUTION ---
@@ -235,8 +233,9 @@ STOCKFISH_GAMES = 20
 STOCKFISH_ELO = 1320        
 
 # --- RULES ---
-MAX_MOVES_PER_GAME = 800   
-EVAL_MAX_MOVES_PER_GAME = 800 
+MAX_MOVES_PER_GAME = 400   
+EVAL_MAX_MOVES_PER_GAME = 400 
+
 current_iter = get_start_iteration(DATA_DIR) - 1
 if current_iter < 10:
     DRAW_PENALTY = -0.1
@@ -515,7 +514,7 @@ def run_evaluation_phase(iteration, logger, p_loss, v_loss):
     logger.log(iteration, p_loss, v_loss, win_rate, est_elo, stockfish_elo=STOCKFISH_ELO)
 
 if __name__ == "__main__":
-    sys.stdout = Logger()          # Main process writes to training_log.txt
+    setup_child_logging()
     mp.set_start_method('spawn', force=True)
     os.makedirs(MODEL_DIR, exist_ok=True)
     
