@@ -13,7 +13,7 @@ from datetime import datetime
 # Ensure project root is in path
 sys.path.append(os.getcwd())
 
-from game_engine.mcts import MCTSWorker
+from game_engine.mcts_worker_cpp import MCTSWorker
 from game_engine.cnn import ChessCNN
 from game_engine.chess_env import ChessGame
 from game_engine.bayeselo_runner import BayesEloRunner

@@ -212,14 +212,14 @@ BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
 
 # --- CUDA ---
-CUDA_TIMEOUT_INFERENCE = 0.02
+CUDA_TIMEOUT_INFERENCE = 0.08
 CUDA_STREAMS = 8 
 
 # --- EXECUTION ---
 RESUME_ITERATION = None
 ITERATIONS = 1000
 NUM_WORKERS = 100            
-WORKER_BATCH_SIZE = 48       
+WORKER_BATCH_SIZE = 64       
 GAMES_PER_WORKER = 5        
 
 # --- QUALITY ---
@@ -233,8 +233,8 @@ STOCKFISH_GAMES = 20
 STOCKFISH_ELO = 1320        
 
 # --- RULES ---
-MAX_MOVES_PER_GAME = 400   
-EVAL_MAX_MOVES_PER_GAME = 400 
+MAX_MOVES_PER_GAME = 800   
+EVAL_MAX_MOVES_PER_GAME = 800 
 
 current_iter = get_start_iteration(DATA_DIR) - 1
 if current_iter < 10:
