@@ -91,21 +91,20 @@ class InferenceServer:
             
             # Collect data until batch is full or timeout
             while current_batch_count < self.batch_size:
-                if not self.input_queue.empty():
-                    try:
-                        item = self.input_queue.get_nowait()
-                        if item == "STOP":
-                            executor.shutdown()
-                            return
-                        
-                        tensor = item[1]
-                        item_size = tensor.shape[0] if tensor.ndim == 4 else 1
-                        batch_data.append(item)
-                        current_batch_count += item_size
-                        
-                    except: 
-                        break
-                
+                try:
+                    item = self.input_queue.get(timeout=0.01)
+                    if item == "STOP":
+                        executor.shutdown()
+                        return
+                    
+                    tensor = item[1]
+                    item_size = tensor.shape[0] if tensor.ndim == 4 else 1
+                    batch_data.append(item)
+                    current_batch_count += item_size
+                    
+                except: 
+                    pass
+            
                 # Check timeout without sleep
                 if current_batch_count > 0 and (time.time() - start_time > self.timeout):
                     break
@@ -115,6 +114,6 @@ class InferenceServer:
                 self.current_stream_idx = (self.current_stream_idx + 1) % self.num_streams
                 executor.submit(self.process_batch, batch_data, stream, model, self.device)
                 
-                # last_successful_batch_time = time.time()
-                # effective_size = sum(item[1].shape[0] if item[1].ndim == 4 else 1 for item in batch_data)
-                # print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions")
+                last_successful_batch_time = time.time()
+                effective_size = sum(item[1].shape[0] if item[1].ndim == 4 else 1 for item in batch_data)
+                print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions")
