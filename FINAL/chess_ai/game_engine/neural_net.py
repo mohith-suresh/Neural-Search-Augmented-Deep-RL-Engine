@@ -76,7 +76,7 @@ class InferenceServer:
         print(f"Server Ready: Batch={self.batch_size}, Streams={self.num_streams}, Device={self.device}")
         # Deadlock detection: track last successful batch time
         last_successful_batch_time = time.time()
-        deadlock_timeout = 60  # 60 seconds without progress = deadlock
+        deadlock_timeout = 600   # 60 seconds without progress = deadlock
                             
         while True:
             batch_data = []
