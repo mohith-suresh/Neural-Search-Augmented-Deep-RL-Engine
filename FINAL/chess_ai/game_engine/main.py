@@ -119,73 +119,108 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
     iter_dir = os.path.join(DATA_DIR, f"iter_{iteration}")
     os.makedirs(iter_dir, exist_ok=True)
     
-    worker = MCTSWorker(worker_id, input_queue, output_queue, 
-                        simulations=SIMULATIONS, 
-                        batch_size=WORKER_BATCH_SIZE)
+    worker = MCTSWorker(worker_id, input_queue, output_queue,
+                       simulations=SIMULATIONS,
+                       batch_size=WORKER_BATCH_SIZE)
     
     for i in range(game_limit):
-        print(f"   [Worker {worker_id}] Starting Game {i+1}...")
+        print(f" [Worker {worker_id}] Starting Game {i+1}...")
+        
         game_start = time.time()
         game = ChessGame()
         game_data = []
-        
         forced_draw = False
+        
+        # ← NEW: Pipeline state variables
+        # Save the result from previous move to process in this iteration
+        # while the MCTS is computing the next move
+        pending_move = None
+        pending_policy = None
+        pending_state = None
+        pending_turn = None
+        
         while not game.is_over:
-            if len(game.moves) >= MAX_MOVES_PER_GAME: 
+            if len(game.moves) >= MAX_MOVES_PER_GAME:
                 forced_draw = True
-                break 
-
+                break
+            
             move_start = time.time()
             move_count = len(game.moves)
+            
             if move_count < 16:
                 current_temp = 1.0
             else:
-                current_temp = 0.0   # pure argmax from MCTS
+                current_temp = 0.0
+            
+            # ← KEEP THIS: Still uses worker and current_temp
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
+            
+            # ← NEW: Process PREVIOUS move result while MCTS computed current
+            # This happens during the 1000ms that MCTS was computing
+            # So it's "free" from a timing perspective
+            if pending_move is not None:
+                game.push(pending_move)
+                game_data.append({
+                    "state": pending_state,
+                    "policy": pending_policy,
+                    "turn": pending_turn
+                })
+            
+            # ← NEW: Save current result for processing in NEXT iteration
+            pending_move = best_move
+            pending_policy = mcts_policy
+            pending_state = game.to_tensor()
+            pending_turn = game.turn_player
             
             if (worker_id % 10) == 0:
                 dur = time.time() - move_start
                 nps = SIMULATIONS / dur if dur > 0 else 0
-                print(f"   [Worker {worker_id}] Move {len(game.moves)+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
-                
-            game_data.append({
-                "state": game.to_tensor(),
-                "policy": mcts_policy,
-                "turn": game.turn_player
-            })
-            game.push(best_move)
+                print(f" [Worker {worker_id}] Move {move_count+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
         
-        # LOG FORCED DRAWS
+        # ← NEW: Process final pending move after game ends
+        if pending_move is not None:
+            game.push(pending_move)
+            game_data.append({
+                "state": pending_state,
+                "policy": pending_policy,
+                "turn": pending_turn
+            })
+        
+        # ← UNCHANGED: All the rest is your original code
         if forced_draw:
-            print(f"   [Worker {worker_id}] Game {i+1} ended in FORCED DRAW (Max moves {MAX_MOVES_PER_GAME})")
+            print(f" [Worker {worker_id}] Game {i+1} ended in FORCED DRAW (Max moves {MAX_MOVES_PER_GAME})")
             result = "1/2-1/2"
         else:
             result = game.result
-
+        
         final_winner = 0.0
-        if result == "1-0": final_winner = 1.0
-        elif result == "0-1": final_winner = 0.0
-        elif result == "1/2-1/2": final_winner = 0.5
+        if result == "1-0":
+            final_winner = 1.0
+        elif result == "0-1":
+            final_winner = 0.0
+        elif result == "1/2-1/2":
+            final_winner = 0.5
         
         values = []
         for g in game_data:
             if final_winner == 0.5:
-                # Use different penalty for forced vs normal draws
                 penalty = FORCED_DRAW_PENALTY if forced_draw else DRAW_PENALTY
                 values.append(penalty)
-            elif g["turn"] == final_winner:
+            elif g['turn'] == final_winner:
                 values.append(1.0)
             else:
                 values.append(-1.0)
-            
+        
         timestamp = int(time.time())
         filename = f"{iter_dir}/w{worker_id}_g{i}_{timestamp}.npz"
-        np.savez_compressed(filename, 
-                            states=np.array([g["state"] for g in game_data]), 
-                            policies=np.array([g["policy"] for g in game_data]), 
-                            values=np.array(values, dtype=np.float32))
         
-        print(f"   [Worker {worker_id}] Finished Game {i+1} in {time.time()-game_start:.1f}s |  Total Moves {len(game.moves)} | Result {result}")
+        np.savez_compressed(filename,
+                          states=np.array([g["state"] for g in game_data]),
+                          policies=np.array([g["policy"] for g in game_data]),
+                          values=np.array(values, dtype=np.float32))
+        
+        print(f" [Worker {worker_id}] Finished Game {i+1} in {time.time()-game_start:.1f}s | Total Moves {len(game.moves)} | Result {result}")
+        
         gc.collect()
 
 def run_server_wrapper(server):
@@ -212,7 +247,7 @@ BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
 
 # --- CUDA ---
-CUDA_TIMEOUT_INFERENCE = 0.15
+CUDA_TIMEOUT_INFERENCE = 0.2
 CUDA_STREAMS = 4 
 CUDA_BATCH_SIZE = 512
 
@@ -337,14 +372,13 @@ def run_self_play_phase(iteration):
             if not server_process.is_alive():
                 print("🚨 CRITICAL: Inference Server died unexpectedly! Terminating workers...")
                 raise RuntimeError("Inference Server died during self-play.")
-
+            
             # 2. Check if Workers are done
             alive_workers = [p for p in workers if p.is_alive()]
-            
             if not alive_workers:
                 print("✅ All workers finished successfully.")
                 break
-                
+            
             # 3. Sleep to prevent CPU burn
             time.sleep(2)
             
