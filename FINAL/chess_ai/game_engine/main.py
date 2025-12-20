@@ -115,7 +115,7 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
         except: pass
 
     setup_child_logging()
-    time.sleep(worker_id * 0.05)
+    time.sleep(np.random.uniform(0, 0.005))
     
     iter_dir = os.path.join(DATA_DIR, f"iter_{iteration}")
     os.makedirs(iter_dir, exist_ok=True)
