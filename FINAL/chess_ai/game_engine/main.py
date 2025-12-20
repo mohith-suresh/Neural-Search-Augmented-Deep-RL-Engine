@@ -212,13 +212,14 @@ BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
 
 # --- CUDA ---
-CUDA_TIMEOUT_INFERENCE = 0.08
+CUDA_TIMEOUT_INFERENCE = 0.02
 CUDA_STREAMS = 8 
+CUDA_BATCH_SIZE = 2048
 
 # --- EXECUTION ---
 RESUME_ITERATION = None
 ITERATIONS = 1000
-NUM_WORKERS = 100            
+NUM_WORKERS = 150            
 WORKER_BATCH_SIZE = 64       
 GAMES_PER_WORKER = 5        
 
@@ -288,7 +289,7 @@ def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Batched MCTS) ===")
     cleanup_memory() # Clear RAM before starting
     
-    server = InferenceServer(BEST_MODEL, batch_size=4096, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
+    server = InferenceServer(BEST_MODEL, batch_size=CUDA_BATCH_SIZE, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
     
     server_process = mp.Process(target=run_server_wrapper, args=(server,))
