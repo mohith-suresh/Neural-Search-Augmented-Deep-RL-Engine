@@ -115,7 +115,6 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
         except: pass
 
     setup_child_logging()
-    time.sleep(np.random.uniform(0, 0.005))
     
     iter_dir = os.path.join(DATA_DIR, f"iter_{iteration}")
     os.makedirs(iter_dir, exist_ok=True)
@@ -213,9 +212,9 @@ BEST_MODEL = f"{MODEL_DIR}/best_model.pth"
 CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
 
 # --- CUDA ---
-CUDA_TIMEOUT_INFERENCE = 0.1
+CUDA_TIMEOUT_INFERENCE = 0.3
 CUDA_STREAMS = 8 
-CUDA_BATCH_SIZE = 2048
+CUDA_BATCH_SIZE = 4096
 
 # --- EXECUTION ---
 RESUME_ITERATION = None
