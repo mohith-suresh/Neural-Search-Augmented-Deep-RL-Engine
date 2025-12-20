@@ -110,11 +110,11 @@ class InferenceServer:
                 if current_batch_count > 0 and (time.time() - start_time > self.timeout):
                     break
             
-            if batch_data:
-                stream = self.streams[self.current_stream_idx]
-                self.current_stream_idx = (self.current_stream_idx + 1) % self.num_streams
-                executor.submit(self.process_batch, batch_data, stream, model, self.device)
+            # if batch_data:
+            #     stream = self.streams[self.current_stream_idx]
+            #     self.current_stream_idx = (self.current_stream_idx + 1) % self.num_streams
+            #     executor.submit(self.process_batch, batch_data, stream, model, self.device)
                 
-                last_successful_batch_time = time.time()
-                effective_size = sum(item[1].shape[0] if item[1].ndim == 4 else 1 for item in batch_data)
-                print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions")
+            #     last_successful_batch_time = time.time()
+            #     effective_size = sum(item[1].shape[0] if item[1].ndim == 4 else 1 for item in batch_data)
+            #     print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions")
