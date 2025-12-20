@@ -303,5 +303,3 @@ secrets/
 commands.txt
 token.txt
 build/
-FINAL/chess_ai/CMakeLists.txt
-FINAL/chess_ai/src
