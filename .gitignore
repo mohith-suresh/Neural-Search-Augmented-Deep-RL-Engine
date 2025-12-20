@@ -38,8 +38,6 @@ MANIFEST
 # PEP 582
 __pypackages__/
 
-# Compiled extensions
-*.so
 
 # ============================================================================
 # VIRTUAL ENVIRONMENTS
@@ -219,7 +217,6 @@ $RECYCLE.BIN/
 # ============================================================================
 
 # Build outputs
-build/
 dist/
 *.egg-info/
 target/
@@ -305,3 +302,6 @@ secrets/
 
 commands.txt
 token.txt
+build/
+FINAL/chess_ai/CMakeLists.txt
+FINAL/chess_ai/src
