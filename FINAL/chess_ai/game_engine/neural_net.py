@@ -76,18 +76,15 @@ class InferenceServer:
         print(f"Server Ready: Batch={self.batch_size}, Streams={self.num_streams}, Device={self.device}")
         # Deadlock detection: track last successful batch time
         last_successful_batch_time = time.time()
-        deadlock_timeout = 600   # 60 seconds without progress = deadlock
+        deadlock_timeout = 600   
                             
         while True:
             batch_data = []
             current_time = time.time()
             
-            # Check for deadlock
             if current_time - last_successful_batch_time > deadlock_timeout:
                 print(f"🚨 DEADLOCK DETECTED: No batch processed in {deadlock_timeout}s")
-                print(f"   Input queue size: {self.input_queue.qsize()}")
-                print(f"   Output queues: {len(self.output_queues)} workers")
-                return  # Exit server gracefully
+                return
             
             current_batch_count = 0
             start_time = time.time()
@@ -97,29 +94,27 @@ class InferenceServer:
                 if not self.input_queue.empty():
                     try:
                         item = self.input_queue.get_nowait()
-                        if item == "STOP": 
+                        if item == "STOP":
                             executor.shutdown()
                             return
                         
                         tensor = item[1]
                         item_size = tensor.shape[0] if tensor.ndim == 4 else 1
-                        
                         batch_data.append(item)
                         current_batch_count += item_size
-                    except: break
+                        
+                    except: 
+                        break
                 
-                # Dynamic timeout
-                if current_batch_count > 0:
-                    if (time.time() - start_time > self.timeout): break
-                else:
-                    time.sleep(0.0001)
-
+                # Check timeout without sleep
+                if current_batch_count > 0 and (time.time() - start_time > self.timeout):
+                    break
+            
             if batch_data:
                 stream = self.streams[self.current_stream_idx]
                 self.current_stream_idx = (self.current_stream_idx + 1) % self.num_streams
-                
                 executor.submit(self.process_batch, batch_data, stream, model, self.device)
-
-                effective_size = sum(item[1].shape[0] if item[1].ndim == 4 else 1 for item in batch_data)
-                print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions, {(time.time()-start_time)*1000:.1f}ms elapsed")
                 
+                last_successful_batch_time = time.time()
+                effective_size = sum(item[1].shape[0] if item[1].ndim == 4 else 1 for item in batch_data)
+                print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions")
