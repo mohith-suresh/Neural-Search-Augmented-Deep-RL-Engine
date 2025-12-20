@@ -31539,3 +31539,56 @@ Server Ready: Batch=4096, Streams=8, Device=cuda
 [Eval] Loaded model from game_engine/model/best_model.pth
 [Eval] Loaded model from game_engine/model/best_model.pth
 [Eval] Loaded model from game_engine/model/best_model.pth
+⏱️ Deadlock timeout: 15 hour per iteration
+============================================================
+STARTING RUN
+Resuming from Iteration: 52
+Workers: 2 | Sims: 1600 | Batch: 8
+============================================================
+
+[Main] Cleanup: Closing threads and processes...
+[Main] ✅ Shutdown complete
+⏱️ Deadlock timeout: 15 hour per iteration
+============================================================
+STARTING RUN
+Resuming from Iteration: 52
+Workers: 2 | Sims: 1600 | Batch: 8
+============================================================
+
+[Main] Cleanup: Closing threads and processes...
+[Main] ✅ Shutdown complete
+⏱️ Deadlock timeout: 15 hour per iteration
+============================================================
+STARTING RUN
+Resuming from Iteration: 52
+Workers: 2 | Sims: 1600 | Batch: 8
+============================================================
+
+============================================================
+ITERATION 52 - PHASE 1: SELF-PLAY
+============================================================
+
+=== ITERATION 52: SELF-PLAY PHASE (Batched MCTS) ===
+Server: Loading model from game_engine/model/best_model.pth
+Server Ready: Batch=4096, Streams=8, Device=cuda
+   [Worker 0] Starting Game 1...
+   [Worker 1] Starting Game 1...
+   [Worker 0] Move 1: e2e4 (1.97s | 814 sim/s)
+   [Worker 1] Move 1: e2e4 (1.94s | 826 sim/s)
+   [Worker 0] Move 2: b8c6 (1.11s | 1442 sim/s)
+   [Worker 1] Move 2: b8c6 (1.10s | 1448 sim/s)
+   [Worker 0] Move 3: a2a4 (1.36s | 1178 sim/s)
+   [Worker 1] Move 3: a2a4 (1.36s | 1178 sim/s)
+   [Worker 0] Move 4: g8f6 (1.61s | 996 sim/s)
+   [Worker 1] Move 4: g8f6 (1.62s | 989 sim/s)
+
+
+[Cloud Run] Received termination signal. Finishing current step...
+🚨 CRITICAL: Inference Server died unexpectedly! Terminating workers...
+❌ Exception in Phase 1 Loop: Inference Server died during self-play.
+🧹 Cleaning up Phase 1 processes...
+❌ ITERATION 52 - PHASE 1 FAILED: Inference Server died during self-play.
+[Main] Kill signal during Phase 1. Exiting...
+
+[Main] Cleanup: Closing threads and processes...
+[Main] ✅ Shutdown complete

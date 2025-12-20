@@ -41,7 +41,7 @@ timeout_handler = TimeoutHandler(timeout_seconds=54000)
 sys.path.append(os.getcwd())
 
 from game_engine.neural_net import InferenceServer
-from game_engine.mcts import MCTSWorker
+from game_engine.mcts_worker_cpp import MCTSWorker
 from game_engine.chess_env import ChessGame
 from game_engine.trainer import train_model
 from game_engine.evaluation import Arena, StockfishEvaluator, MetricsLogger
