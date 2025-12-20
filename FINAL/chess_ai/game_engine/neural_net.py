@@ -120,8 +120,6 @@ class InferenceServer:
                 
                 executor.submit(self.process_batch, batch_data, stream, model, self.device)
 
-                # Update last successful batch time
-                last_successful_batch_time = time.time()
-                if len(batch_data) > 20:
-                    # print(f"[Server] Batch submitted: {len(batch_data)} requests")
-                    pass
+                effective_size = sum(item[1].shape[0] if item[1].ndim == 4 else 1 for item in batch_data)
+                print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions, {(time.time()-start_time)*1000:.1f}ms elapsed")
+                
