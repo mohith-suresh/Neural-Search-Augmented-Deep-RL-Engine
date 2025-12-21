@@ -96,7 +96,7 @@ class MCTSWorker:
         
         # Python: policy, value = self.output_queue.get(timeout=60)
         try:
-            policy, value = self.output_queue.get(timeout=600)
+            policy, value = self.output_queue.get(timeout=60)
         except Exception:
             print(f"[Worker {self.worker_id}] ❌ Server timeout")
             raise RuntimeError("Server communication timeout")
