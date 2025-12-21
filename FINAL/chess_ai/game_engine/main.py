@@ -265,10 +265,12 @@ def run_server_wrapper(server):
         """Monitor GPU usage periodically"""
         try:
             import subprocess
+            import json
+            
             count = 0
             while True:
                 count += 1
-                if count % 12 == 1:  # Log every 60 seconds
+                if count % 12 == 1:  # Log every 60 seconds (12 × 5 second intervals)
                     try:
                         result = subprocess.run(
                             ["nvidia-smi", "--query-gpu=utilization.gpu,memory.used,temperature.gpu", "--format=csv,nounits,noheader"],
@@ -279,10 +281,10 @@ def run_server_wrapper(server):
                         if result.returncode == 0:
                             stats = result.stdout.strip()
                             print(f"[DEBUG-5.1] GPU Stats: Util={stats}")
-                    except Exception:
+                    except:
                         pass
                 time.sleep(interval)
-        except Exception:
+        except:
             pass
 
     gpu_monitor = threading.Thread(target=gpu_stats_monitor, daemon=True)
