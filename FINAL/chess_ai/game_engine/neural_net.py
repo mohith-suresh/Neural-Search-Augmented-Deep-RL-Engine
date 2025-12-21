@@ -117,10 +117,9 @@ class InferenceServer:
             print(f"[DEBUG-5.2] GPU Memory used at start: {initial_mem:.2f}GB")
             print(f"[DEBUG-5.2] GPU Memory total: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f}GB")
 
-        model.share_memory()
-
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.num_streams)
-
+        model.share_memory() 
+        
+        # executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.num_streams)
         print(f"Server Ready: Batch={self.batch_size}, Streams={self.num_streams}, Device={self.device}")
 
         # === ADD AFTER SERVER READY MESSAGE ===
@@ -135,14 +134,13 @@ class InferenceServer:
 
         # Deadlock detection: track last successful batch time
         last_successful_batch_time = time.time()
-        deadlock_timeout = 600
-        batches_processed = 0
-       
+        deadlock_timeout = 600   
+                            
         while True:
             batch_data = []
             current_time = time.time()
-
-            if batches_processed > 5 and current_time - last_successful_batch_time > deadlock_timeout:
+            
+            if current_time - last_successful_batch_time > deadlock_timeout:
                 print(f"🚨 DEADLOCK DETECTED: No batch processed in {deadlock_timeout}s")
                 return
             
@@ -203,11 +201,16 @@ class InferenceServer:
             if batch_data:
                 stream = self.streams[self.current_stream_idx]
                 self.current_stream_idx = (self.current_stream_idx + 1) % self.num_streams
-
-                executor.submit(self.process_batch, batch_data, stream, model, self.device)
                 
-                last_successful_batch_time = time.time()
-                batches_processed += 1
-                effective_size = sum(item.shape if item.ndim == 4 else 1 for item in batch_data)
+                try:
+                    self.process_batch(batch_data, stream, model, self.device)
+                    last_successful_batch_time = time.time()
+                    
+                    effective_size = sum(item.shape if item.ndim == 4 else 1 for item in batch_data)
+                    print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions")
+                except Exception as e:
+                    print(f"🚨 FATAL: Batch processing crashed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return
 
-                print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions")
