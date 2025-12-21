@@ -162,7 +162,6 @@ class InferenceServer:
                 try:
                     item = self.input_queue.get(timeout=0.01)
                     if item == "STOP":
-                        executor.shutdown()
                         return
                     
                     tensor = item[1]
