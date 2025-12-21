@@ -384,8 +384,6 @@ def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Batched MCTS) ===")
     cleanup_memory() # Clear RAM before starting
 
-    server = InferenceServer(BEST_MODEL, batch_size=CUDA_BATCH_SIZE, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
-
     # === ADD THIS BLOCK (after server is created) ===
 
     print("\n" + "="*70)
@@ -400,6 +398,8 @@ def run_self_play_phase(iteration):
     print(f"[DEBUG-1] SIMULATIONS = {SIMULATIONS}")
     print(f"[DEBUG-1] Expected queue depth at T=250ms: ~{NUM_WORKERS * 0.8} workers")
     print("="*70 + "\n")
+
+    server = InferenceServer(BEST_MODEL, batch_size=CUDA_BATCH_SIZE, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
 
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
     
