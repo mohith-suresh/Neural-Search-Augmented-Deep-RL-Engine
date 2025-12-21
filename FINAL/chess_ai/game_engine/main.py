@@ -109,6 +109,14 @@ def cleanup_memory():
         torch.cuda.empty_cache()
 
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration):
+    # === ADD BEFORE FOR LOOP OVER GAMES ===
+
+    print(f"\n[DEBUG-4.1] Worker {worker_id} initialized")
+    print(f"[DEBUG-4.1]   SIMULATIONS: {SIMULATIONS}")
+    print(f"[DEBUG-4.1]   WORKER_BATCH_SIZE: {WORKER_BATCH_SIZE}")
+    print(f"[DEBUG-4.1]   input_queue id: {id(input_queue)}")
+    print(f"[DEBUG-4.1]   output_queue id: {id(output_queue)}")
+
     np.random.seed(int(time.time()) + worker_id)
     if hasattr(os, 'sched_setaffinity'):
         try: os.sched_setaffinity(0, {worker_id % 44})
@@ -145,6 +153,7 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
                 break
             
             move_start = time.time()
+            move_start_qsize = input_queue.qsize()  # CAPTURE IMMEDIATELY
             move_count = len(game.moves)
             
             if move_count < 16:
@@ -152,12 +161,27 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
             else:
                 current_temp = 0.0
             
-            # ← KEEP THIS: Still uses worker and current_temp
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
             
-            # ← NEW: Process PREVIOUS move result while MCTS computed current
-            # This happens during the 1000ms that MCTS was computing
-            # So it's "free" from a timing perspective
+            search_end = time.time()
+            search_time = search_end - move_start
+            sim_throughput = SIMULATIONS / search_time if search_time > 0 else 0
+            move_end_qsize = input_queue.qsize()  # CAPTURE AFTER SEARCH
+            
+            # Log every move for first 3 moves, then every 5 moves
+            if move_count < 3 or move_count % 5 == 0:
+                print(f"[DEBUG-4.2] Worker {worker_id} move {move_count+1}:")
+                print(f"[DEBUG-4.2]   Search time: {search_time*1000:.1f}ms")
+                print(f"[DEBUG-4.2]   Sim/sec: {sim_throughput:.0f}")
+                print(f"[DEBUG-4.3] Queue sizes - Start: {move_start_qsize}, End: {move_end_qsize}")
+
+            # === ADD IN move_count TRACKING (for debugging queue stalls) ===
+
+            move_end_qsize = input_queue.qsize()
+
+            if move_count < 3 or move_count % 5 == 0:
+                print(f"[DEBUG-4.3] Queue sizes - Start: {move_start_qsize}, End: {move_end_qsize}")
+
             if pending_move is not None:
                 game.push(pending_move)
                 game_data.append({
@@ -232,6 +256,42 @@ def run_server_wrapper(server):
     monitor = threading.Thread(target=queue_monitor_thread, args=(server.input_queue,))
     monitor.daemon = True 
     monitor.start()
+
+    # === ADD BEFORE server.loop() ===
+
+    import threading
+
+    def gpu_stats_monitor(interval=5):
+        """Monitor GPU usage periodically"""
+        try:
+            import subprocess
+            import json
+            
+            count = 0
+            while True:
+                count += 1
+                if count % 12 == 1:  # Log every 60 seconds (12 × 5 second intervals)
+                    try:
+                        result = subprocess.run(
+                            ["nvidia-smi", "--query-gpu=utilization.gpu,memory.used,temperature.gpu", "--format=csv,nounits,noheader"],
+                            capture_output=True,
+                            text=True,
+                            timeout=2
+                        )
+                        if result.returncode == 0:
+                            stats = result.stdout.strip()
+                            print(f"[DEBUG-5.1] GPU Stats: Util={stats}")
+                    except:
+                        pass
+                time.sleep(interval)
+        except:
+            pass
+
+    gpu_monitor = threading.Thread(target=gpu_stats_monitor, daemon=True)
+    gpu_monitor.start()
+
+    print("[DEBUG-5.0] GPU monitoring thread started")
+
     server.loop()
 
 # ==========================================
@@ -323,8 +383,24 @@ def run_arena_batch_worker(worker_id, queue, num_games, cand_model, champ_model,
 def run_self_play_phase(iteration):
     print(f"\n=== ITERATION {iteration}: SELF-PLAY PHASE (Batched MCTS) ===")
     cleanup_memory() # Clear RAM before starting
-    
+
+    # === ADD THIS BLOCK (after server is created) ===
+
+    print("\n" + "="*70)
+    print("🔧 DEBUG PHASE 1: CONFIGURATION VERIFICATION")
+    print("="*70)
+    print(f"[DEBUG-1] CUDA_TIMEOUT_INFERENCE = {CUDA_TIMEOUT_INFERENCE}s")
+    print(f"[DEBUG-1] CUDA_STREAMS = {CUDA_STREAMS}")
+    print(f"[DEBUG-1] CUDA_BATCH_SIZE = {CUDA_BATCH_SIZE}")
+    print(f"[DEBUG-1] NUM_WORKERS = {NUM_WORKERS}")
+    print(f"[DEBUG-1] WORKER_BATCH_SIZE = {WORKER_BATCH_SIZE}")
+    print(f"[DEBUG-1] GAMES_PER_WORKER = {GAMES_PER_WORKER}")
+    print(f"[DEBUG-1] SIMULATIONS = {SIMULATIONS}")
+    print(f"[DEBUG-1] Expected queue depth at T=250ms: ~{NUM_WORKERS * 0.8} workers")
+    print("="*70 + "\n")
+
     server = InferenceServer(BEST_MODEL, batch_size=CUDA_BATCH_SIZE, timeout=CUDA_TIMEOUT_INFERENCE, streams=CUDA_STREAMS)
+
     worker_queues = [server.register_worker(i) for i in range(NUM_WORKERS)]
     
     server_process = mp.Process(target=run_server_wrapper, args=(server,))
