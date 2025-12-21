@@ -174,7 +174,11 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
                 print(f"[DEBUG-4.2]   Search time: {search_time*1000:.1f}ms")
                 print(f"[DEBUG-4.2]   Sim/sec: {sim_throughput:.0f}")
                 print(f"[DEBUG-4.3] Queue sizes - Start: {move_start_qsize}, End: {move_end_qsize}")
-            
+
+            # === ADD IN move_count TRACKING (for debugging queue stalls) ===
+
+            move_end_qsize = input_queue.qsize()
+
             if move_count < 3 or move_count % 5 == 0:
                 print(f"[DEBUG-4.3] Queue sizes - Start: {move_start_qsize}, End: {move_end_qsize}")
 
