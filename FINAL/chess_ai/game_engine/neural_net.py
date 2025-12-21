@@ -25,7 +25,7 @@ class InferenceServer:
 
         batch_start_time = time.time()
         num_items = len(batch_data)
-        total_positions = sum(item[1].shape[0] if item[1].ndim == 4 else 1 for item in batch_data)
+        total_positions = sum(item.shape if item.ndim == 4 else 1 for item in batch_data)
 
         if num_items % 10 == 1 or num_items < 10:  # Log small and round batches
             print(f"\n[DEBUG-3.1] process_batch() called:")
