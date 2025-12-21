@@ -197,7 +197,7 @@ class InferenceServer:
                 print(f"[DEBUG-2.4] Batch #{batch_iteration} accumulated in {accumulation_time*1000:.1f}ms")
                 print(f"[DEBUG-2.4] Final queue size: {self.input_queue.qsize()}")
                 print(f"[DEBUG-2.4] Items in batch: {len(batch_data)}")
-                print(f"[DEBUG-2.4] Total positions: {sum(item.shape if item.ndim == 4 else 1 for item in batch_data)}")
+                print(f"[DEBUG-2.4] Total positions: {sum(item[1].shape[0] if item[1].ndim == 4 else 1 for item in batch_data)}")
                 print(f"[DEBUG-2.4] Expected batch time: {self.timeout*1000:.1f}ms, Actual: {accumulation_time*1000:.1f}ms")
 
             if batch_data:
@@ -205,9 +205,9 @@ class InferenceServer:
                 self.current_stream_idx = (self.current_stream_idx + 1) % self.num_streams
 
                 executor.submit(self.process_batch, batch_data, stream, model, self.device)
-                
+
                 last_successful_batch_time = time.time()
                 batches_processed += 1
-                effective_size = sum(item.shape if item.ndim == 4 else 1 for item in batch_data)
+                effective_size = sum(item[1].shape[0] if item[1].ndim == 4 else 1 for item in batch_data)
 
                 print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions")
