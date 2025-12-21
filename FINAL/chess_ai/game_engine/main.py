@@ -249,17 +249,23 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
 
 def run_server_wrapper(server):
     setup_child_logging()
-    if hasattr(os, 'sched_setaffinity'):
-        try: os.sched_setaffinity(0, {44, 45, 46, 47})
-        except: pass
-        
+    
+    # CAPTURE ALL ERRORS TO FILE
+    error_log = open('server_crash.log', 'w', buffering=1)
+    sys.stderr = error_log
+    sys.stdout = error_log
+    
+    try:
+        if hasattr(os, 'sched_setaffinity'):
+            try: os.sched_setaffinity(0, {44, 45, 46, 47})
+            except: pass
+    except: pass
+    
     monitor = threading.Thread(target=queue_monitor_thread, args=(server.input_queue,))
     monitor.daemon = True 
     monitor.start()
 
     # === ADD BEFORE server.loop() ===
-
-    import threading
 
     def gpu_stats_monitor(interval=5):
         """Monitor GPU usage periodically"""
@@ -286,11 +292,19 @@ def run_server_wrapper(server):
             pass
 
     gpu_monitor = threading.Thread(target=gpu_stats_monitor, daemon=True)
+    
     gpu_monitor.start()
-
+    
     print("[DEBUG-5.0] GPU monitoring thread started")
+    
+    try:
+        server.loop()
+    finally:
+        try:
+            error_log.close()
+        except:
+            pass
 
-    server.loop()
 
 # ==========================================
 #        BALANCED GCP CONFIG (T4 OPTIMIZED)
