@@ -61,8 +61,6 @@ class InferenceServer:
             
             # === ADD AFTER GPU INFERENCE (after model(mega_batch)) ===
 
-            torch.cuda.synchronize() 
-
             inference_time = time.time() - t_infer_start
 
             print(f"[DEBUG-3.3] Model inference time: {inference_time*1000:.1f}ms for {mega_batch.shape} positions")
