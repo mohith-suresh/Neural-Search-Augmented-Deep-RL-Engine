@@ -275,7 +275,7 @@ def run_server_wrapper(server):
                             capture_output=True,
                             text=True,
                             timeout=2
-                        ) 
+                        )
                         if result.returncode == 0:
                             stats = result.stdout.strip()
                             print(f"[DEBUG-5.1] GPU Stats: Util={stats}")
