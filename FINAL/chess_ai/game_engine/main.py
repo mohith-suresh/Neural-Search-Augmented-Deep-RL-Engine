@@ -136,14 +136,6 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
         game_data = []
         forced_draw = False
         
-        # ← NEW: Pipeline state variables
-        # Save the result from previous move to process in this iteration
-        # while the MCTS is computing the next move
-        pending_move = None
-        pending_policy = None
-        pending_state = None
-        pending_turn = None
-        
         while not game.is_over:
             if len(game.moves) >= MAX_MOVES_PER_GAME:
                 forced_draw = True
@@ -157,40 +149,20 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
             else:
                 current_temp = 0.0
             
-            # ← KEEP THIS: Still uses worker and current_temp
             best_move, mcts_policy = worker.search(game, temperature=current_temp)
             
-            # ← NEW: Process PREVIOUS move result while MCTS computed current
-            # This happens during the 1000ms that MCTS was computing
-            # So it's "free" from a timing perspective
-            if pending_move is not None:
-                game.push(pending_move)
-                game_data.append({
-                    "state": pending_state,
-                    "policy": pending_policy,
-                    "turn": pending_turn
-                })
+            game.push(best_move)
             
-            # ← NEW: Save current result for processing in NEXT iteration
-            pending_move = best_move
-            pending_policy = mcts_policy
-            pending_state = game.to_tensor()
-            pending_turn = game.turn_player
+            game_data.append({
+                "state": game.to_tensor(),
+                "policy": mcts_policy,
+                "turn": game.turn_player
+            })
             
             dur = time.time() - move_start
             nps = SIMULATIONS / dur if dur > 0 else 0
             print(f" [Worker {worker_id}] Move {move_count+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
         
-        # ← NEW: Process final pending move after game ends
-        if pending_move is not None:
-            game.push(pending_move)
-            game_data.append({
-                "state": pending_state,
-                "policy": pending_policy,
-                "turn": pending_turn
-            })
-        
-        # ← UNCHANGED: All the rest is your original code
         if forced_draw:
             print(f" [Worker {worker_id}] Game {i+1} ended in FORCED DRAW (Max moves {MAX_MOVES_PER_GAME})")
             result = "1/2-1/2"
@@ -222,7 +194,7 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
                           states=np.array([g["state"] for g in game_data]),
                           policies=np.array([g["policy"] for g in game_data]),
                           values=np.array(values, dtype=np.float32))
-        
+
         print(f" [Worker {worker_id}] Finished Game {i+1} in {time.time()-game_start:.1f}s | Total Moves {len(game.moves)} | Result {result}")
         
         gc.collect()
