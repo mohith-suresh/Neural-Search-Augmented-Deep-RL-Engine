@@ -151,14 +151,22 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
                     current_temp = 0.0
                 
                 best_move, mcts_policy = worker.search(game, temperature=current_temp)
-                
-                game.push(best_move)
-                
+
+                # Try to apply the move
+                move_applied = game.push(best_move)
+                if not move_applied:
+                    print(f" [Worker {worker_id}] ❌ Illegal move from MCTS: {best_move}")
+                    # Optional: print some context
+                    print(f" [Worker {worker_id}]   Legal moves: {game.legal_moves()}")
+                    break  # Abort this game; don't pretend it finished normally
+
+                # Only record data if the move was applied
                 game_data.append({
                     "state": game.to_tensor(),
                     "policy": mcts_policy,
-                    "turn": game.turn_player
+                    "turn": game.turn_player,
                 })
+
                 
                 dur = time.time() - move_start
                 nps = SIMULATIONS / dur if dur > 0 else 0
