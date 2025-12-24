@@ -141,16 +141,27 @@ class MCTSWorker:
             print(f"[Worker {self.worker_id}] ❌ Server timeout - no inference response")
             raise RuntimeError("Server communication timeout")
         
-        # Step 2: Convert torch tensors to numpy for C++
+        # Step 2: Convert torch tensors to numpy/scalar for C++
         if isinstance(policy, torch.Tensor):
-            policy_np = policy.cpu().numpy()
+            policy_np = policy.detach().cpu().numpy()
         else:
             policy_np = policy
-        
+
         if isinstance(value, torch.Tensor):
-            value_f = float(value)
+            # Handle batched value: shape () or (1,) or (N,)
+            if value.ndim == 0:
+                value_f = float(value)
+            else:
+                value_f = float(value.view(-1)[0])
         else:
-            value_f = float(value)
+            # If it's a numpy array or list
+            try:
+                value_f = float(value)
+            except TypeError:
+                import numpy as np
+                value_arr = np.array(value)
+                value_f = float(value_arr.reshape(-1)[0])
+
         
         # Step 3: Call C++ MCTS backend with seed from main.py
         # This ensures worker diversity without redundant seed generation
