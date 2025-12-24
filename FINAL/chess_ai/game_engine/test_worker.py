@@ -7,8 +7,7 @@ import sys
 import os
 
 # Add project root to path
-sys.path.insert(0, '/home/krish/EE542-Project/FINAL/chess_ai')
-sys.path.insert(0, '/home/krish/EE542-Project/FINAL/chess_ai/game_engine')
+sys.path.append(os.getcwd())
 
 print("=" * 70)
 print("WORKER INITIALIZATION TEST - UPDATED")
