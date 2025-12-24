@@ -116,4 +116,4 @@ class InferenceServer:
                 
                 last_successful_batch_time = time.time()
                 effective_size = sum(item[1].shape[0] if item[1].ndim == 4 else 1 for item in batch_data)
-                print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions")
+                # print(f"[Server] Flushed batch: {len(batch_data)} requests, {effective_size} positions")
