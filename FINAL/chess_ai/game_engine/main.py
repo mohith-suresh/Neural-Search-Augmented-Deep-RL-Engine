@@ -136,33 +136,39 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
         game_data = []
         forced_draw = False
         
-        while not game.is_over:
-            if len(game.moves) >= MAX_MOVES_PER_GAME:
-                forced_draw = True
-                break
-            
-            move_start = time.time()
-            move_count = len(game.moves)
-            
-            if move_count < 16:
-                current_temp = 1.0
-            else:
-                current_temp = 0.0
-            
-            best_move, mcts_policy = worker.search(game, temperature=current_temp)
-            
-            game.push(best_move)
-            
-            game_data.append({
-                "state": game.to_tensor(),
-                "policy": mcts_policy,
-                "turn": game.turn_player
-            })
-            
-            dur = time.time() - move_start
-            nps = SIMULATIONS / dur if dur > 0 else 0
-            print(f" [Worker {worker_id}] Move {move_count+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
-        
+        try:
+            while not game.is_over:
+                if len(game.moves) >= MAX_MOVES_PER_GAME:
+                    forced_draw = True
+                    break
+                
+                move_start = time.time()
+                move_count = len(game.moves)
+                
+                if move_count < 16:
+                    current_temp = 1.0
+                else:
+                    current_temp = 0.0
+                
+                best_move, mcts_policy = worker.search(game, temperature=current_temp)
+                
+                game.push(best_move)
+                
+                game_data.append({
+                    "state": game.to_tensor(),
+                    "policy": mcts_policy,
+                    "turn": game.turn_player
+                })
+                
+                dur = time.time() - move_start
+                nps = SIMULATIONS / dur if dur > 0 else 0
+                print(f" [Worker {worker_id}] Move {move_count+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
+        except Exception as e:
+            print(f" [Worker {worker_id}] ❌ ERROR during game {i+1}: {e}")
+            import traceback
+            traceback.print_exc()
+            continue
+
         if forced_draw:
             print(f" [Worker {worker_id}] Game {i+1} ended in FORCED DRAW (Max moves {MAX_MOVES_PER_GAME})")
             result = "1/2-1/2"
