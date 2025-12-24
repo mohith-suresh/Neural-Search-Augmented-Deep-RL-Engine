@@ -109,19 +109,24 @@ def cleanup_memory():
         torch.cuda.empty_cache()
 
 def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration):
-    np.random.seed(int(time.time()) + worker_id)
+    # Generate unique seed for this worker (same for python and C++ RNG)
+    mcts_seed = int(time.time()) + worker_id
+    np.random.seed(mcts_seed)  # Use same seed for numpy RNG
+    
     if hasattr(os, 'sched_setaffinity'):
         try: os.sched_setaffinity(0, {worker_id % 44})
         except: pass
-
+    
     setup_child_logging()
     
     iter_dir = os.path.join(DATA_DIR, f"iter_{iteration}")
     os.makedirs(iter_dir, exist_ok=True)
     
+    # PASS SEED TO MCTSWorker for C++ RNG seeding
     worker = MCTSWorker(worker_id, input_queue, output_queue,
-                       simulations=SIMULATIONS,
-                       batch_size=WORKER_BATCH_SIZE)
+                        simulations=SIMULATIONS,
+                        batch_size=WORKER_BATCH_SIZE,
+                        seed=mcts_seed)
     
     for i in range(game_limit):
         print(f" [Worker {worker_id}] Starting Game {i+1}...")
@@ -172,10 +177,9 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
             pending_state = game.to_tensor()
             pending_turn = game.turn_player
             
-            if (worker_id % 10) == 0:
-                dur = time.time() - move_start
-                nps = SIMULATIONS / dur if dur > 0 else 0
-                print(f" [Worker {worker_id}] Move {move_count+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
+            dur = time.time() - move_start
+            nps = SIMULATIONS / dur if dur > 0 else 0
+            print(f" [Worker {worker_id}] Move {move_count+1}: {best_move} ({dur:.2f}s | {nps:.0f} sim/s)")
         
         # ← NEW: Process final pending move after game ends
         if pending_move is not None:
@@ -248,15 +252,15 @@ CANDIDATE_MODEL = f"{MODEL_DIR}/candidate.pth"
 
 # --- CUDA ---
 CUDA_TIMEOUT_INFERENCE = 1.0
-CUDA_STREAMS = 8 
-CUDA_BATCH_SIZE = 4096
+CUDA_STREAMS = 2 
+CUDA_BATCH_SIZE = 256
 
 # --- EXECUTION ---
 RESUME_ITERATION = None
 ITERATIONS = 1000
-NUM_WORKERS = 44            
+NUM_WORKERS = 12            
 WORKER_BATCH_SIZE = 400       
-GAMES_PER_WORKER = 5        
+GAMES_PER_WORKER = 2        
 
 # --- QUALITY ---
 SIMULATIONS = 1600           

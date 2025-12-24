@@ -6,6 +6,7 @@
 #include <string>
 #include <cmath>
 #include <algorithm>
+#include <random>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
@@ -100,6 +101,7 @@ class MCTSEngine {
 public:
     int simulations;  // Number of MCTS simulations
     int batch_size;   // Batch size for parallel search
+    std::mt19937 rng;
     
     MCTSEngine(int sims = 800, int bs = 8) : simulations(sims), batch_size(bs) {}
     
@@ -109,7 +111,10 @@ public:
         py::object root_state,
         const py::array_t<float>& initial_policy,
         float initial_value,
-        float temperature = 1.0f);
+        float temperature,
+        uint32_t seed = 0 
+    );
+
     
 private:
     // Python: def backpropagate(self, path, value, leaf_turn_player, is_terminal): ...
@@ -117,5 +122,8 @@ private:
                       float value, float leaf_turn_player);
     
     // Python: def get_policy_vector(self, root, alpha=1.3): ...
-    py::array_t<float> get_policy_vector(const std::shared_ptr<MCTSNode>& root);
+    py::array_t<float> get_policy_vector(
+    const std::shared_ptr<MCTSNode>& root,
+    float temperature = 1.0f);
+
 };

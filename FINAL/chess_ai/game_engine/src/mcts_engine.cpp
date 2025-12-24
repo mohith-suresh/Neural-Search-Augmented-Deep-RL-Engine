@@ -145,7 +145,7 @@ void MCTSEngine::backpropagate(const std::vector<std::shared_ptr<MCTSNode>>& pat
 }
 
 // === get_policy_vector() - matches mcts.py MCTSWorker.get_policy_vector() ===
-py::array_t<float> MCTSEngine::get_policy_vector(const std::shared_ptr<MCTSNode>& root) {
+py::array_t<float> MCTSEngine::get_policy_vector(const std::shared_ptr<MCTSNode>& root, float temperature) {
     // Python: policy_vector = np.zeros(8192, dtype=np.float32)
     std::vector<float> policy(8192, 0.0f);
     
@@ -180,7 +180,8 @@ py::array_t<float> MCTSEngine::get_policy_vector(const std::shared_ptr<MCTSNode>
     // Python: sharpened = counts ** alpha (alpha = 1.3)
     float total = 0.0f;
     for (auto& c : counts) {
-        c = std::pow(c, 1.3f);
+        float exponent = 1.3f / temperature;
+        c = std::pow(c, exponent);
         total += c;
     }
     
@@ -200,15 +201,21 @@ std::pair<std::string, py::array_t<float>> MCTSEngine::search(
     py::object root_state,
     const py::array_t<float>& initial_policy,
     float initial_value,
-    float temperature) {
+    float temperature,
+    uint32_t seed) {  // ← ADD SEED PARAMETER
     
-    // Python: root = Node(root_state)
+    // ════════════════════════════════════════════════════════════════════
+    // CRITICAL: Seed RNG with worker's unique seed from main.py
+    // Different seed per worker → different random exploration paths
+    // ════════════════════════════════════════════════════════════════════
+    rng.seed(seed);
+    
     auto root = std::make_shared<MCTSNode>(root_state);
     
     // Convert numpy array to vector
     auto policy_buf = initial_policy.request();
-    std::vector<float> policy_vec((float*)policy_buf.ptr, 
-                                  (float*)policy_buf.ptr + policy_buf.size);
+    std::vector<float> policy_vec((float*)policy_buf.ptr,
+                                   (float*)policy_buf.ptr + policy_buf.size);
     
     // Python: root.expand(root.state.legal_moves(), policy)
     auto legal_moves = py::cast<std::vector<std::string>>(
@@ -220,21 +227,43 @@ std::pair<std::string, py::array_t<float>> MCTSEngine::search(
     
     // Python: for _ in range(num_iterations):
     for (int iter = 0; iter < num_iterations; iter++) {
-        // Python: leaves = []; paths = []; tensors = []
+        
+        // Python: leaves = []; paths = []
         std::vector<std::shared_ptr<MCTSNode>> leaves;
         std::vector<std::vector<std::shared_ptr<MCTSNode>>> paths;
         
         // Python: for _ in range(self.batch_size):
         for (int i = 0; i < batch_size; i++) {
+            
             // Python: node = root; path = [node]
             auto node = root;
             std::vector<std::shared_ptr<MCTSNode>> path = {node};
             
             // Python: while node.is_expanded(): action, node = node.select_child(); path.append(node)
             while (node->is_expanded()) {
-                auto [action, next_node] = node->select_child();
-                path.push_back(next_node);
-                node = next_node;
+                
+                // ═══════════════════════════════════════════════════════════════
+                // RANDOMNESS: Epsilon-greedy selection with seeded RNG
+                // This is where different seeds create different tree paths!
+                // ═══════════════════════════════════════════════════════════════
+                std::uniform_real_distribution<float> epsilon_dist(0.0f, 1.0f);
+                float epsilon = 0.05f;  // 5% chance of random exploration
+                
+                if (epsilon_dist(rng) < epsilon && node->children.size() > 1) {
+                    // Random child selection (5% of the time)
+                    std::uniform_int_distribution<int> child_dist(0, node->children.size() - 1);
+                    int random_idx = child_dist(rng);
+                    
+                    auto it = node->children.begin();
+                    std::advance(it, random_idx);
+                    path.push_back(it->second);
+                    node = it->second;
+                } else {
+                    // Normal PUCT selection (95% of the time)
+                    auto [action, next_node] = node->select_child();
+                    path.push_back(next_node);
+                    node = next_node;
+                }
             }
             
             // Python: node.virtual_loss += VIRTUAL_LOSS
@@ -246,15 +275,18 @@ std::pair<std::string, py::array_t<float>> MCTSEngine::search(
             // Python: if node.state.is_over:
             bool is_over = py::cast<bool>(node->py_state.attr("is_over"));
             if (is_over) {
+                
                 // Python: reward = node.state.get_reward_for_turn(node.state.turn_player)
                 float reward = py::cast<float>(
                     node->py_state.attr("get_reward_for_turn")(
                         node->py_state.attr("turn_player")));
                 
-                // Python: self.backpropagate(path, reward, node.state.turn_player, is_terminal=True)
+                // Python: self.backpropagate(path, reward, node.state.turn_player)
                 backpropagate(path, reward, py::cast<float>(
                     node->py_state.attr("turn_player")));
+                
             } else {
+                
                 // Python: leaves.append(node); paths.append(path)
                 leaves.push_back(node);
                 paths.push_back(path);
@@ -273,20 +305,20 @@ std::pair<std::string, py::array_t<float>> MCTSEngine::search(
             // Python: node.expand(node.state.legal_moves(), policies[i])
             auto next_legal = py::cast<std::vector<std::string>>(
                 node->py_state.attr("legal_moves")());
-            // Using uniform policy (would be replaced with actual neural net policy in production)
+            
+            // Using uniform policy
             std::vector<float> uniform_policy(8192, 0.0f);
             node->expand(next_legal, uniform_policy);
             
-            // Python: self.backpropagate(path, values[i], node.state.turn_player, is_terminal=False)
+            // Python: self.backpropagate(path, values[i], node.state.turn_player)
             backpropagate(path, initial_value, py::cast<float>(
                 node->py_state.attr("turn_player")));
         }
     }
     
     // Python: return self.get_result(root, temperature)
-    // For now, just return best action and policy vector
     std::string best_move = root->best_action();
-    auto policy = get_policy_vector(root);
+    auto policy = get_policy_vector(root, temperature);
     
     return {best_move, policy};
 }

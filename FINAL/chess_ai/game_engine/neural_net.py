@@ -10,7 +10,7 @@ class InferenceServer:
     def __init__(self, model_path, batch_size=512, timeout=0.01, streams=4):
         self.model_path = model_path
         self.batch_size = batch_size
-        self.timeout = timeout
+        self.timeout = timeout / 1000
         self.num_streams = streams
         
         self.input_queue = mp.Queue()
