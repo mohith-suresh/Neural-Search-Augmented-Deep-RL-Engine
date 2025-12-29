@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <numeric>
 
-// === select_child() - matches mcts.py Node.select_child() ===
+// === select_child() ===
 std::pair<std::string, std::shared_ptr<MCTSNode>> MCTSNode::select_child() {
     float best_score = -1e9f;
     std::string best_action;
@@ -29,7 +29,7 @@ std::pair<std::string, std::shared_ptr<MCTSNode>> MCTSNode::select_child() {
     return {best_action, best_child};
 }
 
-// === expand() - matches mcts.py Node.expand() ===
+// === expand() ===
 void MCTSNode::expand(const std::vector<std::string>& valid_moves,
                      const std::vector<float>& policy_logits) {
     std::unordered_map<std::string, float> move_probs;
@@ -58,7 +58,7 @@ void MCTSNode::expand(const std::vector<std::string>& valid_moves,
     }
 }
 
-// === best_action() - matches mcts.py Node.best_action() ===
+// === best_action() ===
 std::string MCTSNode::best_action() const {
     int most_visits = -1;
     std::string best = "";
@@ -73,15 +73,13 @@ std::string MCTSNode::best_action() const {
     return best;
 }
 
-// === backpropagate() - matches mcts.py MCTSWorker.backpropagate() ===
+// === backpropagate() ===
 void MCTSEngine::backpropagate(const std::vector<std::shared_ptr<MCTSNode>>& path,
                                float value, float leaf_turn_player) {
-    // Remove virtual loss from leaf
     auto leaf = path.back();
     leaf->virtual_loss -= VIRTUAL_LOSS;
     leaf->value_sum += VIRTUAL_LOSS;
     
-    // Standard backprop through all nodes
     for (auto& node : path) {
         node->visit_count += 1;
         float turn_val = py::cast<float>(node->py_state.attr("turn_player"));
@@ -93,14 +91,11 @@ void MCTSEngine::backpropagate(const std::vector<std::shared_ptr<MCTSNode>>& pat
     }
 }
 
-// === add_dirichlet_noise() - matches mcts.py add_exploration_noise() ===
+// === add_dirichlet_noise() ===
 void MCTSEngine::add_dirichlet_noise(std::shared_ptr<MCTSNode>& root) {
     if (root->children.empty()) return;
     
     size_t num_actions = root->children.size();
-    
-    // Generate Dirichlet noise using gamma distribution
-    // Dirichlet(alpha) = normalize(Gamma(alpha, 1) for each dimension)
     std::gamma_distribution<float> gamma(DIRICHLET_ALPHA, 1.0f);
     
     std::vector<float> noise(num_actions);
@@ -110,14 +105,12 @@ void MCTSEngine::add_dirichlet_noise(std::shared_ptr<MCTSNode>& root) {
         noise_sum += noise[i];
     }
     
-    // Normalize noise
     if (noise_sum > 0) {
         for (auto& n : noise) {
             n /= noise_sum;
         }
     }
     
-    // Apply noise to priors: prior = (1 - frac) * prior + frac * noise
     size_t i = 0;
     for (auto& [action, child] : root->children) {
         child->prior = (1.0f - DIRICHLET_FRAC) * child->prior + DIRICHLET_FRAC * noise[i];
@@ -125,7 +118,7 @@ void MCTSEngine::add_dirichlet_noise(std::shared_ptr<MCTSNode>& root) {
     }
 }
 
-// === get_policy_vector() - matches mcts.py MCTSWorker.get_policy_vector() ===
+// === get_policy_vector() ===
 py::array_t<float> MCTSEngine::get_policy_vector(const std::shared_ptr<MCTSNode>& root, float temperature) {
     std::vector<float> policy(8192, 0.0f);
     std::unordered_map<int, float> visits;
@@ -148,7 +141,6 @@ py::array_t<float> MCTSEngine::get_policy_vector(const std::shared_ptr<MCTSNode>
         counts.push_back(v);
     }
     
-    // Apply temperature-adjusted sharpening
     float total = 0.0f;
     for (auto& c : counts) {
         float exponent = 1.3f / std::max(0.01f, temperature);
@@ -165,9 +157,47 @@ py::array_t<float> MCTSEngine::get_policy_vector(const std::shared_ptr<MCTSNode>
     return py::array_t<float>(8192, policy.data());
 }
 
-// ════════════════════════════════════════════════════════════════════════════════════
-// MAIN SEARCH - NOW WITH CALLBACK-BASED BATCHED INFERENCE
-// ════════════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// FIX 3: Explicit tree cleanup - breaks parent references and clears children
+// This ensures proper destruction even if there are lingering shared_ptrs
+// ═══════════════════════════════════════════════════════════════════════════════
+void MCTSEngine::clear_tree(std::shared_ptr<MCTSNode>& root) {
+    if (!root) return;
+    
+    // Use iterative approach to avoid stack overflow on deep trees
+    std::vector<std::shared_ptr<MCTSNode>> nodes_to_clear;
+    nodes_to_clear.push_back(root);
+    
+    while (!nodes_to_clear.empty()) {
+        auto node = nodes_to_clear.back();
+        nodes_to_clear.pop_back();
+        
+        if (!node) continue;
+        
+        // Queue all children for clearing
+        for (auto& [action, child] : node->children) {
+            if (child) {
+                nodes_to_clear.push_back(child);
+            }
+        }
+        
+        // Clear this node's children map (releases shared_ptrs)
+        node->children.clear();
+        
+        // Reset parent weak_ptr
+        node->parent.reset();
+        
+        // Release Python object
+        node->py_state = py::none();
+    }
+    
+    // Finally reset the root itself
+    root.reset();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN SEARCH
+// ═══════════════════════════════════════════════════════════════════════════════
 std::pair<std::string, py::array_t<float>> MCTSEngine::search(
     py::object root_state,
     const py::array_t<float>& initial_policy,
@@ -176,26 +206,20 @@ std::pair<std::string, py::array_t<float>> MCTSEngine::search(
     uint32_t seed,
     py::function inference_callback) {
     
-    // Seed RNG for exploration diversity
     rng.seed(seed);
     
-    // Create root node
     auto root = std::make_shared<MCTSNode>(root_state);
     
-    // Convert initial policy numpy array to vector
     auto policy_buf = initial_policy.request();
     std::vector<float> policy_vec((float*)policy_buf.ptr,
                                    (float*)policy_buf.ptr + policy_buf.size);
     
-    // Expand root with neural network policy
     auto legal_moves = py::cast<std::vector<std::string>>(
         root_state.attr("legal_moves")());
     root->expand(legal_moves, policy_vec);
     
-    // Add Dirichlet noise to root for exploration
     add_dirichlet_noise(root);
     
-    // Calculate number of iterations
     int num_iterations = std::max(1, simulations / batch_size);
     
     // ════════════════════════════════════════════════════════════════════════
@@ -205,23 +229,27 @@ std::pair<std::string, py::array_t<float>> MCTSEngine::search(
         
         std::vector<std::shared_ptr<MCTSNode>> leaves;
         std::vector<std::vector<std::shared_ptr<MCTSNode>>> paths;
-        std::vector<py::object> leaf_states;  // For batched inference
+        std::vector<py::object> leaf_states;
+        
+        // Reserve space to reduce reallocations
+        leaves.reserve(batch_size);
+        paths.reserve(batch_size);
+        leaf_states.reserve(batch_size);
         
         // ════════════════════════════════════════════════════════════════════
-        // SELECTION PHASE: Traverse tree to find unexpanded leaves
+        // SELECTION PHASE
         // ════════════════════════════════════════════════════════════════════
         for (int i = 0; i < batch_size; i++) {
             auto node = root;
-            std::vector<std::shared_ptr<MCTSNode>> path = {node};
+            std::vector<std::shared_ptr<MCTSNode>> path;
+            path.reserve(64);  // Typical max depth
+            path.push_back(node);
             
-            // Traverse down the tree using PUCT selection
             while (node->is_expanded()) {
-                // Epsilon-greedy exploration (5% random)
                 std::uniform_real_distribution<float> epsilon_dist(0.0f, 1.0f);
                 constexpr float epsilon = 0.05f;
                 
                 if (epsilon_dist(rng) < epsilon && node->children.size() > 1) {
-                    // Random child selection
                     std::uniform_int_distribution<int> child_dist(0, node->children.size() - 1);
                     int random_idx = child_dist(rng);
                     auto it = node->children.begin();
@@ -229,58 +257,41 @@ std::pair<std::string, py::array_t<float>> MCTSEngine::search(
                     path.push_back(it->second);
                     node = it->second;
                 } else {
-                    // Normal PUCT selection
                     auto [action, next_node] = node->select_child();
                     path.push_back(next_node);
                     node = next_node;
                 }
             }
             
-            // Apply virtual loss to discourage other paths from selecting this node
             node->virtual_loss += VIRTUAL_LOSS;
             node->value_sum -= VIRTUAL_LOSS;
             
-            // Check if terminal state
             bool is_over = py::cast<bool>(node->py_state.attr("is_over"));
             if (is_over) {
-                // Terminal node - backpropagate actual game result
                 float reward = py::cast<float>(
                     node->py_state.attr("get_reward_for_turn")(
                         node->py_state.attr("turn_player")));
                 backpropagate(path, reward, py::cast<float>(
                     node->py_state.attr("turn_player")));
             } else {
-                // Non-terminal - queue for neural network inference
                 leaves.push_back(node);
-                paths.push_back(path);
+                paths.push_back(std::move(path));
                 leaf_states.push_back(node->py_state);
             }
         }
         
-        // Skip if no leaves to expand (all terminal states)
         if (leaves.empty()) continue;
         
         // ════════════════════════════════════════════════════════════════════
-        // INFERENCE PHASE: Call Python callback for batched neural network eval
-        // 
-        // This is the KEY FIX: Instead of using uniform policy/initial value,
-        // we call back to Python which sends the batch to the GPU inference
-        // server and returns actual neural network predictions.
+        // INFERENCE PHASE
         // ════════════════════════════════════════════════════════════════════
-        
-        // Convert leaf_states to Python list for callback
         py::list py_leaf_states;
         for (auto& state : leaf_states) {
             py_leaf_states.append(state);
         }
         
-        // Call Python inference callback
-        // Expected return: tuple(policies, values) where:
-        //   policies: numpy array shape (batch_size, 8192)
-        //   values: numpy array shape (batch_size,)
         py::object result = inference_callback(py_leaf_states);
         
-        // Extract policies and values from result tuple
         py::array_t<float> policies_array = result.attr("__getitem__")(0).cast<py::array_t<float>>();
         py::array_t<float> values_array = result.attr("__getitem__")(1).cast<py::array_t<float>>();
         
@@ -297,34 +308,38 @@ std::pair<std::string, py::array_t<float>> MCTSEngine::search(
             auto node = leaves[i];
             auto& path = paths[i];
             
-            // Get legal moves for this leaf
             auto next_legal = py::cast<std::vector<std::string>>(
                 node->py_state.attr("legal_moves")());
             
-            // Extract policy for this leaf (row i of policies array)
-            // policies_array is shape (batch_size, 8192)
             std::vector<float> leaf_policy(8192);
             for (int j = 0; j < 8192; j++) {
                 leaf_policy[j] = policies_ptr[i * 8192 + j];
             }
             
-            // Expand with ACTUAL neural network policy
             node->expand(next_legal, leaf_policy);
             
-            // Get value for this leaf
             float leaf_value = values_ptr[i];
             
-            // Backpropagate ACTUAL neural network value
             backpropagate(path, leaf_value, py::cast<float>(
                 node->py_state.attr("turn_player")));
         }
+        
+        // Clear temporary vectors explicitly
+        leaves.clear();
+        paths.clear();
+        leaf_states.clear();
     }
     
     // ════════════════════════════════════════════════════════════════════════
-    // RETURN RESULT
+    // GET RESULT BEFORE CLEANUP
     // ════════════════════════════════════════════════════════════════════════
     std::string best_move = root->best_action();
     auto policy = get_policy_vector(root, temperature);
+    
+    // ════════════════════════════════════════════════════════════════════════
+    // FIX: Explicitly clear tree to free memory
+    // ════════════════════════════════════════════════════════════════════════
+    clear_tree(root);
     
     return {best_move, policy};
 }
