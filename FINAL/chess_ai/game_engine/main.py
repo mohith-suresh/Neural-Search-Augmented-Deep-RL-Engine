@@ -68,12 +68,14 @@ class Logger(object):
             self.terminal.write(message)
             self.log.write(message)
             self.log.flush()
-        except: pass 
+        except Exception:
+            pass  # Ignore I/O errors to prevent logging from crashing the application 
     def flush(self):
         try:
             self.terminal.flush()
             self.log.flush()
-        except: pass
+        except Exception:
+            pass  # Ignore I/O errors to prevent logging from crashing the application
 
 def setup_child_logging():
     sys.stdout = Logger()
@@ -114,8 +116,10 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
     np.random.seed(mcts_seed)  # Use same seed for numpy RNG
     
     if hasattr(os, 'sched_setaffinity'):
-        try: os.sched_setaffinity(0, {worker_id % 44})
-        except: pass
+        try:
+            os.sched_setaffinity(0, {worker_id % 44})
+        except Exception:
+            pass  # CPU affinity is optional; ignore if not supported
     
     setup_child_logging()
     
@@ -216,8 +220,10 @@ def run_worker_batch(worker_id, input_queue, output_queue, game_limit, iteration
 def run_server_wrapper(server):
     setup_child_logging()
     if hasattr(os, 'sched_setaffinity'):
-        try: os.sched_setaffinity(0, {44, 45, 46, 47})
-        except: pass
+        try:
+            os.sched_setaffinity(0, {44, 45, 46, 47})
+        except Exception:
+            pass  # CPU affinity is optional; ignore if not supported
         
     monitor = threading.Thread(target=queue_monitor_thread, args=(server.input_queue,))
     monitor.daemon = True 
