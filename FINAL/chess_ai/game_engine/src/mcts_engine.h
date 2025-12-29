@@ -10,13 +10,18 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
+#include <pybind11/functional.h>  // For py::function
 
 namespace py = pybind11;
 
 // === CONSTANTS (from mcts.py) ===
-const float VIRTUAL_LOSS = 3.0f;      // mcts.py: VIRTUAL_LOSS = 3.0
-const float CPUCT_INIT = 1.0f;        // mcts.py: CPUCT_INIT = 1.0
-const int CPUCT_BASE = 19652;         // mcts.py: CPUCT_BASE = 19652
+constexpr float VIRTUAL_LOSS = 3.0f;      // mcts.py: VIRTUAL_LOSS = 3.0
+constexpr float CPUCT_INIT = 1.0f;        // mcts.py: CPUCT_INIT = 1.0
+constexpr int CPUCT_BASE = 19652;         // mcts.py: CPUCT_BASE = 19652
+
+// Dirichlet noise parameters
+constexpr float DIRICHLET_ALPHA = 0.3f;   // Alpha for root noise
+constexpr float DIRICHLET_FRAC = 0.25f;   // Fraction of noise to add
 
 // === Move Encoding (matches mcts.py move_to_index exactly) ===
 inline int move_to_index(const std::string& move_str) {
@@ -105,16 +110,24 @@ public:
     
     MCTSEngine(int sims = 800, int bs = 8) : simulations(sims), batch_size(bs) {}
     
-    // Python: def search(self, root_state, temperature=1.0): ...
-    // Returns: (best_move, policy_vector)
+    // ════════════════════════════════════════════════════════════════════════
+    // NEW SIGNATURE: search() now takes an inference callback
+    // 
+    // The callback signature in Python:
+    //   def inference_callback(states: List[ChessGame]) -> Tuple[np.ndarray, np.ndarray]
+    //       states: List of ChessGame objects (leaf positions)
+    //       returns: (policies, values) where:
+    //           policies: np.ndarray shape (batch_size, 8192)
+    //           values: np.ndarray shape (batch_size,)
+    // ════════════════════════════════════════════════════════════════════════
     std::pair<std::string, py::array_t<float>> search(
         py::object root_state,
         const py::array_t<float>& initial_policy,
         float initial_value,
         float temperature,
-        uint32_t seed = 0 
+        uint32_t seed,
+        py::function inference_callback  // NEW: Python callback for batched inference
     );
-
     
 private:
     // Python: def backpropagate(self, path, value, leaf_turn_player, is_terminal): ...
@@ -123,7 +136,9 @@ private:
     
     // Python: def get_policy_vector(self, root, alpha=1.3): ...
     py::array_t<float> get_policy_vector(
-    const std::shared_ptr<MCTSNode>& root,
-    float temperature = 1.0f);
-
+        const std::shared_ptr<MCTSNode>& root,
+        float temperature = 1.0f);
+    
+    // Add Dirichlet noise to root node for exploration
+    void add_dirichlet_noise(std::shared_ptr<MCTSNode>& root);
 };
