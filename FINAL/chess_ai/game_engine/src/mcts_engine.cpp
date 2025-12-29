@@ -143,7 +143,7 @@ py::array_t<float> MCTSEngine::get_policy_vector(const std::shared_ptr<MCTSNode>
     
     float total = 0.0f;
     for (auto& c : counts) {
-        float exponent = 1.3f / std::max(0.01f, temperature);
+        float exponent = 1.3f;
         c = std::pow(c, exponent);
         total += c;
     }
