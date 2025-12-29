@@ -55,7 +55,7 @@ class MCTSNode : public std::enable_shared_from_this<MCTSNode> {
 public:
     py::object py_state;  // Python: self.state = state
     std::unordered_map<std::string, std::shared_ptr<MCTSNode>> children;  // Python: self.children = {}
-    std::shared_ptr<MCTSNode> parent;  // Python: self.parent = parent (implicit)
+    std::weak_ptr<MCTSNode> parent;;  // Python: self.parent = parent (implicit)
     
     // Python: self.visit_count = 0
     int visit_count = 0;
