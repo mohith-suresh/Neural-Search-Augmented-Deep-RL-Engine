@@ -35,7 +35,7 @@ class TimeoutHandler:
         if self.start_time:
             signal.alarm(self.timeout_seconds)
 
-timeout_handler = TimeoutHandler(timeout_seconds=54000)
+timeout_handler = TimeoutHandler(timeout_seconds=72000)
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
@@ -250,9 +250,9 @@ CUDA_BATCH_SIZE = 5120
 # --- EXECUTION ---
 RESUME_ITERATION = None
 ITERATIONS = 1000
-NUM_WORKERS = 100            
-WORKER_BATCH_SIZE = 128       
-GAMES_PER_WORKER = 4        
+NUM_WORKERS = 150            
+WORKER_BATCH_SIZE = 64       
+GAMES_PER_WORKER = 3        
 
 # --- QUALITY ---
 SIMULATIONS = 1600           
