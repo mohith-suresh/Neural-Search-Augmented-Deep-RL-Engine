@@ -29,19 +29,41 @@ class InferenceServer:
         # Track sizes (Most will be 8, but we must handle single/variable sizes safely)
         sizes = [t.shape[0] if t.ndim == 4 else 1 for t in raw_tensors]
         
+        # ═══════════════════════════════════════════════════════════════════════
+        # CPU PREPROCESSING (outside stream context - these are CPU operations)
+        # ═══════════════════════════════════════════════════════════════════════
+        processed_tensors = [t if t.ndim == 4 else t.unsqueeze(0) for t in raw_tensors]
+        mega_batch = torch.cat(processed_tensors, dim=0)
+        
+        # Pin memory for faster async host-to-device transfer
+        # This allows non_blocking=True to actually overlap with computation
+        if mega_batch.device.type == 'cpu' and not mega_batch.is_pinned():
+            mega_batch = mega_batch.pin_memory()
+        
+        # ═══════════════════════════════════════════════════════════════════════
+        # GPU OPERATIONS (on dedicated CUDA stream)
+        # ═══════════════════════════════════════════════════════════════════════
         with torch.cuda.stream(stream):
-            # Fast normalization
-            processed_tensors = [t if t.ndim == 4 else t.unsqueeze(0) for t in raw_tensors]
+            # Async transfer to GPU on this stream (overlaps with other streams)
+            mega_batch_gpu = mega_batch.to(device, non_blocking=True)
             
-            # Massive Batch
-            mega_batch = torch.cat(processed_tensors, dim=0).to(device, non_blocking=True)
-            
+            # Forward pass executes on this stream
             with torch.no_grad():
-                policies, values = model(mega_batch)
-            
-            policies = policies.cpu().numpy()
-            values = values.cpu().numpy()
+                policies_gpu, values_gpu = model(mega_batch_gpu)
+        
+        # ═══════════════════════════════════════════════════════════════════════
+        # SYNCHRONIZATION (wait for this stream's GPU work to complete)
+        # ═══════════════════════════════════════════════════════════════════════
+        # This is CRITICAL - without explicit sync, .cpu() may access incomplete data
+        stream.synchronize()
+        
+        # ═══════════════════════════════════════════════════════════════════════
+        # TRANSFER BACK TO CPU (after GPU work is confirmed complete)
+        # ═══════════════════════════════════════════════════════════════════════
+        policies = policies_gpu.cpu().numpy()
+        values = values_gpu.cpu().numpy()
 
+        # Distribute results to workers
         cursor = 0
         for i, wid in enumerate(worker_ids):
             size = sizes[i]
