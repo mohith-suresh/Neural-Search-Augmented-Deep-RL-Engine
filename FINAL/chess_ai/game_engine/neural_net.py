@@ -10,7 +10,7 @@ class InferenceServer:
     def __init__(self, model_path, batch_size=512, timeout=0.1, streams=4):
         self.model_path = model_path
         self.batch_size = batch_size
-        self.timeout = timeout  # FIX: Was `timeout / 1000` which made 0.1 -> 0.0001s
+        self.timeout = timeout
         self.num_streams = streams
         
         self.input_queue = mp.Queue()
@@ -26,40 +26,28 @@ class InferenceServer:
         worker_ids = [item[0] for item in batch_data]
         raw_tensors = [item[1] for item in batch_data]
         
-        # Track sizes (Most will be 8, but we must handle single/variable sizes safely)
+        # Track sizes
         sizes = [t.shape[0] if t.ndim == 4 else 1 for t in raw_tensors]
         
-        # ═══════════════════════════════════════════════════════════════════════
-        # CPU PREPROCESSING (outside stream context - these are CPU operations)
-        # ═══════════════════════════════════════════════════════════════════════
+        # CPU preprocessing
         processed_tensors = [t if t.ndim == 4 else t.unsqueeze(0) for t in raw_tensors]
         mega_batch = torch.cat(processed_tensors, dim=0)
         
-        # Pin memory for faster async host-to-device transfer
-        # This allows non_blocking=True to actually overlap with computation
-        if mega_batch.device.type == 'cpu' and not mega_batch.is_pinned():
-            mega_batch = mega_batch.pin_memory()
-        
-        # ═══════════════════════════════════════════════════════════════════════
-        # GPU OPERATIONS (on dedicated CUDA stream)
-        # ═══════════════════════════════════════════════════════════════════════
+        # GPU operations on dedicated stream
         with torch.cuda.stream(stream):
-            # Async transfer to GPU on this stream (overlaps with other streams)
             mega_batch_gpu = mega_batch.to(device, non_blocking=True)
             
-            # Forward pass executes on this stream
             with torch.no_grad():
                 policies_gpu, values_gpu = model(mega_batch_gpu)
+            
+            # Record event when GPU work completes
+            done_event = torch.cuda.Event()
+            done_event.record(stream)
         
-        # ═══════════════════════════════════════════════════════════════════════
-        # SYNCHRONIZATION (wait for this stream's GPU work to complete)
-        # ═══════════════════════════════════════════════════════════════════════
-        # This is CRITICAL - without explicit sync, .cpu() may access incomplete data
-        stream.synchronize()
+        # Wait for this stream's work to complete
+        done_event.synchronize()
         
-        # ═══════════════════════════════════════════════════════════════════════
-        # TRANSFER BACK TO CPU (after GPU work is confirmed complete)
-        # ═══════════════════════════════════════════════════════════════════════
+        # Transfer back to CPU
         policies = policies_gpu.cpu().numpy()
         values = values_gpu.cpu().numpy()
 
@@ -96,7 +84,7 @@ class InferenceServer:
         
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.num_streams)
         print(f"Server Ready: Batch={self.batch_size}, Timeout={self.timeout}s, Streams={self.num_streams}, Device={self.device}")
-        # Deadlock detection: track last successful batch time
+        
         last_successful_batch_time = time.time()
         deadlock_timeout = 600   
                             
