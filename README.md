@@ -1,6 +1,5 @@
-# EE542 Chess AI - PocketZero
-
-## Submitted by: Krish Modi | Mohith Suresh | Adithya Srivastava
+### Monte Carlo Tree Search Guided Deep Reinforcement Learning Engine
+By Krish Modi | Mohith Suresh | Adithya Srivastava
 
 ## 1. Download the Model
 
